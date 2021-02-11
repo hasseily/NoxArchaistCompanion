@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <FxCompile Include="Assets\PixelShader.hlsl">
+      <Filter>Assets</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\VertexShader.hlsl">
+      <Filter>Assets</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Game.cpp" />
+    <ClCompile Include="GameLink.cpp" />
+    <ClCompile Include="HAUtils.cpp" />
+    <ClCompile Include="LogWindow.cpp" />
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="Sidebar.cpp" />
+    <ClCompile Include="SidebarContent.cpp" />
+    <ClCompile Include="SidebarManager.cpp" />
+    <ClCompile Include="DeviceResources.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Game.h" />
+    <ClInclude Include="GameLink.h" />
+    <ClInclude Include="HAUtils.h" />
+    <ClInclude Include="LogWindow.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="Sidebar.h" />
+    <ClInclude Include="SidebarContent.h" />
+    <ClInclude Include="SidebarManager.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="ATGColors.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="d3dx12.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceResources.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="FindMedia.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="ReadData.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="StepTimer.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="resource.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="applewincompanion.ico">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Background.jpg">
+      <Filter>Assets</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README.md" />
+    <None Include="packages.config" />
+    <None Include="Profiles\_Empty.json">
+      <Filter>Profiles</Filter>
+    </None>
+    <None Include="Profiles\_Profiles_Schema.json">
+      <Filter>Profiles</Filter>
+    </None>
+    <None Include="Profiles\Nox Archaist - Duo.json">
+      <Filter>Profiles</Filter>
+    </None>
+    <None Include="Profiles\Nox Archaist - Extended.json">
+      <Filter>Profiles</Filter>
+    </None>
+    <None Include="Profiles\Nox Archaist - Solo.json">
+      <Filter>Profiles</Filter>
+    </None>
+    <None Include="Profiles\Nox Archaist.json">
+      <Filter>Profiles</Filter>
+    </None>
+    <None Include="Assets\a2-12pt.spritefont">
+      <Filter>Assets</Filter>
+    </None>
+    <None Include="Assets\a2-bold-12pt.spritefont">
+      <Filter>Assets</Filter>
+    </None>
+    <None Include="Assets\a2-bolditalic-12pt.spritefont">
+      <Filter>Assets</Filter>
+    </None>
+    <None Include="Assets\a2-italic-12pt.spritefont">
+      <Filter>Assets</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Profiles">
+      <UniqueIdentifier>{299f29e6-1683-429f-ad0d-beec45f1508b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{6f1c811e-cd40-47ff-a5bf-deeaf2205091}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{566dec61-5a78-4207-be75-6ca46f0d3c2a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="settings.manifest">
+      <Filter>Assets</Filter>
+    </Manifest>
+  </ItemGroup>
+</Project>
