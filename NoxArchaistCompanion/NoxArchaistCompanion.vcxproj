@@ -100,6 +100,35 @@
   <ItemGroup>
     <ClInclude Include="ATGColors.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="Emulator\AY8910.h" />
+    <ClInclude Include="Emulator\Card.h" />
+    <ClInclude Include="Emulator\CardManager.h" />
+    <ClInclude Include="Emulator\Common.h" />
+    <ClInclude Include="Emulator\CPU.h" />
+    <ClInclude Include="Emulator\CPU\cpu6502.h" />
+    <ClInclude Include="Emulator\CPU\cpu65C02.h" />
+    <ClInclude Include="Emulator\DirectInput.h" />
+    <ClInclude Include="Emulator\Disk2CardManager.h" />
+    <ClInclude Include="Emulator\DiskDefs.h" />
+    <ClInclude Include="Emulator\DiskImage.h" />
+    <ClInclude Include="Emulator\DiskImageHelper.h" />
+    <ClInclude Include="Emulator\DiskLog.h" />
+    <ClInclude Include="Emulator\Harddisk.h" />
+    <ClInclude Include="Emulator\Joystick.h" />
+    <ClInclude Include="Emulator\Keyboard.h" />
+    <ClInclude Include="Emulator\LanguageCard.h" />
+    <ClInclude Include="Emulator\Log.h" />
+    <ClInclude Include="Emulator\Memory.h" />
+    <ClInclude Include="Emulator\Mockingboard.h" />
+    <ClInclude Include="Emulator\NoSlotClock.h" />
+    <ClInclude Include="Emulator\NTSC.h" />
+    <ClInclude Include="Emulator\NTSC_CharSet.h" />
+    <ClInclude Include="Emulator\RGBMonitor.h" />
+    <ClInclude Include="Emulator\SoundCore.h" />
+    <ClInclude Include="Emulator\Speaker.h" />
+    <ClInclude Include="Emulator\SSI263Phonemes.h" />
+    <ClInclude Include="Emulator\SynchronousEventManager.h" />
+    <ClInclude Include="Emulator\Video.h" />
     <ClInclude Include="FindMedia.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="GameLink.h" />
@@ -116,6 +145,28 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Emulator\AY8910.cpp" />
+    <ClCompile Include="Emulator\CardManager.cpp" />
+    <ClCompile Include="Emulator\CPU.cpp" />
+    <ClCompile Include="Emulator\DirectInput.cpp" />
+    <ClCompile Include="Emulator\Disk2CardManager.cpp" />
+    <ClCompile Include="Emulator\DiskImage.cpp" />
+    <ClCompile Include="Emulator\DiskImageHelper.cpp" />
+    <ClCompile Include="Emulator\Harddisk.cpp" />
+    <ClCompile Include="Emulator\Joystick.cpp" />
+    <ClCompile Include="Emulator\Keyboard.cpp" />
+    <ClCompile Include="Emulator\LanguageCard.cpp" />
+    <ClCompile Include="Emulator\Log.cpp" />
+    <ClCompile Include="Emulator\Memory.cpp" />
+    <ClCompile Include="Emulator\Mockingboard.cpp" />
+    <ClCompile Include="Emulator\NoSlotClock.cpp" />
+    <ClCompile Include="Emulator\NTSC.cpp" />
+    <ClCompile Include="Emulator\NTSC_CharSet.cpp" />
+    <ClCompile Include="Emulator\RGBMonitor.cpp" />
+    <ClCompile Include="Emulator\SoundCore.cpp" />
+    <ClCompile Include="Emulator\Speaker.cpp" />
+    <ClCompile Include="Emulator\SynchronousEventManager.cpp" />
+    <ClCompile Include="Emulator\Video.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="GameLink.cpp" />
     <ClCompile Include="HAUtils.cpp" />
@@ -140,6 +191,7 @@
     <Image Include="Assets\Background.jpg">
       <DeploymentContent>true</DeploymentContent>
     </Image>
+    <Image Include="noxarchaistcompanion.ico" />
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="settings.manifest" />
@@ -158,6 +210,17 @@
     <None Include="Assets\a2-italic-12pt.spritefont">
       <DeploymentContent>true</DeploymentContent>
     </None>
+    <None Include="Emulator\CPU\cpu_general.inl" />
+    <None Include="Emulator\CPU\cpu_heatmap.inl" />
+    <None Include="Emulator\CPU\cpu_instructions.inl" />
+    <None Include="Emulator\Resources\Apple2e_Enhanced.rom" />
+    <None Include="Emulator\Resources\Base64A.rom" />
+    <None Include="Emulator\Resources\DISK2.rom" />
+    <None Include="Emulator\Resources\Hddrvr.bin" />
+    <None Include="Emulator\Resources\Mockingboard-D.rom" />
+    <None Include="Emulator\Resources\Parallel.rom" />
+    <None Include="Emulator\Resources\TKClock.rom" />
+    <None Include="firmware.bin" />
     <None Include="packages.config" />
     <None Include="Profiles\Nox Archaist - Duo.json">
       <DeploymentContent>true</DeploymentContent>
@@ -177,6 +240,7 @@
     <None Include="Profiles\_Profiles_Schema.json">
       <DeploymentContent>true</DeploymentContent>
     </None>
+    <None Include="rom1.bin" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Assets\PixelShader.hlsl">

@@ -21,6 +21,72 @@
     <ClCompile Include="DeviceResources.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Emulator\CardManager.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\LanguageCard.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\Log.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\Memory.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\NoSlotClock.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\SynchronousEventManager.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\Disk2CardManager.cpp">
+      <Filter>Emulator\Disk</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\DiskImage.cpp">
+      <Filter>Emulator\Disk</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\DiskImageHelper.cpp">
+      <Filter>Emulator\Disk</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\Harddisk.cpp">
+      <Filter>Emulator\Disk</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\Video.cpp">
+      <Filter>Emulator\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\NTSC.cpp">
+      <Filter>Emulator\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\NTSC_CharSet.cpp">
+      <Filter>Emulator\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\SoundCore.cpp">
+      <Filter>Emulator\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\Speaker.cpp">
+      <Filter>Emulator\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\Mockingboard.cpp">
+      <Filter>Emulator\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\DirectInput.cpp">
+      <Filter>Emulator\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\Joystick.cpp">
+      <Filter>Emulator\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\Keyboard.cpp">
+      <Filter>Emulator\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\RGBMonitor.cpp">
+      <Filter>Emulator\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\CPU.cpp">
+      <Filter>Emulator\CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="Emulator\AY8910.cpp">
+      <Filter>Emulator\Sound</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h" />
@@ -51,6 +117,93 @@
     <ClInclude Include="StepTimer.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Emulator\CPU\cpu65C02.h">
+      <Filter>Emulator\CPU</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\CPU\cpu6502.h">
+      <Filter>Emulator\CPU</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Card.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\CardManager.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Common.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\LanguageCard.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Log.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Memory.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\NoSlotClock.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\SynchronousEventManager.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Disk2CardManager.h">
+      <Filter>Emulator\Disk</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\DiskDefs.h">
+      <Filter>Emulator\Disk</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\DiskImage.h">
+      <Filter>Emulator\Disk</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\DiskImageHelper.h">
+      <Filter>Emulator\Disk</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\DiskLog.h">
+      <Filter>Emulator\Disk</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Harddisk.h">
+      <Filter>Emulator\Disk</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Video.h">
+      <Filter>Emulator\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\NTSC.h">
+      <Filter>Emulator\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\NTSC_CharSet.h">
+      <Filter>Emulator\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\SoundCore.h">
+      <Filter>Emulator\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Speaker.h">
+      <Filter>Emulator\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Mockingboard.h">
+      <Filter>Emulator\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\DirectInput.h">
+      <Filter>Emulator\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Joystick.h">
+      <Filter>Emulator\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\Keyboard.h">
+      <Filter>Emulator\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\RGBMonitor.h">
+      <Filter>Emulator\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\CPU.h">
+      <Filter>Emulator\CPU</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\SSI263Phonemes.h">
+      <Filter>Emulator\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\AY8910.h">
+      <Filter>Emulator\Sound</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
@@ -62,6 +215,7 @@
     <Image Include="Assets\Background.jpg">
       <Filter>Assets</Filter>
     </Image>
+    <Image Include="noxarchaistcompanion.ico" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />
@@ -96,6 +250,38 @@
     <None Include="Assets\a2-italic-12pt.spritefont">
       <Filter>Assets</Filter>
     </None>
+    <None Include="Emulator\CPU\cpu_general.inl">
+      <Filter>Emulator\CPU</Filter>
+    </None>
+    <None Include="Emulator\CPU\cpu_heatmap.inl">
+      <Filter>Emulator\CPU</Filter>
+    </None>
+    <None Include="Emulator\CPU\cpu_instructions.inl">
+      <Filter>Emulator\CPU</Filter>
+    </None>
+    <None Include="Emulator\Resources\TKClock.rom">
+      <Filter>Emulator\Resources</Filter>
+    </None>
+    <None Include="Emulator\Resources\Apple2e_Enhanced.rom">
+      <Filter>Emulator\Resources</Filter>
+    </None>
+    <None Include="Emulator\Resources\Base64A.rom">
+      <Filter>Emulator\Resources</Filter>
+    </None>
+    <None Include="Emulator\Resources\DISK2.rom">
+      <Filter>Emulator\Resources</Filter>
+    </None>
+    <None Include="Emulator\Resources\Hddrvr.bin">
+      <Filter>Emulator\Resources</Filter>
+    </None>
+    <None Include="Emulator\Resources\Mockingboard-D.rom">
+      <Filter>Emulator\Resources</Filter>
+    </None>
+    <None Include="Emulator\Resources\Parallel.rom">
+      <Filter>Emulator\Resources</Filter>
+    </None>
+    <None Include="firmware.bin" />
+    <None Include="rom1.bin" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Profiles">
@@ -106,6 +292,27 @@
     </Filter>
     <Filter Include="Common">
       <UniqueIdentifier>{566dec61-5a78-4207-be75-6ca46f0d3c2a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emulator">
+      <UniqueIdentifier>{41b7a657-8179-4700-915e-50c82756244f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emulator\CPU">
+      <UniqueIdentifier>{4c520916-b60b-4cae-8269-5b6c15ddf85c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emulator\Disk">
+      <UniqueIdentifier>{9970d57f-6b72-4b11-844a-c7da71611b78}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emulator\Video">
+      <UniqueIdentifier>{23ecd2ae-762d-412d-9402-2cef9739f260}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emulator\Sound">
+      <UniqueIdentifier>{2a071aba-db97-4cb3-92f5-c444fabebf22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emulator\Input">
+      <UniqueIdentifier>{81122d3c-888c-4a2b-8d12-53ced17c18dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emulator\Resources">
+      <UniqueIdentifier>{5a88e559-392f-4f43-ad30-5cfe8374fc52}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

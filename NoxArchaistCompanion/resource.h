@@ -13,6 +13,10 @@
 #define IDI_SMALL                       108
 #define IDC_NOXARCHAISTCOMPANION        109
 #define IDR_MAINFRAME                   128
+#define IDR_FIRMWARE1                   129
+#define IDR_ROM1                        130
+#define IDR_ROMS2                       132
+#define IDR_ROMS3                       133
 #define IDC_LOGSTATIC                   1000
 #define ID_FILE_ACTIVATEPROFILE         32771
 #define ID_EMULATOR_PAUSE               32772
@@ -37,7 +41,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        129
+#define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32788
 #define _APS_NEXT_CONTROL_VALUE         1001
 #define _APS_NEXT_SYMED_VALUE           110
