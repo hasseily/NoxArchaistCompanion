@@ -449,21 +449,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //===========================================================================
 static void set_csbits()
 {
-	// NB. For models that don't have an alt charset then set /g_nVideoCharSet/ to zero
-	switch ( GetApple2Type() )
-	{
-	case A2TYPE_APPLE2:			csbits = &csbits_a2[0];         g_nVideoCharSet = 0; break;
-	case A2TYPE_APPLE2PLUS:		csbits = &csbits_a2[0];         g_nVideoCharSet = 0; break;
-	case A2TYPE_APPLE2JPLUS:	csbits = &csbits_a2j[MemGetAnnunciator(2) ? 1 : 0]; g_nVideoCharSet = 0; break;
-	case A2TYPE_APPLE2E:		csbits = Get2e_csbits();		break;
-	case A2TYPE_APPLE2EENHANCED:csbits = Get2e_csbits();		break;
-	case A2TYPE_PRAVETS82:	    csbits = &csbits_pravets82[0];  g_nVideoCharSet = 0; break;	// Apple ][ clone
-	case A2TYPE_PRAVETS8M:	    csbits = &csbits_pravets8M[0];  g_nVideoCharSet = 0; break;	// Apple ][ clone
-	case A2TYPE_PRAVETS8A:	    csbits = &csbits_pravets8C[0];  break;	// Apple //e clone
-	case A2TYPE_TK30002E:		csbits = &csbits_enhanced2e[0]; break;	// Enhanced Apple //e clone
-	case A2TYPE_BASE64A:		csbits = &csbits_base64a[GetVideoRomRockerSwitch() ? 0 : 1]; g_nVideoCharSet = 0; break; // Apple ][ clone
-	default: _ASSERT(0);		csbits = &csbits_enhanced2e[0]; break;
-	}
+	csbits = Get2e_csbits();
 }
 
 //===========================================================================
@@ -2289,13 +2275,7 @@ void NTSC_VideoReinitialize( DWORD cyclesThisFrame, bool bInitVideoScannerAddres
 //===========================================================================
 void NTSC_VideoInitAppleType ()
 {
-	int model = GetApple2Type();
-
-	// anything other than low bit set means not II/II+ (TC: include Pravets machines too?)
-	if (model & 0xFFFE)
-		g_pHorzClockOffset = APPLE_IIE_HORZ_CLOCK_OFFSET;
-	else
-		g_pHorzClockOffset = APPLE_IIP_HORZ_CLOCK_OFFSET;
+	g_pHorzClockOffset = APPLE_IIE_HORZ_CLOCK_OFFSET;
 
 	set_csbits();
 }
@@ -2427,8 +2407,8 @@ static bool CheckVideoTables2( eApple2Type type, uint32_t mode )
 		_ASSERT(addr1 == addr2);
 		if (addr1 != addr2)
 		{
-			char str[80];
-			sprintf(str, "vpos=%04X, hpos=%02X, Video_adr=$%04X, NTSC_adr=$%04X\n", g_nVideoClockVert, g_nVideoClockHorz, addr1, addr2);
+			wchar_t str[80];
+			wsprintf(str, L"vpos=%04X, hpos=%02X, Video_adr=$%04X, NTSC_adr=$%04X\n", g_nVideoClockVert, g_nVideoClockHorz, addr1, addr2);
 			OutputDebugString(str);
 			return false;
 		}
@@ -2446,8 +2426,6 @@ static bool CheckVideoTables2( eApple2Type type, uint32_t mode )
 
 static void CheckVideoTables( void )
 {
-	CheckVideoTables2(A2TYPE_APPLE2PLUS, VF_HIRES);
-	CheckVideoTables2(A2TYPE_APPLE2PLUS, VF_TEXT);
 	CheckVideoTables2(A2TYPE_APPLE2E,    VF_HIRES);
 	CheckVideoTables2(A2TYPE_APPLE2E,    VF_TEXT);
 }
@@ -2501,21 +2479,6 @@ static void GenerateVideoTables( void )
 		{
 			for (; i < VIDEO_SCANNER_MAX_VERT_PAL / 8; i++, cycle += VIDEO_SCANNER_MAX_HORZ * 8)
 				g_aClockVertOffsetsTXT[i] = VideoGetScannerAddress(cycle, VS_PartialAddrV);
-		}
-	}
-
-	//
-	// APPLE_IIP_HORZ_CLOCK_OFFSET[]
-	//
-
-	g_uVideoMode = VF_TEXT;
-	SetApple2Type(A2TYPE_APPLE2PLUS);
-	for (UINT j=0; j<5; j++)
-	{
-		for (UINT i=0, cycle=j*64*VIDEO_SCANNER_MAX_HORZ; i<VIDEO_SCANNER_MAX_HORZ; i++, cycle++)
-		{
-			APPLE_IIP_HORZ_CLOCK_OFFSET[j][i] = VideoGetScannerAddress(cycle, VS_PartialAddrH);
-			if (IsNTSC()) _ASSERT(APPLE_IIP_HORZ_CLOCK_OFFSET[j][i] == kAPPLE_IIP_HORZ_CLOCK_OFFSET[j][i]);
 		}
 	}
 

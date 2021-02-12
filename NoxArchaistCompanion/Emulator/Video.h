@@ -175,9 +175,7 @@ extern uint8_t   *g_pFramebufferbits;
 
 // Prototypes _______________________________________________________
 
-void    VideoChooseMonochromeColor (); // FIXME: Should be moved to PageConfig and call VideoSetMonochromeColor()
 void    VideoDestroy ();
-void    VideoDisplayLogo ();
 void    VideoInitialize ();
 void    VideoRedrawScreenDuringFullSpeed(DWORD dwCyclesThisFrame, bool bInit = false);
 void    VideoRedrawScreenAfterFullSpeed(DWORD dwCyclesThisFrame);
@@ -209,22 +207,12 @@ bool GetVideoRomRockerSwitch(void);
 void SetVideoRomRockerSwitch(bool state);
 bool IsVideoRom4K(void);
 
-void Config_Load_Video(void);
-void Config_Save_Video(void);
-
 VideoType_e GetVideoType(void);
 void SetVideoType(VideoType_e newVideoType);
 VideoStyle_e GetVideoStyle(void);
 void SetVideoStyle(VideoStyle_e newVideoStyle);
 bool IsVideoStyle(VideoStyle_e mask);
 
-void SetHeadlessMode(bool b);
-bool IsHeadlessMode();
-
 VideoRefreshRate_e GetVideoRefreshRate(void);
 void SetVideoRefreshRate(VideoRefreshRate_e rate);
 
-bool DDInit(void);
-void DDUninit(void);
-
-const char* VideoGetAppWindowTitle(void);

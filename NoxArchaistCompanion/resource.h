@@ -3,20 +3,18 @@
 // Used by resource.rc
 //
 #define IDC_MYICON                      2
+#define IDS_APP_TITLE                   3
 #define IDD_LOGVIEW                     101
 #define IDD_NOXARCHAISTCOMPANION_DIALOG 102
-#define IDS_APP_TITLE                   103
 #define IDD_ABOUTBOX                    103
 #define IDM_ABOUT                       104
 #define IDM_EXIT                        105
 #define IDI_NOXARCHAISTCOMPANION        107
 #define IDI_SMALL                       108
 #define IDC_NOXARCHAISTCOMPANION        109
-#define IDR_MAINFRAME                   128
-#define IDR_FIRMWARE1                   129
-#define IDR_ROM1                        130
-#define IDR_ROMS2                       132
-#define IDR_ROMS3                       133
+#define IDR_HDDRVR_FW		            128
+#define IDR_MOCKINGBOARD_D_FW           129
+#define IDR_APPLE2E_ENHANCED_ROM        130
 #define IDC_LOGSTATIC                   1000
 #define ID_FILE_ACTIVATEPROFILE         32771
 #define ID_EMULATOR_PAUSE               32772

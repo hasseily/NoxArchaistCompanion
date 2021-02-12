@@ -93,8 +93,6 @@ static bool g_bHeadless = false;  // Headless Mode
 
 static bool g_bVideoScannerNTSC = true;  // NTSC video scanning (or PAL)
 
-static LPDIRECTDRAW g_lpDD = NULL;
-
 //-------------------------------------
 
 	// NOTE: KEEP IN SYNC: VideoType_e g_aVideoChoices g_apVideoModeDesc
@@ -125,11 +123,6 @@ static LPDIRECTDRAW g_lpDD = NULL;
 		, "Monochrome (White)"
 	};
 
-// Prototypes (Private) _____________________________________________
-
-
-	void videoCreateDIBSection();
-
 
 //===========================================================================
 void VideoInitialize ()
@@ -138,25 +131,7 @@ void VideoInitialize ()
 	VideoResetState();
 
 	// LOAD THE LOGO
-	g_hLogoBitmap = LoadBitmap( g_hInstance, MAKEINTRESOURCE(IDB_APPLEWIN) );
-
-	// CREATE A BITMAPINFO STRUCTURE FOR THE FRAME BUFFER
-	g_pFramebufferinfo = (LPBITMAPINFO)VirtualAlloc(
-		NULL,
-		sizeof(BITMAPINFOHEADER) + 256*sizeof(RGBQUAD),
-		MEM_COMMIT,
-		PAGE_READWRITE);
-
-	ZeroMemory(g_pFramebufferinfo,sizeof(BITMAPINFOHEADER)+256*sizeof(RGBQUAD));
-	g_pFramebufferinfo->bmiHeader.biSize        = sizeof(BITMAPINFOHEADER);
-	g_pFramebufferinfo->bmiHeader.biWidth       = GetFrameBufferWidth();
-	g_pFramebufferinfo->bmiHeader.biHeight      = GetFrameBufferHeight();
-	g_pFramebufferinfo->bmiHeader.biPlanes      = 1;
-	g_pFramebufferinfo->bmiHeader.biBitCount    = 32;
-	g_pFramebufferinfo->bmiHeader.biCompression = BI_RGB;
-	g_pFramebufferinfo->bmiHeader.biClrUsed     = 0;
-
-	videoCreateDIBSection();
+	// g_hLogoBitmap = LoadBitmap( g_hInstance, MAKEINTRESOURCE(IDB_APPLEWIN) );
 }
 
 //===========================================================================
@@ -164,29 +139,6 @@ void VideoInitialize ()
 //
 // ----- ALL GLOBALLY ACCESSIBLE FUNCTIONS ARE BELOW THIS LINE -----
 //
-        
-// This is called from PageConfig
-//===========================================================================
-void VideoChooseMonochromeColor ()
-{
-	CHOOSECOLOR cc;
-	ZeroMemory(&cc,sizeof(CHOOSECOLOR));
-	cc.lStructSize     = sizeof(CHOOSECOLOR);
-	cc.hwndOwner       = g_hFrameWindow;
-	cc.rgbResult       = g_nMonochromeRGB;
-	cc.lpCustColors    = customcolors + 1;
-	cc.Flags           = CC_RGBINIT | CC_SOLIDCOLOR;
-	if (ChooseColor(&cc))
-	{
-		g_nMonochromeRGB = cc.rgbResult;
-		VideoReinitialize();
-		if ((g_nAppMode != MODE_LOGO) && (g_nAppMode != MODE_DEBUG))
-		{
-			VideoRedrawScreen();
-		}
-		Config_Save_Video();
-	}
-}
 
 //===========================================================================
 void VideoDestroy () {
@@ -195,110 +147,7 @@ void VideoDestroy () {
   VirtualFree(g_pFramebufferinfo,0,MEM_RELEASE);
   g_pFramebufferinfo = NULL;
 
-  // DESTROY FRAME BUFFER
-  DeleteDC(g_hDeviceDC);
-  DeleteObject(g_hDeviceBitmap);
-  g_hDeviceDC     = (HDC)0;
-  g_hDeviceBitmap = (HBITMAP)0;
-
-  // DESTROY LOGO
-  if (g_hLogoBitmap) {
-    DeleteObject(g_hLogoBitmap);
-    g_hLogoBitmap = (HBITMAP)0;
-  }
-
   NTSC_Destroy();
-}
-
-//===========================================================================
-
-static void VideoDrawLogoBitmap(HDC hDstDC, int xoff, int yoff, int srcw, int srch, int scale)
-{
-	HDC hSrcDC = CreateCompatibleDC( hDstDC );
-	SelectObject( hSrcDC, g_hLogoBitmap );
-	StretchBlt(
-		hDstDC,   // hdcDest
-		xoff, yoff,  // nXDest, nYDest
-		scale * srcw, scale * srch, // nWidth, nHeight
-		hSrcDC,   // hdcSrc
-		0, 0,     // nXSrc, nYSrc
-		srcw, srch,
-		SRCCOPY   // dwRop
-	);
-
-	DeleteObject( hSrcDC );
-}
-
-//===========================================================================
-void VideoDisplayLogo () 
-{
-	int nLogoX = 0, nLogoY = 0;
-	int scale = GetViewportScale();
-
-	HDC hFrameDC = FrameGetDC();
-
-	// DRAW THE LOGO
-	SelectObject(hFrameDC, GetStockObject(NULL_PEN));
-
-	if (g_hLogoBitmap)
-	{
-		BITMAP bm;
-		if (GetObject(g_hLogoBitmap, sizeof(bm), &bm))
-		{
-			nLogoX = (g_nViewportCX - scale*bm.bmWidth )/2;
-			nLogoY = (g_nViewportCY - scale*bm.bmHeight)/2;
-
-			if( IsFullScreen() )
-			{
-				nLogoX += GetFullScreenOffsetX();
-				nLogoY += GetFullScreenOffsetY();
-			}
-
-			VideoDrawLogoBitmap( hFrameDC, nLogoX, nLogoY, bm.bmWidth, bm.bmHeight, scale );
-		}
-	}
-
-	// DRAW THE VERSION NUMBER
-	TCHAR sFontName[] = TEXT("Arial");
-	HFONT font = CreateFont(-20,0,0,0,FW_NORMAL,0,0,0,ANSI_CHARSET,
-							OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,
-							VARIABLE_PITCH | 4 | FF_SWISS,
-							sFontName );
-	SelectObject(hFrameDC,font);
-	SetTextAlign(hFrameDC,TA_RIGHT | TA_TOP);
-	SetBkMode(hFrameDC,TRANSPARENT);
-
-	TCHAR szVersion[ 64 ];
-	StringCbPrintf(szVersion, 64, "Version %s - Nox Archaist 1.4", VERSIONSTRING);
-	int xoff = GetFullScreenOffsetX(), yoff = GetFullScreenOffsetY();
-
-#define  DRAWVERSION(x,y,c)                 \
-	SetTextColor(hFrameDC,c);               \
-	TextOut(hFrameDC,                       \
-		scale*540+x+xoff,scale*358+y+yoff,  \
-		szVersion,                          \
-		strlen(szVersion));
-
-	if (GetDeviceCaps(hFrameDC,PLANES) * GetDeviceCaps(hFrameDC,BITSPIXEL) <= 4) {
-		DRAWVERSION( 2, 2,RGB(0x00,0x00,0x00));
-		DRAWVERSION( 1, 1,RGB(0x00,0x00,0x00));
-		DRAWVERSION( 0, 0,RGB(0xFF,0x00,0xFF));
-	} else {
-		DRAWVERSION( 1, 1,PALETTERGB(0x30,0x30,0x70));
-		DRAWVERSION(-1,-1,PALETTERGB(0xC0,0x70,0xE0));
-		DRAWVERSION( 0, 0,PALETTERGB(0x70,0x30,0xE0));
-	}
-
-#if _DEBUG
-	StringCbPrintf(szVersion, 64, "DEBUG");
-	DRAWVERSION( 2, -358*scale,RGB(0x00,0x00,0x00));
-	DRAWVERSION( 1, -357*scale,RGB(0x00,0x00,0x00));
-	DRAWVERSION( 0, -356*scale,RGB(0xFF,0x00,0xFF));
-#endif
-
-#undef  DRAWVERSION
-
-	DeleteObject(font);
 }
 
 //===========================================================================
@@ -321,50 +170,7 @@ void VideoRedrawScreenDuringFullSpeed(DWORD dwCyclesThisFrame, bool bInit /*=fal
 		return;
 
 	dwFullSpeedStartTime += dwFullSpeedDuration;
-
-	//
-
-#if 0
-	static BYTE text_main[1024*2] = {0};	// page1 & 2
-	static BYTE text_aux[1024*2] = {0};		// page1 & 2
-	static BYTE hgr_main[8192*2] = {0};		// page1 & 2
-	static BYTE hgr_aux[8192*2] = {0};		// page1 & 2
-
-	bool bRedraw = true;	// Always redraw for bValid==false (ie. just entered full-speed mode)
-
-	if (bValid)
-	{
-		if ((g_uVideoMode&(VF_DHIRES|VF_HIRES|VF_TEXT|VF_MIXED)) == VF_HIRES)
-		{
-			// HIRES (not MIXED) - eg. AZTEC.DSK
-			if ((g_uVideoMode&VF_PAGE2) == 0)
-				bRedraw = memcmp(&hgr_main[0x0000],  MemGetMainPtr(0x2000), 8192) != 0;
-			else
-				bRedraw = memcmp(&hgr_main[0x2000],  MemGetMainPtr(0x4000), 8192) != 0;
-		}
-		else
-		{
-			bRedraw =
-				(memcmp(text_main, MemGetMainPtr(0x400),  sizeof(text_main)) != 0) ||
-				(memcmp(text_aux,  MemGetAuxPtr(0x400),   sizeof(text_aux))  != 0) ||
-				(memcmp(hgr_main,  MemGetMainPtr(0x2000), sizeof(hgr_main))  != 0) ||
-				(memcmp(hgr_aux,   MemGetAuxPtr(0x2000),  sizeof(hgr_aux))   != 0);
-		}
-	}
-
-	if (bRedraw)
-		VideoRedrawScreenAfterFullSpeed(dwCyclesThisFrame);
-
-	// Copy all video memory (+ screen holes)
-	memcpy(text_main, MemGetMainPtr(0x400),  sizeof(text_main));
-	memcpy(text_aux,  MemGetAuxPtr(0x400),   sizeof(text_aux));
-	memcpy(hgr_main,  MemGetMainPtr(0x2000), sizeof(hgr_main));
-	memcpy(hgr_aux,   MemGetAuxPtr(0x2000),  sizeof(hgr_aux));
-
-	bValid = true;
-#else
 	VideoRedrawScreenAfterFullSpeed(dwCyclesThisFrame);
-#endif
 }
 
 //===========================================================================
@@ -398,42 +204,11 @@ void VideoRefreshScreen(uint32_t uRedrawWholeScreenVideoMode /* =0*/, bool bRedr
 
 		// MODE_DEBUG|PAUSED: Need to refresh a 2nd time if changing video-type, otherwise could have residue from prev image!
 		// . eg. Amber -> B&W TV
-		if (g_nAppMode == MODE_DEBUG || g_nAppMode == MODE_PAUSED)
+		if (g_nAppMode == MODE_PAUSED)
 			NTSC_VideoRedrawWholeScreen();
 	}
 	g_RemoteControlMgr.sendOutput(g_pFramebufferinfo, g_pFramebufferbits);	// RIK
-	if (g_bHeadless)	// Oooh headless mode, we don't write video to the frame
-		return;
-	HDC hFrameDC = FrameGetDC();
-
-	if (hFrameDC)
-	{
-		int xSrc = GetFrameBufferBorderWidth();
-		int ySrc = GetFrameBufferBorderHeight();
-
-		int xdest = IsFullScreen() ? GetFullScreenOffsetX() : 0;
-		int ydest = IsFullScreen() ? GetFullScreenOffsetY() : 0;
-		int wdest = g_nViewportCX;
-		int hdest = g_nViewportCY;
-
-		SetStretchBltMode(hFrameDC, COLORONCOLOR);
-		StretchBlt(
-			hFrameDC,
-			xdest, ydest,
-			wdest, hdest,
-			g_hDeviceDC,
-			xSrc, ySrc,
-			GetFrameBufferBorderlessWidth(), GetFrameBufferBorderlessHeight(),
-			SRCCOPY);
-	}
-
-
-#ifdef NO_DIRECT_X
-#else
-	//if (g_lpDD) g_lpDD->WaitForVerticalBlank(DDWAITVB_BLOCKBEGIN, NULL);
-#endif // NO_DIRECT_X
-
-	GdiFlush();
+	return;
 }
 
 //===========================================================================
@@ -471,10 +246,10 @@ BYTE VideoSetMode(WORD, WORD address, BYTE write, BYTE, ULONG uExecutedCycles)
 	{
 		case 0x00:                 g_uVideoMode &= ~VF_80STORE;                            break;
 		case 0x01:                 g_uVideoMode |=  VF_80STORE;                            break;
-		case 0x0C: if (!IS_APPLE2){g_uVideoMode &= ~VF_80COL; NTSC_SetVideoTextMode(40);}; break;
-		case 0x0D: if (!IS_APPLE2){g_uVideoMode |=  VF_80COL; NTSC_SetVideoTextMode(80);}; break;
-		case 0x0E: if (!IS_APPLE2) g_nAltCharSetOffset = 0;           break;	// Alternate char set off
-		case 0x0F: if (!IS_APPLE2) g_nAltCharSetOffset = 256;         break;	// Alternate char set on
+		case 0x0C:				   g_uVideoMode &= ~VF_80COL; NTSC_SetVideoTextMode(40);   break;
+		case 0x0D:				   g_uVideoMode |=  VF_80COL; NTSC_SetVideoTextMode(80);   break;
+		case 0x0E:				   g_nAltCharSetOffset = 0;           break;	// Alternate char set off
+		case 0x0F:				   g_nAltCharSetOffset = 256;         break;	// Alternate char set on
 		case 0x50: g_uVideoMode &= ~VF_TEXT;    break;
 		case 0x51: g_uVideoMode |=  VF_TEXT;    break;
 		case 0x52: g_uVideoMode &= ~VF_MIXED;   break;
@@ -483,12 +258,11 @@ BYTE VideoSetMode(WORD, WORD address, BYTE write, BYTE, ULONG uExecutedCycles)
 		case 0x55: g_uVideoMode |=  VF_PAGE2;   break;
 		case 0x56: g_uVideoMode &= ~VF_HIRES;   break;
 		case 0x57: g_uVideoMode |=  VF_HIRES;   break;
-		case 0x5E: if (!IS_APPLE2) g_uVideoMode |=  VF_DHIRES;  break;
-		case 0x5F: if (!IS_APPLE2) g_uVideoMode &= ~VF_DHIRES;  break;
+		case 0x5E: g_uVideoMode |= VF_DHIRES;   break;
+		case 0x5F: g_uVideoMode &= ~VF_DHIRES;  break;
 	}
 
-	if (!IS_APPLE2)
-		RGB_SetVideoMode(address);
+	RGB_SetVideoMode(address);
 
 	// Only 1-cycle delay for VF_TEXT & VF_MIXED mode changes (GH#656)
 	bool delay = false;
@@ -679,79 +453,6 @@ bool VideoGetVblBar(const DWORD uExecutedCycles)
 
 //===========================================================================
 
-#define MAX_DRAW_DEVICES 10
-
-static char *draw_devices[MAX_DRAW_DEVICES];
-static GUID draw_device_guid[MAX_DRAW_DEVICES];
-static int num_draw_devices = 0;
-
-static BOOL CALLBACK DDEnumProc(LPGUID lpGUID, LPCTSTR lpszDesc, LPCTSTR lpszDrvName,  LPVOID lpContext)
-{
-	int i = num_draw_devices;
-	if (i == MAX_DRAW_DEVICES)
-		return TRUE;
-	if (lpGUID != NULL)
-		memcpy(&draw_device_guid[i], lpGUID, sizeof (GUID));
-	draw_devices[i] = _strdup(lpszDesc);
-
-	if (g_fh) fprintf(g_fh, "%d: %s - %s\n",i,lpszDesc,lpszDrvName);
-
-	num_draw_devices++;
-	return TRUE;
-}
-
-bool DDInit(void)
-{
-#ifdef NO_DIRECT_X
-
-	return false;
-
-#else
-	HRESULT hr = DirectDrawEnumerate((LPDDENUMCALLBACK)DDEnumProc, NULL);
-	if (FAILED(hr))
-	{
-		LogFileOutput(L"DSEnumerate failed (%08X)\n", hr);
-		return false;
-	}
-
-	LogFileOutput(L"Number of draw devices = %d\n", num_draw_devices);
-
-	bool bCreatedOK = false;
-	for (int x=0; x<num_draw_devices; x++)
-	{
-		hr = DirectDrawCreate(&draw_device_guid[x], &g_lpDD, NULL);
-		if (SUCCEEDED(hr))
-		{
-			LogFileOutput(L"DSCreate succeeded for draw device #%d\n", x);
-			bCreatedOK = true;
-			break;
-		}
-
-		LogFileOutput(L"DSCreate failed for draw device #%d (%08X)\n", x, hr);
-	}
-
-	if (!bCreatedOK)
-	{
-		LogFileOutput(L"DSCreate failed for all draw devices\n");
-		return false;
-	}
-
-	return true;
-#endif // NO_DIRECT_X
-}
-
-// From SoundCore.h
-#define SAFE_RELEASE(p)      { if(p) { (p)->Release(); (p)=NULL; } }
-
-void DDUninit(void)
-{
-	SAFE_RELEASE(g_lpDD);
-}
-
-#undef SAFE_RELEASE
-
-//===========================================================================
-
 static const UINT kVideoRomSize8K = kVideoRomSize4K*2;
 static const UINT kVideoRomSize16K = kVideoRomSize8K*2;
 static const UINT kVideoRomSizeMax = kVideoRomSize16K;
@@ -810,93 +511,6 @@ bool IsVideoRom4K(void)
 
 //===========================================================================
 
-enum VideoType127_e
-{
-	  VT127_MONO_CUSTOM
-	, VT127_COLOR_MONITOR_NTSC
-	, VT127_MONO_TV
-	, VT127_COLOR_TV
-	, VT127_MONO_AMBER
-	, VT127_MONO_GREEN
-	, VT127_MONO_WHITE
-	, VT127_NUM_VIDEO_MODES
-};
-
-void Config_Load_Video()
-{
-	DWORD dwTmp;
-
-	REGLOAD_DEFAULT(TEXT(REGVALUE_VIDEO_MODE), &dwTmp, (DWORD)VT_DEFAULT);
-	g_eVideoType = dwTmp;
-
-	REGLOAD_DEFAULT(TEXT(REGVALUE_VIDEO_STYLE), &dwTmp, (DWORD)VS_HALF_SCANLINES);
-	g_eVideoStyle = (VideoStyle_e)dwTmp;
-
-	REGLOAD_DEFAULT(TEXT(REGVALUE_VIDEO_MONO_COLOR), &dwTmp, (DWORD)RGB(0xC0, 0xC0, 0xC0));
-	g_nMonochromeRGB = (COLORREF)dwTmp;
-
-	REGLOAD_DEFAULT(TEXT(REGVALUE_VIDEO_REFRESH_RATE), &dwTmp, (DWORD)VR_60HZ);
-	SetVideoRefreshRate((VideoRefreshRate_e)dwTmp);
-
-	// RIK START
-	REGLOAD_DEFAULT(TEXT(REGVALUE_VIDEO_REMOTECONTROL), &dwTmp, (DWORD)false);
-	RemoteControlManager::setRemoteControlEnabled(dwTmp);
-	REGLOAD_DEFAULT(TEXT(REGVALUE_VIDEO_RC_TRACKONLY), &dwTmp, (DWORD)false);
-	RemoteControlManager::setTrackOnlyEnabled(dwTmp);
-	// RIK END
-
-
-	//
-
-	const UINT16* pOldVersion = GetOldAppleWinVersion();
-	if (pOldVersion[0] == 1 && pOldVersion[1] <= 28 && pOldVersion[2] <= 1)
-	{
-		DWORD dwHalfScanLines;
-		REGLOAD_DEFAULT(TEXT(REGVALUE_VIDEO_HALF_SCAN_LINES), &dwHalfScanLines, 0);
-
-		if (dwHalfScanLines)
-			g_eVideoStyle = (VideoStyle_e) ((DWORD)g_eVideoStyle | VS_HALF_SCANLINES);
-		else
-			g_eVideoStyle = (VideoStyle_e) ((DWORD)g_eVideoStyle & ~VS_HALF_SCANLINES);
-
-		REGSAVE(TEXT(REGVALUE_VIDEO_STYLE), g_eVideoStyle);
-	}
-
-	//
-
-	if (pOldVersion[0] == 1 && pOldVersion[1] <= 27 && pOldVersion[2] <= 13)
-	{
-		switch (g_eVideoType)
-		{
-		case VT127_MONO_CUSTOM:			g_eVideoType = VT_MONO_CUSTOM; break;
-		case VT127_COLOR_MONITOR_NTSC:	g_eVideoType = VT_COLOR_MONITOR_NTSC; break;
-		case VT127_MONO_TV:				g_eVideoType = VT_MONO_TV; break;
-		case VT127_COLOR_TV:			g_eVideoType = VT_COLOR_TV; break;
-		case VT127_MONO_AMBER:			g_eVideoType = VT_MONO_AMBER; break;
-		case VT127_MONO_GREEN:			g_eVideoType = VT_MONO_GREEN; break;
-		case VT127_MONO_WHITE:			g_eVideoType = VT_MONO_WHITE; break;
-		default:						g_eVideoType = VT_DEFAULT; break;
-		}
-
-		REGSAVE(TEXT(REGVALUE_VIDEO_MODE), g_eVideoType);
-	}
-
-	if (g_eVideoType >= NUM_VIDEO_MODES)
-		g_eVideoType = VT_DEFAULT;
-}
-
-void Config_Save_Video()
-{
-	REGSAVE(TEXT(REGVALUE_VIDEO_MODE)      ,g_eVideoType);
-	REGSAVE(TEXT(REGVALUE_VIDEO_STYLE)     ,g_eVideoStyle);
-	REGSAVE(TEXT(REGVALUE_VIDEO_MONO_COLOR),g_nMonochromeRGB);
-	REGSAVE(TEXT(REGVALUE_VIDEO_REFRESH_RATE), GetVideoRefreshRate());
-	REGSAVE(TEXT(REGVALUE_VIDEO_REMOTECONTROL), RemoteControlManager::isRemoteControlEnabled());		// RIK
-	REGSAVE(TEXT(REGVALUE_VIDEO_RC_TRACKONLY), RemoteControlManager::isTrackOnlyEnabled());		// RIK
-}
-
-//===========================================================================
-
 VideoType_e GetVideoType(void)
 {
 	return (VideoType_e) g_eVideoType;
@@ -923,19 +537,6 @@ bool IsVideoStyle(VideoStyle_e mask)
 	return (g_eVideoStyle & mask) != 0;
 }
 
-//===========================================================================
-
-bool IsHeadlessMode(void)
-{
-	return g_bHeadless;
-}
-
-void SetHeadlessMode(bool b)
-{
-	g_bHeadless = b;
-}
-
-//===========================================================================
 
 //===========================================================================
 
@@ -953,50 +554,3 @@ void SetVideoRefreshRate(VideoRefreshRate_e rate)
 	NTSC_SetRefreshRate(rate);
 }
 
-//===========================================================================
-static void videoCreateDIBSection()
-{
-	// CREATE THE DEVICE CONTEXT
-	HWND window  = GetDesktopWindow();
-	HDC dc       = GetDC(window);
-	if (g_hDeviceDC)
-	{
-		DeleteDC(g_hDeviceDC);
-	}
-	g_hDeviceDC = CreateCompatibleDC(dc);
-
-	// CREATE THE FRAME BUFFER DIB SECTION
-	if (g_hDeviceBitmap)
-		DeleteObject(g_hDeviceBitmap);
-		g_hDeviceBitmap = CreateDIBSection(
-			dc,
-			g_pFramebufferinfo,
-			DIB_RGB_COLORS,
-			(LPVOID *)&g_pFramebufferbits,0,0
-		);
-	SelectObject(g_hDeviceDC,g_hDeviceBitmap);
-
-	// DRAW THE SOURCE IMAGE INTO THE SOURCE BIT BUFFER
-	UINT fbSize = GetFrameBufferWidth() * GetFrameBufferHeight() * sizeof(bgra_t);
-	ZeroMemory(g_pFramebufferbits, fbSize);
-
-	// CREATE THE OFFSET TABLE FOR EACH SCAN LINE IN THE FRAME BUFFER
-	NTSC_VideoInit( g_pFramebufferbits );
-}
-
-//===========================================================================
-
-const char* VideoGetAppWindowTitle(void)
-{
-	static const char *apVideoMonitorModeDesc[ 2 ] =
-	{
-		"Color (NTSC Monitor)",
-		"Color (PAL Monitor)"
-	};
-
-	const VideoType_e videoType = GetVideoType();
-	if ( videoType != VT_COLOR_MONITOR_NTSC)
-		return g_apVideoModeDesc[ videoType ];
-	else
-		return apVideoMonitorModeDesc[ GetVideoRefreshRate() == VR_60HZ ? 0 : 1 ];	// NTSC or PAL
-}

@@ -21,7 +21,6 @@ enum AppMode_e
 	MODE_LOGO = 0
 	, MODE_PAUSED
 	, MODE_RUNNING  // 6502 is running at normal/full speed
-	, MODE_BENCHMARK
 };
 
 #define  SPEED_MIN         0

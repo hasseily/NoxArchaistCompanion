@@ -39,7 +39,7 @@ static CHardDiskImageHelper sg_HardDiskImageHelper;
 //===========================================================================
 
 // Pre: *pWriteProtected_ already set to file's r/w status - see DiskInsert()
-ImageError_e ImageOpen(	const std::string & pszImageFilename,
+ImageError_e ImageOpen(	const std::wstring & pszImageFilename,
 						ImageInfo** ppImageInfo,
 						bool* pWriteProtected,
 						const bool bCreateIfNecessary,
@@ -220,9 +220,9 @@ bool ImageIsWriteProtected(ImageInfo* const pImageInfo)
 	return pImageInfo ? pImageInfo->bWriteProtected : true;
 }
 
-const std::string & ImageGetPathname(ImageInfo* const pImageInfo)
+const std::wstring & ImageGetPathname(ImageInfo* const pImageInfo)
 {
-	static const std::string szEmpty;
+	static const std::wstring szEmpty;
 	return pImageInfo ? pImageInfo->szFilename : szEmpty;
 }
 
@@ -268,16 +268,16 @@ UINT ImageGetMaxNibblesPerTrack(ImageInfo* const pImageInfo)
 	return pImageInfo ? pImageInfo->maxNibblesPerTrack : NIBBLES_PER_TRACK;
 }
 
-void GetImageTitle(LPCTSTR pPathname, std::string & pImageName, std::string & pFullName)
+void GetImageTitle(LPCTSTR pPathname, std::wstring & pImageName, std::wstring & pFullName)
 {
 	TCHAR   imagetitle[ MAX_DISK_FULL_NAME+1 ];
 	LPCTSTR startpos = pPathname;
 
 	// imagetitle = <FILENAME.EXT>
-	if (_tcsrchr(startpos, TEXT('\\')))
-		startpos = _tcsrchr(startpos, TEXT('\\'))+1;
+	if (wcsrchr(startpos, TEXT('\\')))
+		startpos = wcsrchr(startpos, TEXT('\\'))+1;
 
-	_tcsncpy(imagetitle, startpos, MAX_DISK_FULL_NAME);
+	wcsncpy(imagetitle, startpos, MAX_DISK_FULL_NAME);
 	imagetitle[MAX_DISK_FULL_NAME] = 0;
 
 	// if imagetitle contains a lowercase char, then found=1 (why?)
@@ -292,7 +292,7 @@ void GetImageTitle(LPCTSTR pPathname, std::string & pImageName, std::string & pF
 	}
 
 	if ((!found) && (loop > 2))
-		CharLowerBuff(imagetitle+1, _tcslen(imagetitle+1));
+		CharLowerBuff(imagetitle+1, wcslen(imagetitle+1));
 
 	// pFullName = <FILENAME.EXT>
 	pFullName = imagetitle;
@@ -300,8 +300,8 @@ void GetImageTitle(LPCTSTR pPathname, std::string & pImageName, std::string & pF
 	if (imagetitle[0])
 	{
 		LPTSTR dot = imagetitle;
-		if (_tcsrchr(dot, TEXT('.')))
-			dot = _tcsrchr(dot, TEXT('.'));
+		if (wcsrchr(dot, TEXT('.')))
+			dot = wcsrchr(dot, TEXT('.'));
 		if (dot > imagetitle)
 			*dot = 0;
 	}

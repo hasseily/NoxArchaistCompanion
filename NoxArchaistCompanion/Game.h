@@ -9,13 +9,13 @@
 #include "LogWindow.h"
 #include "HAUtils.h"
 
-enum class GameLinkLayout
+enum class EmulatorLayout
 {
-    NORMAL      = 0,
-    FLIPPED_X   = 1,
-    FLIPPED_Y   = 2,
-    FLIPPED_XY  = 3,
-    NONE        = UINT8_MAX
+	NORMAL = 0,
+	FLIPPED_X = 1,
+	FLIPPED_Y = 2,
+	FLIPPED_XY = 3,
+	NONE = UINT8_MAX
 };
 
 // A basic game implementation that creates a D3D12 device and
@@ -59,7 +59,7 @@ public:
 
     // Other methods
     D3D12_RESOURCE_DESC ChooseTexture();
-    void SetVideoLayout(GameLinkLayout layout);
+    void SetVideoLayout(EmulatorLayout layout);
     void SetWindowSizeOnChangedProfile();
 
     void GetBaseSize(__out int& width, __out int& height) noexcept;
@@ -77,7 +77,7 @@ private:
     void CreateDeviceDependentResources();
     void CreateWindowSizeDependentResources();
 
-    void SetVertexData(HA::Vertex* v, float wRatio, float hRatio, GameLinkLayout layout);
+    void SetVertexData(HA::Vertex* v, float wRatio, float hRatio, EmulatorLayout layout);
 
     // This method must be called when sidebars are added or deleted
     // so the relative vertex boundaries can be updated to stay within
@@ -103,8 +103,8 @@ private:
     uint32_t m_bgImageHeight;
 
     // video texture layout may change depending on gamelink status
-    GameLinkLayout m_currentLayout;
-    GameLinkLayout m_previousLayout;
+    EmulatorLayout m_currentLayout;
+    EmulatorLayout m_previousLayout;
 
     // Input devices.
     std::unique_ptr<DirectX::GamePad>       m_gamePad;

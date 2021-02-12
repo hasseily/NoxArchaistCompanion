@@ -3,12 +3,9 @@
 #include "pch.h"
 
 #include "RGBMonitor.h"
-#include "Frame.h"
 #include "Memory.h" // MemGetMainPtr() MemGetAuxPtr()
 #include "Video.h"
 #include "Card.h"
-#include "YamlHelper.h"
-
 
 // RGB videocards types
 
@@ -1287,46 +1284,6 @@ void RGB_ResetState(void)
 void RGB_SetInvertBit7(bool state)
 {
 	g_rgbInvertBit7 = state;
-}
-
-//===========================================================================
-
-#define SS_YAML_KEY_RGB_CARD "AppleColor RGB Adaptor"
-// NB. No version - this is determined by the parent card
-
-#define SS_YAML_KEY_RGB_FLAGS "RGB mode flags"
-#define SS_YAML_KEY_RGB_MODE "RGB mode"
-#define SS_YAML_KEY_RGB_PREVIOUS_AN3 "Previous AN3"
-#define SS_YAML_KEY_RGB_80COL_CHANGED "80COL changed"
-#define SS_YAML_KEY_RGB_INVERT_BIT7 "Invert bit7"
-
-void RGB_SaveSnapshot(YamlSaveHelper& yamlSaveHelper)
-{
-	YamlSaveHelper::Label label(yamlSaveHelper, "%s:\n", SS_YAML_KEY_RGB_CARD);
-
-	yamlSaveHelper.SaveHexUint8(SS_YAML_KEY_RGB_FLAGS, g_rgbFlags);
-	yamlSaveHelper.SaveHexUint8(SS_YAML_KEY_RGB_MODE, g_rgbMode);
-	yamlSaveHelper.SaveHexUint8(SS_YAML_KEY_RGB_PREVIOUS_AN3, g_rgbPrevAN3Addr);
-	yamlSaveHelper.SaveBool(SS_YAML_KEY_RGB_80COL_CHANGED, false);	// unused (todo: remove next time the parent card's version changes)
-	yamlSaveHelper.SaveBool(SS_YAML_KEY_RGB_INVERT_BIT7, g_rgbInvertBit7);
-}
-
-void RGB_LoadSnapshot(YamlLoadHelper& yamlLoadHelper, UINT cardVersion)
-{
-	if (!yamlLoadHelper.GetSubMap(SS_YAML_KEY_RGB_CARD))
-		throw std::string("Card: Expected key: ") + std::string(SS_YAML_KEY_RGB_CARD);
-
-	g_rgbFlags = yamlLoadHelper.LoadUint(SS_YAML_KEY_RGB_FLAGS);
-	g_rgbMode = yamlLoadHelper.LoadUint(SS_YAML_KEY_RGB_MODE);
-	g_rgbPrevAN3Addr = yamlLoadHelper.LoadUint(SS_YAML_KEY_RGB_PREVIOUS_AN3);
-
-	if (cardVersion >= 3)
-	{
-		yamlLoadHelper.LoadBool(SS_YAML_KEY_RGB_80COL_CHANGED);	// Obsolete (so just consume)
-		g_rgbInvertBit7 = yamlLoadHelper.LoadBool(SS_YAML_KEY_RGB_INVERT_BIT7);
-	}
-
-	yamlLoadHelper.PopMap();
 }
 
 RGB_Videocard_e RGB_GetVideocard(void)

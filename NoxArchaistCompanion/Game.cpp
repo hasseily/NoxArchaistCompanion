@@ -47,8 +47,8 @@ Game::Game() noexcept(false)
     m_deviceResources->RegisterDeviceNotify(this);
 
     // Any time the layouts differ, a recreation of the vertex buffer is triggered
-    m_previousLayout = GameLinkLayout::NONE;
-    m_currentLayout = GameLinkLayout::NORMAL;
+    m_previousLayout = EmulatorLayout::NONE;
+    m_currentLayout = EmulatorLayout::NORMAL;
 }
 
 Game::~Game()
@@ -154,7 +154,7 @@ D3D12_RESOURCE_DESC Game::ChooseTexture()
             txtDesc.Height = fbI.height;
             g_textureData.pData = fbI.frameBuffer;
             g_textureData.SlicePitch = fbI.bufferLength;
-            SetVideoLayout(GameLinkLayout::FLIPPED_Y);
+            SetVideoLayout(EmulatorLayout::FLIPPED_Y);
             is_using_gamelink = true;
             //sprintf_s(buf, "GameLink up with Width %d, Height %d\n", fbI.width, fbI.height);
             //OutputDebugStringA(buf);
@@ -168,13 +168,13 @@ D3D12_RESOURCE_DESC Game::ChooseTexture()
         txtDesc.Height = m_bgImageHeight;
         g_textureData.pData = m_bgImage.data();
         g_textureData.SlicePitch = m_bgImage.size();
-        SetVideoLayout(GameLinkLayout::NORMAL);
+        SetVideoLayout(EmulatorLayout::NORMAL);
     }
     g_textureData.RowPitch = static_cast<LONG_PTR>(txtDesc.Width * sizeof(uint32_t));
     return txtDesc;
 }
 
-void Game::SetVideoLayout(GameLinkLayout layout)
+void Game::SetVideoLayout(EmulatorLayout layout)
 {
     m_previousLayout = m_currentLayout;
     m_currentLayout = layout;
@@ -382,7 +382,7 @@ void Game::Render()
 			lend.y += APPLEWIN_HEIGHT;
 			break;
 		case SidebarTypes::Bottom:
-			lend.x += +APPLEWIN_WIDTH;
+			lend.x += APPLEWIN_WIDTH;
 			break;
 		default:
 			break;
@@ -838,7 +838,7 @@ void Game::CreateWindowSizeDependentResources()
     m_spriteBatch->SetViewport(viewport);
 }
 
-void Game::SetVertexData(Vertex* v, float wRatio, float hRatio, GameLinkLayout layout)
+void Game::SetVertexData(Vertex* v, float wRatio, float hRatio, EmulatorLayout layout)
 {
 	float wR = 1.f - (1.f - wRatio) * 2.f;
 	float hR = -1.f + (1.f - hRatio) * 2.f;
@@ -850,19 +850,19 @@ void Game::SetVertexData(Vertex* v, float wRatio, float hRatio, GameLinkLayout l
 
 	switch (layout)
 	{
-	case GameLinkLayout::FLIPPED_X:
+	case EmulatorLayout::FLIPPED_X:
         v[0].texcoord = { 1.f, 0.f };
         v[1].texcoord = { 0.f, 0.f };
         v[2].texcoord = { 0.f, 1.f };
         v[3].texcoord = { 1.f, 1.f };
 		break;
-	case GameLinkLayout::FLIPPED_Y:
+	case EmulatorLayout::FLIPPED_Y:
         v[0].texcoord = { 0.f, 0.f };
         v[1].texcoord = { 1.f, 0.f };
         v[2].texcoord = { 1.f, 1.f };
         v[3].texcoord = { 0.f, 1.f };
 		break;
-	case GameLinkLayout::FLIPPED_XY:
+	case EmulatorLayout::FLIPPED_XY:
         v[0].texcoord = { 1.f, 1.f };
         v[1].texcoord = { 0.f, 1.f };
         v[2].texcoord = { 0.f, 0.f };

@@ -89,7 +89,7 @@ bool ImageWriteBlock(ImageInfo* const pImageInfo, UINT nBlock, LPBYTE pBlockBuff
 
 UINT ImageGetNumTracks(ImageInfo* const pImageInfo);
 bool ImageIsWriteProtected(ImageInfo* const pImageInfo);
-const std::string & ImageGetPathname(ImageInfo* const pImageInfo);
+const std::wstring & ImageGetPathname(ImageInfo* const pImageInfo);
 UINT ImageGetImageSize(ImageInfo* const pImageInfo);
 bool ImageIsWOZ(ImageInfo* const pImageInfo);
 BYTE ImageGetOptimalBitTiming(ImageInfo* const pImageInfo);

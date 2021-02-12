@@ -41,7 +41,6 @@ All the other drivers and utilities available to me don't define the DOW mapping
 
 #include "pch.h"
 #include "NoSlotClock.h"
-#include "YamlHelper.h"
 
 CNoSlotClock::CNoSlotClock()
 :
@@ -178,32 +177,6 @@ std::string CNoSlotClock::GetSnapshotStructName(void)
 {
 	static const std::string name("No Slot Clock");
 	return name;
-}
-
-void CNoSlotClock::SaveSnapshot(YamlSaveHelper& yamlSaveHelper)
-{
-	YamlSaveHelper::Label state(yamlSaveHelper, "%s:\n", GetSnapshotStructName().c_str());
-	yamlSaveHelper.SaveBool(SS_YAML_KEY_CLOCK_REGISTER_ENABLED, m_bClockRegisterEnabled);
-	yamlSaveHelper.SaveBool(SS_YAML_KEY_WRITE_ENABLED, m_bWriteEnabled);
-	yamlSaveHelper.SaveHexUint64(SS_YAML_KEY_CLOCK_REGISTER_MASK, m_ClockRegister.m_Mask);
-	yamlSaveHelper.SaveHexUint64(SS_YAML_KEY_CLOCK_REGISTER, m_ClockRegister.m_Register);
-	yamlSaveHelper.SaveHexUint64(SS_YAML_KEY_COMPARISON_REGISTER_MASK, m_ComparisonRegister.m_Mask);
-	yamlSaveHelper.SaveHexUint64(SS_YAML_KEY_COMPARISON_REGISTER, m_ComparisonRegister.m_Register);
-}
-
-void CNoSlotClock::LoadSnapshot(YamlLoadHelper& yamlLoadHelper)
-{
-	if (!yamlLoadHelper.GetSubMap(GetSnapshotStructName()))
-		return;
-
-	m_bClockRegisterEnabled = yamlLoadHelper.LoadBool(SS_YAML_KEY_CLOCK_REGISTER_ENABLED);
-	m_bWriteEnabled = yamlLoadHelper.LoadBool(SS_YAML_KEY_WRITE_ENABLED);
-	m_ClockRegister.m_Mask = yamlLoadHelper.LoadUint64(SS_YAML_KEY_CLOCK_REGISTER_MASK);
-	m_ClockRegister.m_Register = yamlLoadHelper.LoadUint64(SS_YAML_KEY_CLOCK_REGISTER);
-	m_ComparisonRegister.m_Mask = yamlLoadHelper.LoadUint64(SS_YAML_KEY_COMPARISON_REGISTER_MASK);
-	m_ComparisonRegister.m_Register = yamlLoadHelper.LoadUint64(SS_YAML_KEY_COMPARISON_REGISTER);
-
-	yamlLoadHelper.PopMap();
 }
 
 CNoSlotClock::RingRegister64::RingRegister64()

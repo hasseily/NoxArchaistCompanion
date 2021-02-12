@@ -240,9 +240,9 @@ static void HD_SaveLastDiskImage(const int iDrive)
 
 	char szPathName[MAX_PATH];
 	strcpy(szPathName, HD_GetFullPathName(iDrive).c_str());
-	if (_tcsrchr(szPathName, TEXT('\\')))
+	if (wcsrchr(szPathName, TEXT('\\')))
 	{
-		char* pPathEnd = _tcsrchr(szPathName, TEXT('\\'))+1;
+		char* pPathEnd = wcsrchr(szPathName, TEXT('\\'))+1;
 		*pPathEnd = 0;
 		RegSaveString(TEXT(REG_PREFS), TEXT(REGVALUE_PREF_HDV_START_DIR), 1, szPathName);
 	}

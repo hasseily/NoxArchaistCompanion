@@ -214,7 +214,6 @@
     <None Include="Emulator\CPU\cpu_heatmap.inl" />
     <None Include="Emulator\CPU\cpu_instructions.inl" />
     <None Include="Emulator\Resources\Apple2e_Enhanced.rom" />
-    <None Include="Emulator\Resources\Base64A.rom" />
     <None Include="Emulator\Resources\DISK2.rom" />
     <None Include="Emulator\Resources\Hddrvr.bin" />
     <None Include="Emulator\Resources\Mockingboard-D.rom" />
