@@ -82,6 +82,10 @@ void Game::Initialize(HWND window, int width, int height)
     m_previousGameLinkFrameSequence = 0;
     shouldRender = true;
 
+	// Initialize emulator
+	EmulatorOneTimeInitialization(window);
+	EmulatorRepeatInitialization();
+
     GetClientRect(window, &m_cachedClientRect);
     m_clientFrameScale = 1.f;
     m_deviceResources->SetWindow(window, width, height, (float)GetFrameBufferWidth(), (float)GetFrameBufferHeight());
@@ -91,10 +95,6 @@ void Game::Initialize(HWND window, int width, int height)
 
     m_deviceResources->CreateWindowSizeDependentResources();
     CreateWindowSizeDependentResources();
-
-    // Initialize emulator
-    EmulatorOneTimeInitialization(window);
-	EmulatorRepeatInitialization();
 
     // TODO: We're doing 30 FPS fixed timestep update logic.
     // Might not be ideal
