@@ -217,8 +217,6 @@ static void HD_SaveLastDiskImage(const int iDrive)
 	wcscpy(szPathName, HD_GetFullPathName(iDrive).c_str());
 	if (wcsrchr(szPathName, TEXT('\\')))
 	{
-		wchar_t* pPathEnd = wcsrchr(szPathName, TEXT('\\'))+1;
-		*pPathEnd = 0;
 		g_nonVolatile.hdvPath = szPathName;
 		g_nonVolatile.SaveToDisk();
 	}
@@ -330,12 +328,14 @@ BOOL HD_Insert(const int iDrive, const std::wstring & pszImageFilename)
 
 	g_HardDisk[iDrive].hd_imageloaded = (Error == eIMAGE_ERROR_NONE);
 
-	HD_SaveLastDiskImage(iDrive);
-
-	// If we've just loaded the boot drive, tell Remote Control
-	if (iDrive == 0)
+	if (Error == eIMAGE_ERROR_NONE)
 	{
-		g_RemoteControlMgr.setLoadedHDInfo(g_HardDisk[iDrive].imagehandle);
+		HD_SaveLastDiskImage(iDrive);
+		// If we've just loaded the boot drive, tell Remote Control
+		if (iDrive == 0)
+		{
+			g_RemoteControlMgr.setLoadedHDInfo(g_HardDisk[iDrive].imagehandle);
+		}
 	}
 
 	return g_HardDisk[iDrive].hd_imageloaded;
