@@ -185,11 +185,11 @@ void VideoRedrawScreenDuringFullSpeed(DWORD dwCyclesThisFrame, bool bInit /*=fal
 	{
 		// Just entered full-speed mode
 //		bValid = false;
-		dwFullSpeedStartTime = GetTickCount();
+		dwFullSpeedStartTime = GetTickCount64();
 		return;
 	}
 
-	DWORD dwFullSpeedDuration = GetTickCount() - dwFullSpeedStartTime;
+	DWORD dwFullSpeedDuration = GetTickCount64() - dwFullSpeedStartTime;
 	if (dwFullSpeedDuration <= 16)	// Only update after every realtime ~17ms of *continuous* full-speed
 		return;
 
