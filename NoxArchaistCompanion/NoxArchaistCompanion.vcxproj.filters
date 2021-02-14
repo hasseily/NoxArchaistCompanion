@@ -10,7 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
-    <ClCompile Include="GameLink.cpp" />
     <ClCompile Include="HAUtils.cpp" />
     <ClCompile Include="LogWindow.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -27,9 +26,6 @@
     <ClCompile Include="Emulator\LanguageCard.cpp">
       <Filter>Emulator</Filter>
     </ClCompile>
-    <ClCompile Include="Emulator\Log.cpp">
-      <Filter>Emulator</Filter>
-    </ClCompile>
     <ClCompile Include="Emulator\Memory.cpp">
       <Filter>Emulator</Filter>
     </ClCompile>
@@ -38,9 +34,6 @@
     </ClCompile>
     <ClCompile Include="Emulator\SynchronousEventManager.cpp">
       <Filter>Emulator</Filter>
-    </ClCompile>
-    <ClCompile Include="Emulator\Disk2CardManager.cpp">
-      <Filter>Emulator\Disk</Filter>
     </ClCompile>
     <ClCompile Include="Emulator\DiskImage.cpp">
       <Filter>Emulator\Disk</Filter>
@@ -69,12 +62,6 @@
     <ClCompile Include="Emulator\Mockingboard.cpp">
       <Filter>Emulator\Sound</Filter>
     </ClCompile>
-    <ClCompile Include="Emulator\DirectInput.cpp">
-      <Filter>Emulator\Input</Filter>
-    </ClCompile>
-    <ClCompile Include="Emulator\Joystick.cpp">
-      <Filter>Emulator\Input</Filter>
-    </ClCompile>
     <ClCompile Include="Emulator\Keyboard.cpp">
       <Filter>Emulator\Input</Filter>
     </ClCompile>
@@ -87,10 +74,19 @@
     <ClCompile Include="Emulator\AY8910.cpp">
       <Filter>Emulator\Sound</Filter>
     </ClCompile>
+    <ClCompile Include="Emulator\AppleWin.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="RemoteControl\Gamelink.cpp">
+      <Filter>Remote Control</Filter>
+    </ClCompile>
+    <ClCompile Include="RemoteControl\RemoteControlManager.cpp">
+      <Filter>Remote Control</Filter>
+    </ClCompile>
+    <ClCompile Include="NonVolatile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h" />
-    <ClInclude Include="GameLink.h" />
     <ClInclude Include="HAUtils.h" />
     <ClInclude Include="LogWindow.h" />
     <ClInclude Include="pch.h" />
@@ -135,9 +131,6 @@
     <ClInclude Include="Emulator\LanguageCard.h">
       <Filter>Emulator</Filter>
     </ClInclude>
-    <ClInclude Include="Emulator\Log.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
     <ClInclude Include="Emulator\Memory.h">
       <Filter>Emulator</Filter>
     </ClInclude>
@@ -147,9 +140,6 @@
     <ClInclude Include="Emulator\SynchronousEventManager.h">
       <Filter>Emulator</Filter>
     </ClInclude>
-    <ClInclude Include="Emulator\Disk2CardManager.h">
-      <Filter>Emulator\Disk</Filter>
-    </ClInclude>
     <ClInclude Include="Emulator\DiskDefs.h">
       <Filter>Emulator\Disk</Filter>
     </ClInclude>
@@ -157,9 +147,6 @@
       <Filter>Emulator\Disk</Filter>
     </ClInclude>
     <ClInclude Include="Emulator\DiskImageHelper.h">
-      <Filter>Emulator\Disk</Filter>
-    </ClInclude>
-    <ClInclude Include="Emulator\DiskLog.h">
       <Filter>Emulator\Disk</Filter>
     </ClInclude>
     <ClInclude Include="Emulator\Harddisk.h">
@@ -183,12 +170,6 @@
     <ClInclude Include="Emulator\Mockingboard.h">
       <Filter>Emulator\Sound</Filter>
     </ClInclude>
-    <ClInclude Include="Emulator\DirectInput.h">
-      <Filter>Emulator\Input</Filter>
-    </ClInclude>
-    <ClInclude Include="Emulator\Joystick.h">
-      <Filter>Emulator\Input</Filter>
-    </ClInclude>
     <ClInclude Include="Emulator\Keyboard.h">
       <Filter>Emulator\Input</Filter>
     </ClInclude>
@@ -204,6 +185,16 @@
     <ClInclude Include="Emulator\AY8910.h">
       <Filter>Emulator\Sound</Filter>
     </ClInclude>
+    <ClInclude Include="Emulator\AppleWin.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="RemoteControl\Gamelink.h">
+      <Filter>Remote Control</Filter>
+    </ClInclude>
+    <ClInclude Include="RemoteControl\RemoteControlManager.h">
+      <Filter>Remote Control</Filter>
+    </ClInclude>
+    <ClInclude Include="NonVolatile.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
@@ -310,6 +301,9 @@
     </Filter>
     <Filter Include="Emulator\Resources">
       <UniqueIdentifier>{5a88e559-392f-4f43-ad30-5cfe8374fc52}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Remote Control">
+      <UniqueIdentifier>{98874c3e-7d86-4875-b771-9ab6a7f9e3e6}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

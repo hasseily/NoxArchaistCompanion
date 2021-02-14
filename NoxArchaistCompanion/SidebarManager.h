@@ -7,8 +7,6 @@
 /// Sidebar Manager determines where each sidebar is located, and handles their origin point
 /// </summary>
 
-constexpr int APPLEWIN_WIDTH = 600;
-constexpr int APPLEWIN_HEIGHT = 420;
 constexpr int SIDEBAR_LR_WIDTH = 200;		// Sidebar Left/Right width
 constexpr int SIDEBAR_TB_HEIGHT = 100;		// Sidebar TOB/BOTTOM height
 constexpr UINT8 SIDEBARS_MAX_COUNT = 10;	// Max number of sidebars possible

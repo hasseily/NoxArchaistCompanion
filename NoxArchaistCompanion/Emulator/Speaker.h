@@ -1,10 +1,6 @@
 #pragma once
 
-// Registry soundtype:
-#define  REG_SOUNDTYPE_NONE    0
-#define  REG_SOUNDTYPE_DIRECT  1	// Not supported from 1.26
-#define  REG_SOUNDTYPE_SMART   2	// Not supported from 1.26
-#define  REG_SOUNDTYPE_WAVE    3
+constexpr auto VOLUME_MAX = 59U;
 
 enum SoundType_e
 {
@@ -30,7 +26,5 @@ void    Spkr_Mute();
 void    Spkr_Demute();
 bool    Spkr_IsActive();
 bool    Spkr_DSInit();
-void    SpkrSaveSnapshot(class YamlSaveHelper& yamlSaveHelper);
-void    SpkrLoadSnapshot(class YamlLoadHelper& yamlLoadHelper);
 
 BYTE __stdcall SpkrToggle (WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG nExecutedCycles);

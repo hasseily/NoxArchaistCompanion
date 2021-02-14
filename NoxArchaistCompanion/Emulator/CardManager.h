@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Card.h"
-#include "Disk2CardManager.h"
 #include "Common.h"
 
 class CardManager
@@ -46,7 +45,6 @@ public:
 
 	//
 
-	Disk2CardManager& GetDisk2CardMgr(void) { return m_disk2CardMgr; }
 	class CMouseInterface* GetMouseCard(void) { return m_pMouseCard; }
 	bool IsMouseCardInstalled(void) { return m_pMouseCard != NULL; }
 	class CSuperSerialCard* GetSSC(void) { return m_pSSC; }
@@ -57,7 +55,6 @@ private:
 
 	Card* m_slot[NUM_SLOTS];
 	Card* m_aux;
-	Disk2CardManager m_disk2CardMgr;
 	class CMouseInterface* m_pMouseCard;
 	class CSuperSerialCard* m_pSSC;
 };

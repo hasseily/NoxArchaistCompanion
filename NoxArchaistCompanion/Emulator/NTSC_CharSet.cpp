@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "pch.h"
 #include "NTSC_CharSet.h"
 #include "AppleWin.h"
-#include "../resource/resource.h"
+#include "resource.h"
 #include "Video.h"
 
 
@@ -71,7 +71,7 @@ static void get_csbits_xy(csbits_t csbits, UINT ch, UINT cx, UINT cy, const BYTE
 	}
 }
 
-static void get_csbits(csbits_t csbits, const char* resourceName, const UINT cy0)
+static void get_csbits(csbits_t csbits, const wchar_t* resourceName, const UINT cy0)
 {
 	const UINT bufferSize = bitmapWidthBytes*bitmapHeight;
 	BYTE* pBuffer = new BYTE [bufferSize];
@@ -181,21 +181,11 @@ static void userVideoRomForIIe(void)
 
 //-------------------------------------
 
-static void userVideoRom2K(csbits_t csbits, const BYTE* pVideoRom, const eApple2Type type = A2TYPE_APPLE2, const int AN2=0);
-
 static void userVideoRom2K(csbits_t csbits, const BYTE* pVideoRom, const eApple2Type type /*= A2TYPE_APPLE2*/, const int AN2/*=0*/)
 {
 	for (int i=0; i<256; i++)
 	{
 		int RA = i*8;	// rom address
-
-		if (type == A2TYPE_APPLE2JPLUS)
-		{
-			// AN2=0: $00-3F, $00-3F; $80-BF, $80-BF => KKAA (Repeat Katakana)
-			// AN2=1: $40-7F, $40-7F; $C0-FF, $C0-FF => AAAA (Repeat ASCII)
-			RA &= ~(1<<(6+3));
-			RA |= (AN2<<(6+3));	// AN2 controls A9 (UTAII 8-12, Fig 8.7)
-		}
 
 		for (int y=0; y<8; y++)
 		{
@@ -207,92 +197,19 @@ static void userVideoRom2K(csbits_t csbits, const BYTE* pVideoRom, const eApple2
 			// Base64A: Bit 0 instead of bit 7
 			if (RA < 1024)
 			{
-				if (type == A2TYPE_BASE64A)
-				{
-					if (!(n & 0x01))
-						n = n ^ 0xfe;
-				}
-				else
-				{
-					if (!(n & 0x80) || (type == A2TYPE_APPLE2JPLUS))
-						n = n ^ 0x7f;
-				}
+				if (!(n & 0x80))
+					n = n ^ 0x7f;
 			}
 
 			BYTE d = 0;
-			if (type == A2TYPE_BASE64A)
-			{
-				// On the Base 64A bits are ordered 1345672.
-				d = (n >> 2) | ((n & 2) >> 1) | ((n & 4) << 4);
-			}
-			else
-			{
-				// UTAII:8-30 "TEXT ROM pattern is ... reversed"
-				for (BYTE j = 0; j < 7; j++, n >>= 1)	// Just bits [0..6]
-					d = (d << 1) | (n & 1);
-			}
+			// UTAII:8-30 "TEXT ROM pattern is ... reversed"
+			for (BYTE j = 0; j < 7; j++, n >>= 1)	// Just bits [0..6]
+				d = (d << 1) | (n & 1);
 
 			csbits[0][i][y] = d;
 		}
 	}
 }
-
-static void userVideoRomForIIPlus(void)
-{
-	const BYTE* pVideoRom;
-	UINT size = GetVideoRom(pVideoRom);	// 2K or 4K or 8K
-	if (size != kVideoRomSize2K)
-		return;
-
-	userVideoRom2K(&csbits_a2[0], pVideoRom);
-}
-
-//-------------------------------------
-
-static void VideoRomForIIJPlus(void)
-{
-	HRSRC hResInfo = FindResource(NULL, MAKEINTRESOURCE(IDR_APPLE2_JPLUS_VIDEO_ROM), "ROM");
-	if (hResInfo == NULL)
-		return;
-
-	DWORD dwResSize = SizeofResource(NULL, hResInfo);
-	if(dwResSize != kVideoRomSize2K)
-		return;
-
-	HGLOBAL hResData = LoadResource(NULL, hResInfo);
-	if(hResData == NULL)
-		return;
-
-	BYTE* pVideoRom = (BYTE*) LockResource(hResData);	// NB. Don't need to unlock resource
-	if (pVideoRom == NULL)
-		return;
-
-	userVideoRom2K(&csbits_a2j[0], pVideoRom, A2TYPE_APPLE2JPLUS, 0);
-	userVideoRom2K(&csbits_a2j[1], pVideoRom, A2TYPE_APPLE2JPLUS, 1);
-}
-
-static void VideoRomForBase64A(void)
-{
-	HRSRC hResInfo = FindResource(NULL, MAKEINTRESOURCE(IDR_BASE64A_VIDEO_ROM), "ROM");
-	if (hResInfo == NULL)
-		return;
-
-	DWORD dwResSize = SizeofResource(NULL, hResInfo);
-	if (dwResSize != kVideoRomSize4K)
-		return;
-
-	HGLOBAL hResData = LoadResource(NULL, hResInfo);
-	if (hResData == NULL)
-		return;
-
-	BYTE* pVideoRom = (BYTE*)LockResource(hResData);	// NB. Don't need to unlock resource
-	if (pVideoRom == NULL)
-		return;
-
-	userVideoRom2K(&csbits_base64a[0], pVideoRom, A2TYPE_BASE64A, 0);
-	userVideoRom2K(&csbits_base64a[1], pVideoRom + kVideoRomSize2K, A2TYPE_BASE64A, 0);
-}
-
 
 //-------------------------------------
 
@@ -310,14 +227,8 @@ void make_csbits(void)
 	memcpy(csbits_2e, csbits_enhanced2e, sizeof(csbits_enhanced2e));
 	memcpy(&csbits_2e[1][64], &csbits_2e[0][64], 32*8);
 
-	VideoRomForIIJPlus();	// GH#773
-	VideoRomForBase64A();	// GH#806
-
 	// Try to use any user-provided video ROM for Original/Enhanced //e
 	userVideoRomForIIe();
-
-	// Try to use any user-provided video ROM for II/II+
-	userVideoRomForIIPlus();
 }
 
 csbits_t Get2e_csbits(void)

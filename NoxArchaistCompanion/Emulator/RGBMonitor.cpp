@@ -2,6 +2,7 @@
 
 #include "pch.h"
 
+#include "AppleWin.h"
 #include "RGBMonitor.h"
 #include "Memory.h" // MemGetMainPtr() MemGetAuxPtr()
 #include "Video.h"

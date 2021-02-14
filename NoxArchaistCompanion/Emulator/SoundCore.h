@@ -3,6 +3,11 @@
 #include <mmreg.h>
 #include <dsound.h>
 
+// These are the volume limits for the UI to use
+// Then they get converted to Direct Sound limits of -10,000 to 0
+constexpr long VOLUME_MIN = 0;
+constexpr long VOLUME_MAX = 59;
+
 #define MAX_SAMPLES (16*1024)
 
 #define SAFE_RELEASE(p)      { if(p) { (p)->Release(); (p)=NULL; } }
@@ -45,7 +50,7 @@ void SoundCore_SetErrorInc(const int nErrorInc);
 int SoundCore_GetErrorMax();
 void SoundCore_SetErrorMax(const int nErrorMax);
 
-bool DSInit();
+bool DSInit(HWND window);
 void DSUninit();
 
 LONG NewVolume(DWORD dwVolume, DWORD dwVolumeMax);

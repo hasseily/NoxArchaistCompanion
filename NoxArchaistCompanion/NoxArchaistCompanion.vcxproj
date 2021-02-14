@@ -100,6 +100,7 @@
   <ItemGroup>
     <ClInclude Include="ATGColors.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="Emulator\AppleWin.h" />
     <ClInclude Include="Emulator\AY8910.h" />
     <ClInclude Include="Emulator\Card.h" />
     <ClInclude Include="Emulator\CardManager.h" />
@@ -107,17 +108,12 @@
     <ClInclude Include="Emulator\CPU.h" />
     <ClInclude Include="Emulator\CPU\cpu6502.h" />
     <ClInclude Include="Emulator\CPU\cpu65C02.h" />
-    <ClInclude Include="Emulator\DirectInput.h" />
-    <ClInclude Include="Emulator\Disk2CardManager.h" />
     <ClInclude Include="Emulator\DiskDefs.h" />
     <ClInclude Include="Emulator\DiskImage.h" />
     <ClInclude Include="Emulator\DiskImageHelper.h" />
-    <ClInclude Include="Emulator\DiskLog.h" />
     <ClInclude Include="Emulator\Harddisk.h" />
-    <ClInclude Include="Emulator\Joystick.h" />
     <ClInclude Include="Emulator\Keyboard.h" />
     <ClInclude Include="Emulator\LanguageCard.h" />
-    <ClInclude Include="Emulator\Log.h" />
     <ClInclude Include="Emulator\Memory.h" />
     <ClInclude Include="Emulator\Mockingboard.h" />
     <ClInclude Include="Emulator\NoSlotClock.h" />
@@ -131,11 +127,13 @@
     <ClInclude Include="Emulator\Video.h" />
     <ClInclude Include="FindMedia.h" />
     <ClInclude Include="Game.h" />
-    <ClInclude Include="GameLink.h" />
     <ClInclude Include="HAUtils.h" />
     <ClInclude Include="LogWindow.h" />
+    <ClInclude Include="NonVolatile.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="ReadData.h" />
+    <ClInclude Include="RemoteControl\Gamelink.h" />
+    <ClInclude Include="RemoteControl\RemoteControlManager.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Sidebar.h" />
     <ClInclude Include="SidebarContent.h" />
@@ -145,18 +143,15 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Emulator\AppleWin.cpp" />
     <ClCompile Include="Emulator\AY8910.cpp" />
     <ClCompile Include="Emulator\CardManager.cpp" />
     <ClCompile Include="Emulator\CPU.cpp" />
-    <ClCompile Include="Emulator\DirectInput.cpp" />
-    <ClCompile Include="Emulator\Disk2CardManager.cpp" />
     <ClCompile Include="Emulator\DiskImage.cpp" />
     <ClCompile Include="Emulator\DiskImageHelper.cpp" />
     <ClCompile Include="Emulator\Harddisk.cpp" />
-    <ClCompile Include="Emulator\Joystick.cpp" />
     <ClCompile Include="Emulator\Keyboard.cpp" />
     <ClCompile Include="Emulator\LanguageCard.cpp" />
-    <ClCompile Include="Emulator\Log.cpp" />
     <ClCompile Include="Emulator\Memory.cpp" />
     <ClCompile Include="Emulator\Mockingboard.cpp" />
     <ClCompile Include="Emulator\NoSlotClock.cpp" />
@@ -168,17 +163,19 @@
     <ClCompile Include="Emulator\SynchronousEventManager.cpp" />
     <ClCompile Include="Emulator\Video.cpp" />
     <ClCompile Include="Game.cpp" />
-    <ClCompile Include="GameLink.cpp" />
     <ClCompile Include="HAUtils.cpp" />
     <ClCompile Include="LogWindow.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="DeviceResources.cpp">
       <DeploymentContent>false</DeploymentContent>
     </ClCompile>
+    <ClCompile Include="NonVolatile.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="RemoteControl\Gamelink.cpp" />
+    <ClCompile Include="RemoteControl\RemoteControlManager.cpp" />
     <ClCompile Include="Sidebar.cpp" />
     <ClCompile Include="SidebarContent.cpp" />
     <ClCompile Include="SidebarManager.cpp" />

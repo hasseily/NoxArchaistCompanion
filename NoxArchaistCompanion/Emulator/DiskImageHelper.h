@@ -360,7 +360,7 @@ public:
 			delete m_vecImageTypes[i];
 	}
 
-	ImageError_e Open(LPCTSTR pszImageFilename, ImageInfo* pImageInfo, const bool bCreateIfNecessary, std::string& strFilenameInZip);
+	ImageError_e Open(LPCTSTR pszImageFilename, ImageInfo* pImageInfo, const bool bCreateIfNecessary);
 	void Close(ImageInfo* pImageInfo);
 	bool WOZUpdateInfo(ImageInfo* pImageInfo, DWORD& dwOffset);
 

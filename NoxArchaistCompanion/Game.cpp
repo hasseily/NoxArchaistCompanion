@@ -7,9 +7,11 @@
 #include "SidebarManager.h"
 #include "SidebarContent.h"
 #include "Sidebar.h"
-#include "GameLink.h"
+#include "RemoteControl/Gamelink.h"
 #include "LogWindow.h"
+#include "Keyboard.h"
 #include "HAUtils.h"
+#include "Emulator/AppleWin.h"
 #include <vector>
 
 using namespace DirectX;
@@ -20,6 +22,7 @@ using namespace HA;
 // AppleWin video texture
 D3D12_SUBRESOURCE_DATA g_textureData;
 ComPtr<ID3D12Resource> g_textureUploadHeap;
+extern  LPBITMAPINFO  g_pFramebufferinfo;
 
 // Instance variables
 HWND m_window;
@@ -42,6 +45,7 @@ Game::Game() noexcept(false)
     g_textureData = {};
     m_sbM = SidebarManager();
     m_sbC = SidebarContent();
+    GameLink::Init(false);
 
     m_deviceResources = std::make_unique<DX::DeviceResources>();
     m_deviceResources->RegisterDeviceNotify(this);
@@ -57,7 +61,7 @@ Game::~Game()
     {
         m_deviceResources->WaitForGpu();
     }
-    GameLink::Destroy();
+    GameLink::Term();
 }
 
 // Initialize the Direct3D resources required to run.
@@ -85,7 +89,7 @@ void Game::Initialize(HWND window, int width, int height)
 
     GetClientRect(window, &m_cachedClientRect);
     m_clientFrameScale = 1.f;
-    m_deviceResources->SetWindow(window, width, height, (float)APPLEWIN_WIDTH, (float)APPLEWIN_HEIGHT);
+    m_deviceResources->SetWindow(window, width, height, (float)GetFrameBufferWidth(), (float)GetFrameBufferHeight());
 
     m_deviceResources->CreateDeviceResources();
     CreateDeviceDependentResources();
@@ -93,42 +97,16 @@ void Game::Initialize(HWND window, int width, int height)
     m_deviceResources->CreateWindowSizeDependentResources();
     CreateWindowSizeDependentResources();
 
+    // Initialize emulator sound
+    DSInit(window);
+	MB_Initialize();
+	SpkrInitialize();
+
     // TODO: We're doing 30 FPS fixed timestep update logic.
     // Might not be ideal
     
     m_timer.SetFixedTimeStep(true);
-    m_timer.SetTargetElapsedSeconds(1.0 / 30);
-    
-    /*
-    // Launch AppleWin!
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-
-	ZeroMemory(&si, sizeof(si));
-	si.cb = sizeof(si);
-	ZeroMemory(&pi, sizeof(pi));
-
-	// Start the child process. 
-    if (!CreateProcess(NULL,   // No module name (use command line)
-        L"AWN.exe -no-printscreen-dlg -remote-control-headless -h1 NOXARCHAIST.HDV",        // Command line
-        NULL,           // Process handle not inheritable
-        NULL,           // Thread handle not inheritable
-        FALSE,          // Set handle inheritance to FALSE
-        0,              // No creation flags
-        NULL,           // Use parent's environment block
-        NULL,           // Use parent's starting directory 
-        &si,            // Pointer to STARTUPINFO structure
-        &pi)           // Pointer to PROCESS_INFORMATION structure
-        )
-    {
-		// Quit!
-		if (MessageBox(HWND_TOP, TEXT("Can't find AppleWin Nox - Reinstall!"), TEXT("Quit"), MB_OK | MB_ICONWARNING | MB_DEFBUTTON1 | MB_SYSTEMMODAL) == IDOK)
-		{
-			GameLink::Shutdown();
-			PostQuitMessage(0);
-		}
-    }
-    */
+    m_timer.SetTargetElapsedSeconds(1.0 / 30);    
 }
 
 #pragma region Activate GameLink
@@ -142,34 +120,28 @@ D3D12_RESOURCE_DESC Game::ChooseTexture()
     txtDesc.SampleDesc.Count = 1;
     txtDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
-    // Check if the shared memory exists. If so, use it.
-    // char buf[500];
-    bool is_using_gamelink = false;
-    if (m_useGameLink)
-    {
-        if (GameLink::Init())
-        {
-            auto fbI = GameLink::GetFrameBufferInfo();
-            txtDesc.Width = fbI.width;
-            txtDesc.Height = fbI.height;
-            g_textureData.pData = fbI.frameBuffer;
-            g_textureData.SlicePitch = fbI.bufferLength;
-            SetVideoLayout(EmulatorLayout::FLIPPED_Y);
-            is_using_gamelink = true;
-            //sprintf_s(buf, "GameLink up with Width %d, Height %d\n", fbI.width, fbI.height);
-            //OutputDebugStringA(buf);
-        }
-    }
-    // If GameLink is active, it could return a framebuffer of size (0,0).
-    // This means it's in a waiting state for a program to be loaded or in pause
-    if (!is_using_gamelink || (txtDesc.Width == 0))
-    {
-        txtDesc.Width = m_bgImageWidth;
-        txtDesc.Height = m_bgImageHeight;
-        g_textureData.pData = m_bgImage.data();
-        g_textureData.SlicePitch = m_bgImage.size();
-        SetVideoLayout(EmulatorLayout::NORMAL);
-    }
+	switch (g_nAppMode)
+	{
+	case AppMode_e::MODE_LOGO:
+	{
+		txtDesc.Width = m_bgImageWidth;
+		txtDesc.Height = m_bgImageHeight;
+		g_textureData.pData = m_bgImage.data();
+		g_textureData.SlicePitch = m_bgImage.size();
+		SetVideoLayout(EmulatorLayout::NORMAL);
+		break;
+	}
+	default:
+	{
+        auto fbI = g_pFramebufferinfo->bmiHeader;
+		txtDesc.Width = fbI.biWidth;
+		txtDesc.Height = fbI.biHeight;
+		g_textureData.pData = g_pFramebufferbits;
+		g_textureData.SlicePitch = GetFrameBufferWidth() * GetFrameBufferHeight() * sizeof(bgra_t);
+		SetVideoLayout(EmulatorLayout::NORMAL);
+		break;
+	}
+	}
     g_textureData.RowPitch = static_cast<LONG_PTR>(txtDesc.Width * sizeof(uint32_t));
     return txtDesc;
 }
@@ -379,10 +351,10 @@ void Game::Render()
         switch (sb.type)
         {
         case SidebarTypes::Right:
-			lend.y += APPLEWIN_HEIGHT;
+			lend.y += GetFrameBufferHeight();
 			break;
 		case SidebarTypes::Bottom:
-			lend.x += APPLEWIN_WIDTH;
+			lend.x += GetFrameBufferWidth();
 			break;
 		default:
 			break;
@@ -397,23 +369,11 @@ void Game::Render()
 #ifdef _DEBUG
     // TEMPORARY
     // TODO: REMOVE
-    // DISPLAY PC AT TOP LEFT OF WINDOW
     char pcbuf[11];
-    snprintf(pcbuf, sizeof(pcbuf), "DEBUG %.2x%.2x", GameLink::GetPeekAt(0), GameLink::GetPeekAt(1));
+    snprintf(pcbuf, sizeof(pcbuf), "DEBUG");
     m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
         { 10.f, 10.f }, Colors::OrangeRed, 0.f, m_vector2ero, m_clientFrameScale);
 #endif // _DEBUG
-    // This is for writing to the log. Ideally it shouldn't be here
-    // It should be in the SidebarContent and should be configured from the meta structure of the profile json
-    // But it's so customized (in this case for Nox Archaist) that it's not worth parametrizing.
-    std::wstring ws;
-    GameLink::GetAutoLogString(&ws);
-    // validation to avoid double-printing lines
-    if (ws != last_logged_line)
-    {
-        m_logWindow->AppendLog(ws);
-        last_logged_line = ws;
-    }
 
     m_spriteBatch->End();
     // End drawing text
@@ -514,15 +474,15 @@ void Game::OnWindowSizeChanged(LONG width, LONG height)
 //     snprintf(buf, 300, "Scales are; %.2f , %.2f\n", scaleW, scaleH);
 //     OutputDebugStringA(buf);
     
-    float gamelinkWidth = scaleW * (float)APPLEWIN_WIDTH;
-    float gamelinkHeight = scaleH * (float)APPLEWIN_HEIGHT;
+    float gamelinkWidth = scaleW * (float)GetFrameBufferWidth();
+    float gamelinkHeight = scaleH * (float)GetFrameBufferHeight();
 
     // don't check return status of the below because we still want to recreate the vertex data
     if (m_deviceResources->WindowSizeChanged(&outSize, &m_cachedClientRect, gamelinkWidth, gamelinkHeight))
     {
         CreateWindowSizeDependentResources();
     }
-    UpdateGamelinkVertexData(width, height, (float)APPLEWIN_WIDTH/(float)origW, (float)APPLEWIN_HEIGHT/(float)origH);
+    UpdateGamelinkVertexData(width, height, (float)GetFrameBufferWidth()/(float)origW, (float)GetFrameBufferHeight()/(float)origH);
 }
 
 #pragma endregion
@@ -817,7 +777,7 @@ void Game::CreateDeviceDependentResources()
 
     m_lineEffect = std::make_unique<BasicEffect>(device, EffectFlags::VertexColor, epd);
 
-    m_lineEffect->SetProjection(XMMatrixOrthographicOffCenterRH(0, APPLEWIN_WIDTH, APPLEWIN_HEIGHT, 0, 0, 1));
+    m_lineEffect->SetProjection(XMMatrixOrthographicOffCenterRH(0, GetFrameBufferWidth(), GetFrameBufferHeight(), 0, 0, 1));
 
     /// <summary>
     /// Finish

@@ -34,7 +34,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "CPU.h"
 #include "DiskImage.h"
-#include "Log.h"
 #include "Memory.h"
 #include <sstream>	// RIK -- Parse metadata of WOZ disks
 #include "Applewin.h"	// RIK -- g_programName
@@ -697,12 +696,6 @@ public:
 					prologueHdr |= pTrack[byte++];
 					if (byte == NIB1_TRACK_SIZE) byte = 0;
 				}
-				if (prologueHdr != 0xD5AA96 && prologueHdr != 0xD5AAB5)	// ProDOS/DOS 3.3 or DOS 3.2
-				{
-					std::wstring warning = L"Warning: T$%02X: NIB image's first D5 header isn't D5AA96 or D5AAB5 (found: %06X)\n";
-					LogOutput(warning.c_str(), track, prologueHdr);
-					LogFileOutput(warning.c_str(), track, prologueHdr);
-				}
 				break;
 			}
 		}
@@ -1091,7 +1084,6 @@ public:
 		if (nNibbles > CWOZHelper::WOZ1_TRK_OFFSET)
 		{
 			_ASSERT(0);
-			LogFileOutput(L"WOZ1 Write Track: failed - track too big (%08X, phase=%f) for file: %s\n", nNibbles, phase, pImageInfo->szFilename.c_str());
 			return;
 		}
 
@@ -1148,7 +1140,6 @@ public:
 			if (trackSize != nNibbles)
 			{
 				_ASSERT(0);
-				LogFileOutput(L"WOZ1 Write Track: (warning) attempting to write %08X when trackSize is %08X (phase=%f)\n", nNibbles, trackSize, phase);
 				// NB. just a warning, not a failure (therefore nNibbles < WOZ1_TRK_OFFSET, due to check at start of function)
 			}
 		}
@@ -1156,7 +1147,6 @@ public:
 		if (!WriteTrack(pImageInfo, indexFromTMAP, pTrackImageBuffer, trkExtendedSize))
 		{
 			_ASSERT(0);
-			LogFileOutput(L"WOZ1 Write Track: failed to write track (phase=%f) for file: %s\n", phase, pImageInfo->szFilename.c_str());
 			return;
 		}
 
@@ -1164,7 +1154,6 @@ public:
 		if (!UpdateWOZHeaderCRC(pImageInfo, this, hdrExtendedSize))
 		{
 			_ASSERT(0);
-			LogFileOutput(L"WOZ1 Write Track: failed to write header CRC for file: %s\n", pImageInfo->szFilename.c_str());
 		}
 	}
 
@@ -1209,7 +1198,6 @@ public:
 		if (*pNibbles > (int)maxNibblesPerTrack)
 		{
 			_ASSERT(0);
-			LogFileOutput(L"WOZ2 Read Track: attempting to read more than max nibbles! (phase=%f)\n", phase);
 			return ReadEmptyTrack(pTrackImageBuffer, pNibbles, pBitCount);	// TODO: Enlarge track buffer, but for now just return an empty track
 		}
 
@@ -1277,7 +1265,6 @@ public:
 			if (trackSize != nNibbles)
 			{
 				_ASSERT(0);
-				LogFileOutput(L"WOZ2 Write Track: attempting to write %08X when trackSize is %08X (phase=%f)\n", nNibbles, trackSize, phase);
 				return;
 			}
 		}
@@ -1288,7 +1275,6 @@ public:
 		if (!WriteImageData(pImageInfo, &pImageInfo->pImageBuffer[offset], trkExtendedSize, offset))
 		{
 			_ASSERT(0);
-			LogFileOutput(L"WOZ2 Write Track: failed to write track (phase=%f) for file: %s\n", phase, pImageInfo->szFilename.c_str());
 			return;
 		}
 
@@ -1296,7 +1282,6 @@ public:
 		if (!UpdateWOZHeaderCRC(pImageInfo, this, hdrExtendedSize))
 		{
 			_ASSERT(0);
-			LogFileOutput(L"WOZ2 Write Track: failed to write header CRC for file: %s\n", pImageInfo->szFilename.c_str());
 		}
 	}
 
@@ -1717,8 +1702,7 @@ void CImageHelperBase::SetImageInfo(ImageInfo* pImageInfo, FileType_e fileType, 
 
 ImageError_e CImageHelperBase::Open(	LPCTSTR pszImageFilename,
 										ImageInfo* pImageInfo,
-										const bool bCreateIfNecessary,
-										std::string& strFilenameInZip)
+										const bool bCreateIfNecessary)
 {
 	pImageInfo->hFile = INVALID_HANDLE_VALUE;
 

@@ -29,17 +29,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "pch.h"
-
+#include <mmsystem.h>
 #include "Memory.h"
 #include "AppleWin.h"
 #include "CardManager.h"
 #include "CPU.h"
-#include "Frame.h"
 #include "Harddisk.h"
-#include "Joystick.h"
 #include "Keyboard.h"
 #include "LanguageCard.h"
-#include "Log.h"
 #include "Mockingboard.h"
 #include "Video.h"
 #include "NTSC.h"
@@ -51,6 +48,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <map>
 #include "RemoteControl/RemoteControlManager.h"	// RIK -- For shared memory
 
+constexpr unsigned int _6502_MEM_END = 0xFFFF;
+constexpr unsigned int _6502_MEM_LEN = _6502_MEM_END + 1;
 
 // UTAIIe:5-28 (GH#419)
 // . Sather uses INTCXROM instead of SLOTCXROM' (used by the Apple//e Tech Ref Manual), so keep to this
@@ -208,11 +207,9 @@ static UINT    memrompages = 1;
 static CNoSlotClock* g_NoSlotClock = new CNoSlotClock;
 static LanguageCardUnit* g_pLanguageCard = NULL;	// For all Apple II, //e and above
 
-#ifdef RAMWORKS
 static UINT		g_uMaxExPages = 1;				// user requested ram pages (default to 1 aux bank: so total = 128KB)
 static UINT		g_uActiveBank = 0;				// 0 = aux 64K for: //e extended 80 Col card, or //c -- ALSO RAMWORKS
-static LPBYTE	RWpages[kMaxExMemoryBanks];		// pointers to RW memory banks
-#endif
+static LPBYTE	RWpages[1];						// pointers to aux memory banks
 
 static const UINT kNumAnnunciators = 4;
 static bool g_Annunciator[kNumAnnunciators] = {};
@@ -272,7 +269,7 @@ void SetExpansionMemType(const SS_CARDTYPE type)
 	else if (type == CT_RamWorksIII)
 	{
 		g_MemTypeAppleIIe = type;
-		ewSlotAuxCard = type;
+		newSlotAuxCard = type;
 	}
 
 	GetCardMgr().Insert(SLOT0, newSlot0Card);
@@ -290,23 +287,6 @@ void CreateLanguageCard(void)
 SS_CARDTYPE GetCurrentExpansionMemType(void)
 {
 	return GetCardMgr().QueryAux();
-}
-
-//
-
-void SetRamWorksMemorySize(UINT pages)
-{
-	g_uMaxExPages = pages;
-}
-
-UINT GetRamWorksActiveBank(void)
-{
-	return g_uActiveBank;
-}
-
-void SetSaturnMemorySize(UINT banks)
-{
-	g_uSaturnBanksFromCmdLine = banks;
 }
 
 //
@@ -342,7 +322,7 @@ LanguageCardUnit* GetLanguageCard(void)
 
 LPBYTE GetCxRomPeripheral(void)
 {
-	return pCxRomPeripheral;	// Can be NULL if at MODE_LOGO
+	return pCxRomPeripheral;	// Can be NULL if at AppMode_e::MODE_LOGO
 }
 
 //=============================================================================
@@ -490,18 +470,8 @@ static BYTE __stdcall IORead_C06x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG
 {	
 	switch (addr & 0x7) // address bit 4 is ignored (UTAIIe:7-5)
 	{
-	//In Pravets8A/C if SETMODE (8bit character encoding) is enabled, bit6 in $C060 is 0; Else it is 1
-	//If (CAPS lOCK of Pravets8A/C is on or Shift is pressed) and (MODE is enabled), bit7 in $C000 is 1; Else it is 0
-	//Writing into $C060 sets MODE on and off. If bit 0 is 0 the the MODE is set 0, if bit 0 is 1 then MODE is set to 1 (8-bit)
-
-	case 0x0:	return IO_Null(pc, addr, bWrite, d, nExecutedCycles);			// $C060 TAPEIN -- No tape support
-	case 0x1:	return JoyReadButton(pc, addr, bWrite, d, nExecutedCycles);		//$C061 Digital input 0 (If bit 7=1 then JoyButton 0 or OpenApple is pressed)
-	case 0x2:	return JoyReadButton(pc, addr, bWrite, d, nExecutedCycles);		//$C062 Digital input 1 (If bit 7=1 then JoyButton 1 or ClosedApple is pressed)
-	case 0x3:	return JoyReadButton(pc, addr, bWrite, d, nExecutedCycles);		//$C063 Digital input 2
-	case 0x4:	return JoyReadPosition(pc, addr, bWrite, d, nExecutedCycles);	//$C064 Analog input 0
-	case 0x5:	return JoyReadPosition(pc, addr, bWrite, d, nExecutedCycles);	//$C065 Analog input 1
-	case 0x6:	return JoyReadPosition(pc, addr, bWrite, d, nExecutedCycles);	//$C066 Analog input 2
-	case 0x7:	return JoyReadPosition(pc, addr, bWrite, d, nExecutedCycles);	//$C067 Analog input 3
+		// no support for mouse or joystick
+		return IO_Null(pc, addr, bWrite, d, nExecutedCycles);
 	}
 
 	return 0;
@@ -522,7 +492,6 @@ static BYTE __stdcall IOWrite_C06x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULON
 static BYTE __stdcall IORead_C07x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG nExecutedCycles)
 {
 	// Apple//e TRM, pg-258: "Reading or writing any address in the range $C070-$C07F also triggers the paddle timer and resets the VBLINT(*)." (*) //c only!
-	JoyResetPosition(nExecutedCycles);  //$C07X Analog input reset
 
 	switch (addr & 0xf)
 	{
@@ -550,7 +519,6 @@ static BYTE __stdcall IORead_C07x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG
 static BYTE __stdcall IOWrite_C07x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG nExecutedCycles)
 {
 	// Apple//e TRM, pg-258: "Reading or writing any address in the range $C070-$C07F also triggers the paddle timer and resets the VBLINT(*)." (*) //c only!
-	JoyResetPosition(nExecutedCycles);  //$C07X Analog input reset
 
 	switch (addr & 0xf)
 	{
@@ -638,8 +606,6 @@ BYTE __stdcall IO_Annunciator(WORD programcounter, WORD address, BYTE write, BYT
 
 	g_Annunciator[(address>>1) & 3] = (address&1) ? true : false;
 
-	if (address >= 0xC058 && address <= 0xC05B)
-		JoyportControl(address & 0x3);	// AN0 and AN1 control
 
 	if (!write)
 		return MemReadFloatingBus(nExecutedCycles);
@@ -1464,27 +1430,23 @@ void MemInitializeROM(void)
 	HRSRC hResInfo = NULL;
 	switch (g_Apple2Type)
 	{
-	case A2TYPE_APPLE2E:        hResInfo = FindResource(NULL, MAKEINTRESOURCE(IDR_APPLE2E_ROM         ), "ROM"); ROM_SIZE = Apple2eRomSize; break;
-	case A2TYPE_APPLE2EENHANCED:hResInfo = FindResource(NULL, MAKEINTRESOURCE(IDR_APPLE2E_ENHANCED_ROM), "ROM"); ROM_SIZE = Apple2eRomSize; break;
+	case A2TYPE_APPLE2EENHANCED:hResInfo = FindResource(NULL, MAKEINTRESOURCE(IDR_APPLE2E_ENHANCED_ROM), L"ROM"); ROM_SIZE = Apple2eRomSize; break;
 	}
 
 	if (hResInfo == NULL)
 	{
-		TCHAR sRomFileName[ MAX_PATH ];
+		TCHAR sRomFileName[MAX_PATH];
 		switch (g_Apple2Type)
 		{
-		case A2TYPE_APPLE2E:        _tcscpy(sRomFileName, TEXT("APPLE2E.ROM"         )); break;
-		case A2TYPE_APPLE2EENHANCED:_tcscpy(sRomFileName, TEXT("APPLE2E_ENHANCED.ROM")); break;
+		case A2TYPE_APPLE2EENHANCED:wcscpy(sRomFileName, TEXT("APPLE2E_ENHANCED.ROM")); break;
 		default:
-			{
-				_tcscpy(sRomFileName, TEXT("Unknown type!"));
-			}
+		{
+			wcscpy(sRomFileName, TEXT("Unknown type!"));
+		}
 		}
 
 		TCHAR sText[MAX_PATH];
 		StringCbPrintf(sText, sizeof(sText), TEXT("Unable to open the required firmware ROM data file.\n\nFile: %s"), sRomFileName);
-
-		LogFileOutput(L"%s\n", sText);
 
 		MessageBox(
 			GetDesktopWindow(),
@@ -1529,44 +1491,7 @@ void MemInitializeCustomF8ROM(void)
 
 void MemInitializeCustomROM(void)
 {
-	if (g_hCustomRom == INVALID_HANDLE_VALUE)
-		return;
 
-	SetFilePointer(g_hCustomRom, 0, NULL, FILE_BEGIN);
-	DWORD uNumBytesRead;
-	BOOL bRes = TRUE;
-
-	if (GetFileSize(g_hCustomRom, NULL) == Apple2eRomSize)
-	{
-		std::vector<BYTE> oldRomC0(pCxRomInternal, pCxRomInternal+CxRomSize);	// range ctor: [first,last)
-		bRes = ReadFile(g_hCustomRom, pCxRomInternal, CxRomSize, &uNumBytesRead, NULL);
-		if (uNumBytesRead != CxRomSize)
-		{
-			memcpy(pCxRomInternal, &oldRomC0[0], CxRomSize);	// ROM at $C000...$CFFF
-			bRes = FALSE;
-		}
-	}
-
-	if (bRes)
-	{
-		std::vector<BYTE> oldRom(memrom, memrom+Apple2RomSize);	// range ctor: [first,last)
-		bRes = ReadFile(g_hCustomRom, memrom, Apple2RomSize, &uNumBytesRead, NULL);
-		if (uNumBytesRead != Apple2RomSize)
-		{
-			memcpy(memrom, &oldRom[0], Apple2RomSize);	// ROM at $D000...$FFFF
-			bRes = FALSE;
-		}
-	}
-
-	// NB. If succeeded, then keep g_hCustomRom handle open - so that any next restart can load it again
-
-	if (!bRes)
-	{
-		MessageBox( g_hFrameWindow, L"Failed to read custom rom", TEXT("AppleWin Error"), MB_OK );
-		CloseHandle(g_hCustomRom);
-		g_hCustomRom = INVALID_HANDLE_VALUE;
-		// Failed, so use default rom...
-	}
 }
 
 // Called by:

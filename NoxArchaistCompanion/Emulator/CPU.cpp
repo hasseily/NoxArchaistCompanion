@@ -89,7 +89,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "CPU.h"
 #include "AppleWin.h"
 #include "CardManager.h"
-#include "Frame.h"
 #include "Memory.h"
 #include "Mockingboard.h"
 #ifdef USE_SPEECH_API
@@ -98,10 +97,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "SynchronousEventManager.h"
 #include "Video.h"
 #include "NTSC.h"
-#include "Log.h"
+#include "LogWindow.h"
 
-// Special for Nox Archaist window logging
-#include "RemoteControl/Gamelink.h"
 #define PC_PRINTSTR			0x7aa1		// program counter of PRINT.STR routine
 #define A_PRINT_RIGHT		0x05		// A register's value for printing to right scroll area (where the conversations are)
 #define PC_INITIATE_COMBAT 0x159f		// when combat routine starts
@@ -150,6 +147,8 @@ static volatile UINT32 g_bmNMI = 0;
 static volatile BOOL g_bNmiFlank = FALSE; // Positive going flank on NMI line
 
 static bool g_irqDefer1Opcode = false;
+
+std::shared_ptr<LogWindow>m_logWindow;
 
 //
 
@@ -207,8 +206,8 @@ void ResetCyclesExecutedForDebugger(void)
 
 //
 
-#include "CPU/cpu_general.inl"
-#include "CPU/cpu_instructions.inl"
+#include "Emulator/CPU/cpu_general.inl"
+#include "Emulator/CPU/cpu_instructions.inl"
 
 /****************************************************************************
 *
@@ -235,10 +234,6 @@ static __forceinline void DoIrqProfiling(DWORD uCycles)
 	if(regs.ps & AF_INTERRUPT)
 		return;		// Still in Apple's ROM
 
-#if LOG_IRQ_TAKEN_AND_RTI
-	LogOutput("ISR-end\n\n");
-#endif
-
 	g_nCycleIrqEnd = g_nCumulativeCycles + uCycles;
 	g_nCycleIrqTime = (UINT) (g_nCycleIrqEnd - g_nCycleIrqStart);
 
@@ -263,96 +258,6 @@ static __forceinline void DoIrqProfiling(DWORD uCycles)
 }
 
 //===========================================================================
-
-#ifdef USE_SPEECH_API
-
-const USHORT COUT = 0xFDED;
-
-const UINT OUTPUT_BUFFER_SIZE = 256;
-char g_OutputBuffer[OUTPUT_BUFFER_SIZE+1+1];	// +1 for EOL, +1 for NULL
-UINT OutputBufferIdx = 0;
-bool bEscMode = false;
-
-void CaptureCOUT(void)
-{
-	const char ch = regs.a & 0x7f;
-
-	if (ch == 0x07)			// Bell
-	{
-		// Ignore
-	}
-	else if (ch == 0x08)	// Backspace
-	{
-		if (OutputBufferIdx)
-			OutputBufferIdx--;
-	}
-	else if (ch == 0x0A)	// LF
-	{
-		// Ignore
-	}
-	else if (ch == 0x0D)	// CR
-	{
-		if (bEscMode)
-		{
-			bEscMode = false;
-		}
-		else if (OutputBufferIdx)
-		{
-			g_OutputBuffer[OutputBufferIdx] = 0;
-			g_Speech.Speak(g_OutputBuffer);
-
-#ifdef _DEBUG
-			g_OutputBuffer[OutputBufferIdx] = '\n';
-			g_OutputBuffer[OutputBufferIdx+1] = 0;
-			OutputDebugString(g_OutputBuffer);
-#endif
-
-			OutputBufferIdx = 0;
-		}
-	}
-	else if (ch == 0x1B)	// Escape
-	{
-		bEscMode = bEscMode ? false : true;		// Toggle mode
-	}
-	else if (ch >= ' ' && ch <= '~')
-	{
-		if (OutputBufferIdx < OUTPUT_BUFFER_SIZE && !bEscMode)
-			g_OutputBuffer[OutputBufferIdx++] = ch;
-	}
-}
-
-#endif
-
-//===========================================================================
-
-//#define DBG_HDD_ENTRYPOINT
-#if defined(_DEBUG) && defined(DBG_HDD_ENTRYPOINT)
-// Output a debug msg whenever the HDD f/w is called or jump to.
-static void DebugHddEntrypoint(const USHORT PC)
-{
-	static bool bOldPCAtC7xx = false;
-	static WORD OldPC = 0;
-	static UINT Count = 0;
-
-	if ((PC >> 8) == 0xC7)
-	{
-		if (!bOldPCAtC7xx /*&& PC != 0xc70a*/)
-		{
-			Count++;
-			char szDebug[100];
-			sprintf(szDebug, "HDD Entrypoint: $%04X\n", PC);
-			OutputDebugString(szDebug);
-		}
-
-		bOldPCAtC7xx = true;
-	}
-	else
-	{
-		bOldPCAtC7xx = false;
-	}
-	OldPC = PC;
-}
-#endif
 
 static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 {
@@ -380,7 +285,7 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 		UINT8 pStrLo = *(mem + 0xfc);	// or e4
 		UINT8 pStrHi = *(mem + 0xfd);	// or e5
 		UINT8* strHiAscii = (UINT8 *)(mem + ((UINT16)pStrHi << 8) + pStrLo);
-		std::string logstr;
+		std::wstring logstr;
 		// convert from High ASCII to regular ASCII
 		for (size_t i = 0; i < regs.x; i++)		// registry x has the string length
 		{
@@ -390,32 +295,13 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 			}
 			logstr.append(1, (*(strHiAscii + i) - 0x80));
 		}
-		GameLink::PrintStringToAutolog(logstr);
+		m_logWindow->AppendLog(logstr);
 	}
 	regs.pc++;
 }
 
-//#define ENABLE_NMI_SUPPORT	// Not used - so don't enable
 static __forceinline void NMI(ULONG& uExecutedCycles, BOOL& flagc, BOOL& flagn, BOOL& flagv, BOOL& flagz)
 {
-#ifdef ENABLE_NMI_SUPPORT
-	if(g_bNmiFlank)
-	{
-		// NMI signals are only serviced once
-		g_bNmiFlank = FALSE;
-#ifdef _DEBUG
-		g_nCycleIrqStart = g_nCumulativeCycles + uExecutedCycles;
-#endif
-		PUSH(regs.pc >> 8)
-		PUSH(regs.pc & 0xFF)
-		EF_TO_AF
-		PUSH(regs.ps & ~AF_BREAK)
-		regs.ps = regs.ps | AF_INTERRUPT & ~AF_DECIMAL;
-		regs.pc = * (WORD*) (mem+0xFFFA);
-		UINT uExtraCycles = 0;	// Needed for CYC(a) macro
-		CYC(7)
-	}
-#endif
 }
 
 static __forceinline void CheckSynchronousInterruptSources(UINT cycles, ULONG uExecutedCycles)
@@ -452,9 +338,6 @@ static __forceinline void IRQ(ULONG& uExecutedCycles, BOOL& flagc, BOOL& flagn, 
 		regs.pc = * (WORD*) (mem+0xFFFE);
 		UINT uExtraCycles = 0;	// Needed for CYC(a) macro
 		CYC(7)
-#if defined(_DEBUG) && LOG_IRQ_TAKEN_AND_RTI
-		LogOutput("IRQ\n");
-#endif
 		CheckSynchronousInterruptSources(7, uExecutedCycles);
 	}
 
@@ -499,7 +382,7 @@ static __forceinline void IRQ(ULONG& uExecutedCycles, BOOL& flagc, BOOL& flagn, 
 
 static DWORD InternalCpuExecute(const DWORD uTotalCycles, const bool bVideoUpdate)
 {
-	if (g_nAppMode == MODE_RUNNING || g_nAppMode == MODE_BENCHMARK)
+	if (g_nAppMode == AppMode_e::MODE_RUNNING)
 	{
 		if (GetMainCpu() == CPU_6502)
 			return Cpu6502(uTotalCycles, bVideoUpdate);		// Apple ][, ][+, //e, Clones
@@ -517,7 +400,7 @@ static DWORD InternalCpuExecute(const DWORD uTotalCycles, const bool bVideoUpdat
 // Called by z80_RDMEM()
 BYTE CpuRead(USHORT addr, ULONG uExecutedCycles)
 {
-	if (g_nAppMode == MODE_RUNNING)
+	if (g_nAppMode == AppMode_e::MODE_RUNNING)
 	{
 		return _READ;
 	}
@@ -528,7 +411,7 @@ BYTE CpuRead(USHORT addr, ULONG uExecutedCycles)
 // Called by z80_WRMEM()
 void CpuWrite(USHORT addr, BYTE value, ULONG uExecutedCycles)
 {
-	if (g_nAppMode == MODE_RUNNING)
+	if (g_nAppMode == AppMode_e::MODE_RUNNING)
 	{
 		_WRITE(value);
 		return;
@@ -635,6 +518,7 @@ void CpuInitialize ()
 	g_bCritSectionValid = true;
 	CpuIrqReset();
 	CpuNmiReset();
+	m_logWindow = GetLogWindow();
 }
 
 //===========================================================================

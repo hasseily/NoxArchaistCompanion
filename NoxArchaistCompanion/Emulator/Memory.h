@@ -88,13 +88,6 @@ bool    MemGetAnnunciator(UINT annunciator);
 bool    MemHasNoSlotClock(void);
 void    MemInsertNoSlotClock(void);
 void    MemRemoveNoSlotClock(void);
-std::string MemGetSnapshotUnitAuxSlotName(void);
-void    MemSaveSnapshot(class YamlSaveHelper& yamlSaveHelper);
-bool    MemLoadSnapshot(class YamlLoadHelper& yamlLoadHelper, UINT unitVersion);
-void    MemSaveSnapshotAux(class YamlSaveHelper& yamlSaveHelper);
-bool    MemLoadSnapshotAux(class YamlLoadHelper& yamlLoadHelper, UINT unitVersion);
-void    NoSlotClockSaveSnapshot(YamlSaveHelper& yamlSaveHelper);
-void    NoSlotClockLoadSnapshot(YamlLoadHelper& yamlLoadHelper);
 
 BYTE __stdcall IO_Null(WORD programcounter, WORD address, BYTE write, BYTE value, ULONG nCycles);
 
@@ -105,9 +98,6 @@ void	SetExpansionMemType(const SS_CARDTYPE type);
 SS_CARDTYPE GetCurrentExpansionMemType(void);
 void	CreateLanguageCard(void);
 
-void	SetRamWorksMemorySize(UINT pages);
-UINT	GetRamWorksActiveBank(void);
-void	SetSaturnMemorySize(UINT banks);
 void	SetMemMainLanguageCard(LPBYTE ptr, bool bMemMain=false);
 class LanguageCardUnit* GetLanguageCard(void);
 

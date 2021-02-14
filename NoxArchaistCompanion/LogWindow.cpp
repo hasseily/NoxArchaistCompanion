@@ -10,6 +10,8 @@ static HINSTANCE appInstance = nullptr;
 static HWND hwndMain = nullptr;				// handle to main window
 static HWND hwndEdit = nullptr;			// handle to rich edit window
 
+std::wstring m_prevLogString;
+
 // Register the window class.
 const wchar_t CLASS_NAME[] = L"WIndow Log Class";
 
@@ -176,7 +178,7 @@ void LogWindow::LoadFromFile()
 		{
 			COMDLG_FILTERSPEC rgSpec[] =
 			{
-				{ L"Text File", L"*.txt" },
+				{ L"Text Files", L"*.txt" },
 				{ L"All Files", L"*.*" },
 			};
 			pFileOpen->SetFileTypes(ARRAYSIZE(rgSpec), rgSpec);
@@ -229,7 +231,7 @@ void LogWindow::SaveToFile()
 		{
 			COMDLG_FILTERSPEC rgSpec[] =
 			{
-				{ L"Text File", L"*.txt" }
+				{ L"Text Files", L"*.txt" }
 			};
 			hr = pfsd->SetFileTypes(ARRAYSIZE(rgSpec), rgSpec);
 			{
@@ -322,6 +324,9 @@ void LogWindow::ClearLog()
 
 void LogWindow::AppendLog(std::wstring str)
 {
+	if (m_prevLogString == str)	// Avoid duplicates
+		return;
+	m_prevLogString.assign(str);
     // the edit window uses ES_AUTOVSCROLL so it will automatically scroll the bottom text
     CHARRANGE selectionRange = { -1, -1 };
     SendMessage(hwndEdit, EM_EXSETSEL, 0, (LPARAM)&selectionRange);     // remove selection

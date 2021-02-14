@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "SidebarContent.h"
-#include "GameLink.h"
+#include "Emulator/Memory.h"
 #include <shobjidl_core.h> 
 #include <DirectXPackedVector.h>
 #include <DirectXMath.h>
@@ -26,12 +26,8 @@ void SidebarContent::Initialize()
 {
     // LoadProfilesFromDisk();
     // Get memory start address
-    auto res = GameLink::Init();
-    if (res)
-    {
-        pmem = GameLink::GetMemoryBasePointer();
-        memsize = GameLink::GetMemorySize();
-    }
+    pmem = MemGetMainPtr(0);
+    memsize = 0x20000;  // 128k of RAM
 }
 
 bool SidebarContent::setActiveProfile(SidebarManager* sbM, std::string* name)

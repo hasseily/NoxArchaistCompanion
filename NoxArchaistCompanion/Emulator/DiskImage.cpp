@@ -43,7 +43,6 @@ ImageError_e ImageOpen(	const std::wstring & pszImageFilename,
 						ImageInfo** ppImageInfo,
 						bool* pWriteProtected,
 						const bool bCreateIfNecessary,
-						std::string& strFilenameInZip,
 						const bool bExpectFloppy /*=true*/)
 {
 	if (bExpectFloppy && sg_DiskImageHelper.GetWorkBuffer() == NULL)
@@ -60,7 +59,7 @@ ImageError_e ImageOpen(	const std::wstring & pszImageFilename,
 	if (bExpectFloppy)	pImageInfo->pImageHelper = &sg_DiskImageHelper;
 	else				pImageInfo->pImageHelper = &sg_HardDiskImageHelper;
 
-	ImageError_e Err = pImageInfo->pImageHelper->Open(pszImageFilename.c_str(), pImageInfo, bCreateIfNecessary, strFilenameInZip);
+	ImageError_e Err = pImageInfo->pImageHelper->Open(pszImageFilename.c_str(), pImageInfo, bCreateIfNecessary);
 	if (Err != eIMAGE_ERROR_NONE)
 	{
 		ImageClose(*ppImageInfo);

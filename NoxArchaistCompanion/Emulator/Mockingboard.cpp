@@ -82,10 +82,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "AppleWin.h"
 #include "CardManager.h"
 #include "CPU.h"
-#include "Log.h"
 #include "Memory.h"
 #include "SoundCore.h"
 #include "SynchronousEventManager.h"
+#include "../Game.h"
 
 #include "AY8910.h"
 #include "SSI263Phonemes.h"
@@ -152,6 +152,9 @@ struct SY6522_AY8910
 #define SSI_CTTRAMP	0x03
 #define SSI_FILFREQ	0x04
 
+
+// Support 2 MB's, each with 2x SY6522/AY8910 pairs.
+static SY6522_AY8910 g_MB[NUM_AY8910];
 
 
 const UINT kExtraTimerCycles = 2;	// Rockwell, Fig.16: period = N+2 cycles
@@ -677,23 +680,6 @@ const BYTE INFLECTION_MASK_L = 0x07;	// I2..I0
 const BYTE CONTROL_MASK = 0x80;
 const BYTE ARTICULATION_MASK = 0x70;
 const BYTE AMPLITUDE_MASK = 0x0F;
-
-#if LOG_SSI263B
-static int ssiRegs[5]={-1,-1,-1,-1,-1};
-
-void SSI_Output(void)
-{
-	LogOutput("SSI: ");
-	for (int i=0; i<=4; i++)
-	{
-		char r[3]="--";
-		if (ssiRegs[i]>=0) sprintf(r,"%02X",ssiRegs[i]);
-		LogOutput("%s ", r);
-		ssiRegs[i] = -1;
-	}
-	LogOutput("\n");
-}
-#endif
 
 static BYTE SSI263_Read(BYTE nDevice, ULONG nExecutedCycles)
 {
@@ -1308,7 +1294,6 @@ static void SSI263_Play(unsigned int nPhoneme)
 
 static bool MB_DSInit()
 {
-	LogFileOutput(L"MB_DSInit\n", g_bMBAvailable);
 #ifdef NO_DIRECT_X
 
 	return false;
@@ -1326,15 +1311,12 @@ static bool MB_DSInit()
 		return false;
 
 	HRESULT hr = DSGetSoundBuffer(&MockingboardVoice, DSBCAPS_CTRLVOLUME, g_dwDSBufferSize, SAMPLE_RATE, 2);
-	LogFileOutput(L"MB_DSInit: DSGetSoundBuffer(), hr=0x%08X\n", hr);
 	if(FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "MB: DSGetSoundBuffer failed (%08X)\n",hr);
 		return false;
 	}
 
 	bool bRes = DSZeroVoiceBuffer(&MockingboardVoice, "MB", g_dwDSBufferSize);
-	LogFileOutput(L"MB_DSInit: DSZeroVoiceBuffer(), res=%d\n", bRes ? 1 : 0);
 	if (!bRes)
 		return false;
 
@@ -1345,7 +1327,6 @@ static bool MB_DSInit()
 		MockingboardVoice.nVolume = DSBVOLUME_MAX;
 
 	hr = MockingboardVoice.lpDSBvoice->SetVolume(MockingboardVoice.nVolume);
-	LogFileOutput(L"MB_DSInit: SetVolume(), hr=0x%08X\n", hr);
 
 	//---------------------------------
 
@@ -1365,17 +1346,14 @@ static bool MB_DSInit()
 									FALSE,	// bManualReset (FALSE = auto-reset)
 									FALSE,	// bInitialState (FALSE = non-signaled)
 									NULL);	// lpName
-	LogFileOutput(L"MB_DSInit: CreateEvent(), g_hSSI263Event[0]=0x%08X\n", g_hSSI263Event[0]);
 
 	g_hSSI263Event[1] = CreateEvent(NULL,	// lpEventAttributes
 									FALSE,	// bManualReset (FALSE = auto-reset)
 									FALSE,	// bInitialState (FALSE = non-signaled)
 									NULL);	// lpName
-	LogFileOutput(L"MB_DSInit: CreateEvent(), g_hSSI263Event[1]=0x%08X\n", g_hSSI263Event[1]);
 
 	if((g_hSSI263Event[0] == NULL) || (g_hSSI263Event[1] == NULL))
 	{
-		if(g_fh) fprintf(g_fh, "SSI263: CreateEvent failed\n");
 		return false;
 	}
 
@@ -1402,18 +1380,14 @@ static bool MB_DSInit()
 
 		// NB. DSBCAPS_LOCSOFTWARE required for Phoneme+2==0x28 - sample too short (see KB327698)
 		hr = DSGetSoundBuffer(&SSI263Voice[i], DSBCAPS_CTRLVOLUME+DSBCAPS_CTRLPOSITIONNOTIFY+DSBCAPS_LOCSOFTWARE, nPhonemeByteLength, 22050, 1);
-		LogFileOutput(L"MB_DSInit: (%02d) DSGetSoundBuffer(), hr=0x%08X\n", i, hr);
 		if(FAILED(hr))
 		{
-			if(g_fh) fprintf(g_fh, "SSI263: DSGetSoundBuffer failed (%08X)\n",hr);
 			return false;
 		}
 
 		bRes = DSGetLock(SSI263Voice[i].lpDSBvoice, 0, 0, &pDSLockedBuffer, &dwDSLockedBufferSize, NULL, 0);
-		//LogFileOutput(L"MB_DSInit: (%02d) DSGetLock(), res=%d\n", i, bRes ? 1 : 0);	// WARNING: Lock acquired && doing heavy-weight logging
 		if(FAILED(hr))
 		{
-			if(g_fh) fprintf(g_fh, "SSI263: DSGetLock failed (%08X)\n",hr);
 			return false;
 		}
 
@@ -1428,10 +1402,8 @@ static bool MB_DSInit()
 		}
 
  		hr = SSI263Voice[i].lpDSBvoice->QueryInterface(IID_IDirectSoundNotify, (LPVOID *)&SSI263Voice[i].lpDSNotify);
-		//LogFileOutput(L"MB_DSInit: (%02d) QueryInterface(), hr=0x%08X\n", i, hr);	// WARNING: Lock acquired && doing heavy-weight logging
 		if(FAILED(hr))
 		{
-			if(g_fh) fprintf(g_fh, "SSI263: QueryInterface failed (%08X)\n",hr);
 			return false;
 		}
 
@@ -1442,25 +1414,20 @@ static bool MB_DSInit()
 		PositionNotify.hEventNotify = g_hSSI263Event[0];
 
 		hr = SSI263Voice[i].lpDSNotify->SetNotificationPositions(1, &PositionNotify);
-		//LogFileOutput(L"MB_DSInit: (%02d) SetNotificationPositions(), hr=0x%08X\n", i, hr);	// WARNING: Lock acquired && doing heavy-weight logging
 		if(FAILED(hr))
 		{
-			if(g_fh) fprintf(g_fh, "SSI263: SetNotifyPos failed (%08X)\n",hr);
 			return false;
 		}
 
 		hr = SSI263Voice[i].lpDSBvoice->Unlock((void*)pDSLockedBuffer, dwDSLockedBufferSize, NULL, 0);
-		LogFileOutput(L"MB_DSInit: (%02d) Unlock(),hr=0x%08X\n", i, hr);
 		if(FAILED(hr))
 		{
-			if(g_fh) fprintf(g_fh, "SSI263: DSUnlock failed (%08X)\n",hr);
 			return false;
 		}
 
 		SSI263Voice[i].bActive = false;
 		SSI263Voice[i].nVolume = MockingboardVoice.nVolume;		// Use same volume as MB
 		hr = SSI263Voice[i].lpDSBvoice->SetVolume(SSI263Voice[i].nVolume);
-		LogFileOutput(L"MB_DSInit: (%02d) SetVolume(), hr=0x%08X\n", i, hr);
 	}
 
 	//
@@ -1473,10 +1440,8 @@ static bool MB_DSInit()
 								NULL,			// lpParameter
 								0,				// dwCreationFlags : 0 = Run immediately
 								&dwThreadId);	// lpThreadId
-	LogFileOutput(L"MB_DSInit: CreateThread(), g_hThread=0x%08X\n", g_hThread);
 
 	BOOL bRes2 = SetThreadPriority(g_hThread, THREAD_PRIORITY_TIME_CRITICAL);
-	LogFileOutput(L"MB_DSInit: SetThreadPriority(), bRes=%d\n", bRes2 ? 1 : 0);
 
 	return true;
 
@@ -1562,7 +1527,6 @@ void MB_Initialize()
 {
 	InitSoundcardType();
 
-	LogFileOutput(L"MB_Initialize: g_bDisableDirectSound=%d, g_bDisableDirectSoundMockingboard=%d\n", g_bDisableDirectSound, g_bDisableDirectSoundMockingboard);
 	if (g_bDisableDirectSound || g_bDisableDirectSoundMockingboard)
 	{
 		MockingboardVoice.bMute = true;
@@ -1576,7 +1540,6 @@ void MB_Initialize()
 			ppAYVoiceBuffer[i] = new short [SAMPLE_RATE];	// Buffer can hold a max of 1 seconds worth of samples
 
 		AY8910_InitAll((int)g_fCurrentCLK6502, SAMPLE_RATE);
-		LogFileOutput(L"MB_Initialize: AY8910_InitAll()\n");
 
 		for(i=0; i<NUM_AY8910; i++)
 			g_MB[i].nAY8910Number = i;
@@ -1584,10 +1547,8 @@ void MB_Initialize()
 		//
 
 		g_bMBAvailable = MB_DSInit();
-		LogFileOutput(L"MB_Initialize: MB_DSInit(), g_bMBAvailable=%d\n", g_bMBAvailable);
 
 		MB_Reset();
-		LogFileOutput(L"MB_Initialize: MB_Reset()\n");
 	}
 
 	InitializeCriticalSection(&g_CriticalSection);
@@ -1704,7 +1665,7 @@ static BYTE __stdcall MB_Read(WORD PC, WORD nAddr, BYTE bWrite, BYTE nValue, ULO
 	MB_UpdateCycles(nExecutedCycles);
 
 #ifdef _DEBUG
-	if(!IS_APPLE2 && MemCheckINTCXROM())
+	if(MemCheckINTCXROM())
 	{
 		_ASSERT(0);	// Card ROM disabled, so IO_Cxxx() returns the internal ROM
 		return mem[nAddr];
@@ -2154,6 +2115,8 @@ DWORD MB_GetVolume()
 
 void MB_SetVolume(DWORD dwVolume, DWORD dwVolumeMax)
 {
+	g_nonVolatile.volumeMockingBoard = dwVolume;
+	// g_nonVolatile.SaveToDisk(); Don't save to disk here, only save when changed from the UI
 	MockingboardVoice.dwUserVolume = dwVolume;
 
 	MockingboardVoice.nVolume = NewVolume(dwVolume, dwVolumeMax);

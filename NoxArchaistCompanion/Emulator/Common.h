@@ -16,11 +16,12 @@ const double CLK_6502_PAL  = (_14M_PAL  * 65.0) / (65.0*14.0+2.0);
 // Assume base freqs are 44.1KHz & 48KHz
 const DWORD SPKR_SAMPLE_RATE = 44100;
 
-enum AppMode_e
+enum class AppMode_e
 {
 	MODE_LOGO = 0
 	, MODE_PAUSED
 	, MODE_RUNNING  // 6502 is running at normal/full speed
+	, MODE_UNKNOWN = -1
 };
 
 #define  SPEED_MIN         0

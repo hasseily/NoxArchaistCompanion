@@ -31,9 +31,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "LanguageCard.h"
 #include "AppleWin.h"
 #include "CPU.h"		// GH#700
-#include "Log.h"
 #include "Memory.h"
-#include "YamlHelper.h"
 
 
 const UINT LanguageCardUnit::kMemModeInitialState = MF_BANK2 | MF_WRITERAM;	// !INTCXROM
@@ -171,70 +169,6 @@ std::string LanguageCardSlot0::GetSnapshotCardName(void)
 	return name;
 }
 
-void LanguageCardSlot0::SaveLCState(YamlSaveHelper& yamlSaveHelper)
-{
-	yamlSaveHelper.SaveHexUint32(SS_YAML_KEY_MEMORYMODE, GetMemMode() & (MF_WRITERAM|MF_HIGHRAM|MF_BANK2));
-	yamlSaveHelper.SaveUint(SS_YAML_KEY_LASTRAMWRITE, GetLastRamWrite() ? 1 : 0);
-}
-
-void LanguageCardSlot0::LoadLCState(YamlLoadHelper& yamlLoadHelper)
-{
-	DWORD memMode     = yamlLoadHelper.LoadUint(SS_YAML_KEY_MEMORYMODE) & MF_LANGCARD_MASK;
-	BOOL lastRamWrite = yamlLoadHelper.LoadUint(SS_YAML_KEY_LASTRAMWRITE) ? TRUE : FALSE;
-	SetMemMode( (GetMemMode() & ~MF_LANGCARD_MASK) | memMode );
-	SetLastRamWrite(lastRamWrite);
-}
-
-void LanguageCardSlot0::SaveSnapshot(YamlSaveHelper& yamlSaveHelper)
-{
-	if (!IsApple2PlusOrClone(GetApple2Type()))
-	{
-		_ASSERT(0);
-		LogFileOutput(L"Warning: Save-state attempted to save %s for //e or above\n", GetSnapshotCardName().c_str());
-		return;	// No Language Card support for //e and above
-	}
-
-	YamlSaveHelper::Slot slot(yamlSaveHelper, GetSnapshotCardName(), kSLOT_LANGUAGECARD, kUNIT_LANGUAGECARD_VER);
-	YamlSaveHelper::Label state(yamlSaveHelper, "%s:\n", SS_YAML_KEY_STATE);
-
-	SaveLCState(yamlSaveHelper);
-
-	{
-		YamlSaveHelper::Label state(yamlSaveHelper, "%s:\n", GetSnapshotMemStructName().c_str());
-		yamlSaveHelper.SaveMemory(m_pMemory, kMemBankSize);
-	}
-}
-
-bool LanguageCardSlot0::LoadSnapshot(YamlLoadHelper& yamlLoadHelper, UINT slot, UINT version)
-{
-	if (slot != kSLOT_LANGUAGECARD)
-		throw std::string("Card: wrong slot");
-
-	if (version != kUNIT_LANGUAGECARD_VER)
-		throw std::string("Card: wrong version");
-
-	// "State"
-	LoadLCState(yamlLoadHelper);
-
-	if (!m_pMemory)
-	{
-		m_pMemory = (LPBYTE) VirtualAlloc(NULL, kMemBankSize, MEM_COMMIT, PAGE_READWRITE);
-		if (!m_pMemory)
-			throw std::string("Card: mem alloc failed");
-	}
-
-	if (!yamlLoadHelper.GetSubMap(GetSnapshotMemStructName()))
-		throw std::string("Memory: Missing map name: " + GetSnapshotMemStructName());
-
-	yamlLoadHelper.LoadMemory(m_pMemory, kMemBankSize);
-
-	yamlLoadHelper.PopMap();
-
-	// NB. MemUpdatePaging(TRUE) called at end of Snapshot_LoadState_v2()
-
-	return true;
-}
-
 //-------------------------------------
 
 Saturn128K::Saturn128K(UINT banks)
@@ -365,100 +299,3 @@ BYTE __stdcall Saturn128K::IO(WORD PC, WORD uAddr, BYTE bWrite, BYTE uValue, ULO
 }
 
 //
-
-static const UINT kUNIT_SATURN_VER = 1;
-static const UINT kSLOT_SATURN = LanguageCardUnit::kSlot0;
-
-#define SS_YAML_VALUE_CARD_SATURN128 "Saturn 128"
-
-#define SS_YAML_KEY_NUM_SATURN_BANKS "Num Saturn Banks"
-#define SS_YAML_KEY_ACTIVE_SATURN_BANK "Active Saturn Bank"
-
-std::string Saturn128K::GetSnapshotMemStructName(void)
-{
-	static const std::string name("Memory Bank");
-	return name;
-}
-
-std::string Saturn128K::GetSnapshotCardName(void)
-{
-	static const std::string name(SS_YAML_VALUE_CARD_SATURN128);
-	return name;
-}
-
-void Saturn128K::SaveSnapshot(YamlSaveHelper& yamlSaveHelper)
-{
-	if (!IsApple2PlusOrClone(GetApple2Type()))
-	{
-		_ASSERT(0);
-		LogFileOutput(L"Warning: Save-state attempted to save %s for //e or above\n", GetSnapshotCardName().c_str());
-		return;	// No Saturn support for //e and above
-	}
-
-	YamlSaveHelper::Slot slot(yamlSaveHelper, GetSnapshotCardName(), kSLOT_SATURN, kUNIT_SATURN_VER);
-	YamlSaveHelper::Label state(yamlSaveHelper, "%s:\n", SS_YAML_KEY_STATE);
-
-	SaveLCState(yamlSaveHelper);
-
-	yamlSaveHelper.Save("%s: 0x%02X   # [1..8] 4=64K, 8=128K card\n", SS_YAML_KEY_NUM_SATURN_BANKS, m_uSaturnTotalBanks);
-	yamlSaveHelper.Save("%s: 0x%02X # [0..7]\n", SS_YAML_KEY_ACTIVE_SATURN_BANK, m_uSaturnActiveBank);
-
-	for(UINT uBank = 0; uBank < m_uSaturnTotalBanks; uBank++)
-	{
-		LPBYTE pMemBase = m_aSaturnBanks[uBank];
-		YamlSaveHelper::Label state(yamlSaveHelper, "%s%02X:\n", GetSnapshotMemStructName().c_str(), uBank);
-		yamlSaveHelper.SaveMemory(pMemBase, kMemBankSize);
-	}
-}
-
-bool Saturn128K::LoadSnapshot(YamlLoadHelper& yamlLoadHelper, UINT slot, UINT version)
-{
-	if (slot != kSLOT_SATURN)	// fixme
-		throw std::string("Card: wrong slot");
-
-	if (version != kUNIT_SATURN_VER)
-		throw std::string("Card: wrong version");
-
-	// "State"
-	LoadLCState(yamlLoadHelper);
-
-	UINT numBanks   = yamlLoadHelper.LoadUint(SS_YAML_KEY_NUM_SATURN_BANKS);
-	UINT activeBank = yamlLoadHelper.LoadUint(SS_YAML_KEY_ACTIVE_SATURN_BANK);
-
-	if (numBanks < 1 || numBanks > kMaxSaturnBanks || activeBank >= numBanks)
-		throw std::string(SS_YAML_KEY_UNIT ": Bad Saturn card state");
-
-	m_uSaturnTotalBanks = numBanks;
-	m_uSaturnActiveBank = activeBank;
-
-	//
-
-	for(UINT uBank = 0; uBank < m_uSaturnTotalBanks; uBank++)
-	{
-		LPBYTE pBank = m_aSaturnBanks[uBank];
-		if (!pBank)
-		{
-			pBank = m_aSaturnBanks[uBank] = (LPBYTE) VirtualAlloc(NULL, kMemBankSize, MEM_COMMIT, PAGE_READWRITE);
-			if (!pBank)
-				throw std::string("Card: mem alloc failed");
-		}
-
-		// "Memory Bankxx"
-		char szBank[3];
-		sprintf(szBank, "%02X", uBank);
-		std::string memName = GetSnapshotMemStructName() + szBank;
-
-		if (!yamlLoadHelper.GetSubMap(memName))
-			throw std::string("Memory: Missing map name: " + memName);
-
-		yamlLoadHelper.LoadMemory(pBank, kMemBankSize);
-
-		yamlLoadHelper.PopMap();
-	}
-
-	SetMemMainLanguageCard( m_aSaturnBanks[ m_uSaturnActiveBank ] );
-
-	// NB. MemUpdatePaging(TRUE) called at end of Snapshot_LoadState_v2()
-
-	return true;
-}

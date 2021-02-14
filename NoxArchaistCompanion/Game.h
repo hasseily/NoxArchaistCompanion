@@ -8,6 +8,7 @@
 #include "StepTimer.h"
 #include "LogWindow.h"
 #include "HAUtils.h"
+#include "NonVolatile.h"
 
 enum class EmulatorLayout
 {
@@ -17,6 +18,8 @@ enum class EmulatorLayout
 	FLIPPED_XY = 3,
 	NONE = UINT8_MAX
 };
+
+static NonVolatile g_nonVolatile = NonVolatile();
 
 // A basic game implementation that creates a D3D12 device and
 // provides a game loop.
@@ -66,7 +69,6 @@ public:
 
     // Properties
     bool shouldRender;
-
 private:
 
     void Update(DX::StepTimer const& timer);

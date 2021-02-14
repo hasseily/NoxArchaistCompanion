@@ -32,10 +32,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "CardManager.h"
 #include "AppleWin.h"
 
-#include "Disk.h"
-#include "MouseInterface.h"
-#include "SerialComms.h"
-
 void CardManager::Insert(UINT slot, SS_CARDTYPE type)
 {
 	if (type == CT_Empty)
@@ -45,14 +41,6 @@ void CardManager::Insert(UINT slot, SS_CARDTYPE type)
 
 	switch (type)
 	{
-	case CT_Disk2:
-		m_slot[slot] = new Disk2InterfaceCard(slot);
-		break;
-	case CT_SSC:
-		_ASSERT(m_pSSC == NULL);
-		if (m_pSSC) break;	// Only support one SSC
-		m_slot[slot] = m_pSSC = new CSuperSerialCard(slot);
-		break;
 	case CT_MockingboardC:
 		m_slot[slot] = new DummyCard(type);
 		break;
@@ -64,11 +52,6 @@ void CardManager::Insert(UINT slot, SS_CARDTYPE type)
 		break;
 	case CT_GenericClock:
 		m_slot[slot] = new DummyCard(type);
-		break;
-	case CT_MouseInterface:
-		_ASSERT(m_pMouseCard == NULL);
-		if (m_pMouseCard) break;	// Only support one Mouse card
-		m_slot[slot] = m_pMouseCard = new CMouseInterface(slot);
 		break;
 	case CT_Z80:
 		m_slot[slot] = new DummyCard(type);

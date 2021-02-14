@@ -3,6 +3,7 @@
 #include <vector>
 #include <DirectXPackedVector.h>
 #include <DirectXMath.h>
+#include "Emulator/AppleWin.h"
 
 using namespace DirectX;
 using namespace DirectX::PackedVector;
@@ -36,7 +37,7 @@ SidebarManager::SidebarManager()
         L"a2-bolditalic-12pt.spritefont"
     };
     sidebars = {};
-    SetBaseSize(APPLEWIN_WIDTH, APPLEWIN_HEIGHT);
+    SetBaseSize(GetFrameBufferWidth(), GetFrameBufferHeight());
 }
 
 SidebarError SidebarManager::CreateSidebar(SidebarTypes type, UINT8 numBlocks, UINT16 size, __out UINT8* id)
@@ -59,10 +60,10 @@ SidebarError SidebarManager::CreateSidebar(SidebarTypes type, UINT8 numBlocks, U
     case SidebarTypes::Right:
     {
         if (size == 0)
-            w = SIDEBAR_LR_WIDTH;
+            w = GetFrameBufferHeight();
         else
             w = size;
-        h = APPLEWIN_HEIGHT;
+        h = GetFrameBufferHeight();
         position.x = (float)bw;
         position.y = 0.f;
         bw = bw + w;
@@ -70,7 +71,7 @@ SidebarError SidebarManager::CreateSidebar(SidebarTypes type, UINT8 numBlocks, U
     }
     case SidebarTypes::Bottom:
     {
-        w = APPLEWIN_WIDTH;
+        w = GetFrameBufferWidth();
         if (size == 0)
             h = SIDEBAR_TB_HEIGHT;
         else
@@ -119,7 +120,7 @@ void SidebarManager::ClearAllSidebars()
 void SidebarManager::DeleteAllSidebars()
 {
     sidebars.clear();
-    SetBaseSize(APPLEWIN_WIDTH, APPLEWIN_HEIGHT);
+    SetBaseSize(GetFrameBufferWidth(), GetFrameBufferHeight());
 }
 
 

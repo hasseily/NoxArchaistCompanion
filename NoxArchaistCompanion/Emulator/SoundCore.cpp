@@ -30,8 +30,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "SoundCore.h"
 #include "AppleWin.h"
-#include "Frame.h"
-#include "Log.h"
 #include "Speaker.h"
 #include <uuids.h>
 
@@ -39,7 +37,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #define MAX_SOUND_DEVICES 10
 
-static char *sound_devices[MAX_SOUND_DEVICES];
+static wchar_t *sound_devices[MAX_SOUND_DEVICES];
 static GUID sound_device_guid[MAX_SOUND_DEVICES];
 static int num_sound_devices = 0;
 
@@ -68,9 +66,7 @@ static BOOL CALLBACK DSEnumProc(LPGUID lpGUID, LPCTSTR lpszDesc, LPCTSTR lpszDrv
 		return TRUE;
 	if(lpGUID != NULL)
 		memcpy(&sound_device_guid[i], lpGUID, sizeof (GUID));
-	sound_devices[i] = _strdup(lpszDesc);
-
-	if(g_fh) fprintf(g_fh, "%d: %s - %s\n",i,lpszDesc,lpszDrvName);
+	sound_devices[i] = _wcsdup(lpszDesc);
 
 	num_sound_devices++;
 	return TRUE;
@@ -227,27 +223,20 @@ void DSReleaseSoundBuffer(VOICE* pVoice)
 
 bool DSZeroVoiceBuffer(PVOICE Voice, const char* pszDevName, DWORD dwBufferSize)
 {
-#ifdef NO_DIRECT_X
-
-	return false;
-
-#else
 
 	DWORD dwDSLockedBufferSize = 0;    // Size of the locked DirectSound buffer
 	SHORT* pDSLockedBuffer;
 
 	_ASSERT(Voice->lpDSBvoice);
 	HRESULT hr = Voice->lpDSBvoice->Stop();
-	if(FAILED(hr))
+	if (FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "%s: DSStop failed (%08X)\n",pszDevName,hr);
 		return false;
 	}
 
 	hr = DSGetLock(Voice->lpDSBvoice, 0, 0, &pDSLockedBuffer, &dwDSLockedBufferSize, NULL, 0);
-	if(FAILED(hr))
+	if (FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "%s: DSGetLock failed (%08X)\n",pszDevName,hr);
 		return false;
 	}
 
@@ -255,21 +244,18 @@ bool DSZeroVoiceBuffer(PVOICE Voice, const char* pszDevName, DWORD dwBufferSize)
 	memset(pDSLockedBuffer, 0x00, dwDSLockedBufferSize);
 
 	hr = Voice->lpDSBvoice->Unlock((void*)pDSLockedBuffer, dwDSLockedBufferSize, NULL, 0);
-	if(FAILED(hr))
+	if (FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "%s: DSUnlock failed (%08X)\n",pszDevName,hr);
 		return false;
 	}
 
-	hr = Voice->lpDSBvoice->Play(0,0,DSBPLAY_LOOPING);
-	if(FAILED(hr))
+	hr = Voice->lpDSBvoice->Play(0, 0, DSBPLAY_LOOPING);
+	if (FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "%s: DSPlay failed (%08X)\n",pszDevName,hr);
 		return false;
 	}
 
 	return true;
-#endif // NO_DIRECT_X
 }
 
 //-----------------------------------------------------------------------------
@@ -286,7 +272,6 @@ bool DSZeroVoiceWritableBuffer(PVOICE Voice, const char* pszDevName, DWORD dwBuf
 							&pDSLockedBuffer1, &dwDSLockedBufferSize1);
 	if(FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "%s: DSGetLock failed (%08X)\n",pszDevName,hr);
 		return false;
 	}
 
@@ -298,7 +283,6 @@ bool DSZeroVoiceWritableBuffer(PVOICE Voice, const char* pszDevName, DWORD dwBuf
 									(void*)pDSLockedBuffer1, dwDSLockedBufferSize1);
 	if(FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "%s: DSUnlock failed (%08X)\n",pszDevName,hr);
 		return false;
 	}
 
@@ -372,67 +356,27 @@ static VOID CALLBACK SoundCore_TimerFunc(HWND hwnd, UINT uMsg, UINT_PTR idEvent,
 
 	//
 
-#if 1
 	if(g_FadeType == FADE_IN)
 		g_FadeType = FADE_NONE;
 	else
 		SpkrUpdate_Timer();
-#else
-	const LONG nFadeUnit_Fast = (DSBVOLUME_MAX - DSBVOLUME_MIN) / 10;
-	const LONG nFadeUnit_Slow = (DSBVOLUME_MAX - DSBVOLUME_MIN) / 1000;	// Less noisy for 'silence'
-
-	LONG nFadeUnit = g_pSpeakerVoice->bRecentlyActive ? nFadeUnit_Fast : nFadeUnit_Slow;
-	LONG nFadeVolume = g_pSpeakerVoice->nFadeVolume;
-
-	if(g_FadeType == FADE_IN)
-	{
-		if(nFadeVolume == g_pSpeakerVoice->nVolume)
-		{
-			g_FadeType = FADE_NONE;
-			SoundCore_StopTimer();
-			return;
-		}
-
-		nFadeVolume += nFadeUnit;
-
-		if(nFadeVolume > g_pSpeakerVoice->nVolume)
-			nFadeVolume = g_pSpeakerVoice->nVolume;
-	}
-	else // FADE_OUT
-	{
-		if(nFadeVolume == DSBVOLUME_MIN)
-		{
-			g_FadeType = FADE_NONE;
-			SoundCore_StopTimer();
-			return;
-		}
-
-		nFadeVolume -= nFadeUnit;
-
-		if(nFadeVolume < DSBVOLUME_MIN)
-			nFadeVolume = DSBVOLUME_MIN;
-	}
-
-	g_pSpeakerVoice->nFadeVolume = nFadeVolume;
-	g_pSpeakerVoice->lpDSBvoice->SetVolume(nFadeVolume);
-#endif
 }
 
 //-----------------------------------------------------------------------------
 
 void SoundCore_SetFade(eFADE FadeType)
 {
-	static int nLastMode = -1;
+	static AppMode_e nLastMode = AppMode_e::MODE_UNKNOWN;
 
 	// Fade in/out for speaker, the others are demuted/muted here
 	if(FadeType != FADE_NONE)
 	{
 		for(UINT i=0; i<g_uNumVoices; i++)
 		{
-			// Note: Kludge for fading speaker if curr/last g_nAppMode is/was MODE_LOGO:
+			// Note: Kludge for fading speaker if curr/last g_nAppMode is/was AppMode_e::MODE_LOGO:
 			// . Bug in DirectSound? SpeakerVoice.lpDSBvoice->SetVolume() doesn't work without this!
 			// . See SoundCore_TweakVolumes() - could be this?
-			if((g_pVoices[i]->bIsSpeaker) && (g_nAppMode != MODE_LOGO) && (nLastMode != MODE_LOGO))
+			if((g_pVoices[i]->bIsSpeaker) && (g_nAppMode != AppMode_e::MODE_LOGO) && (nLastMode != AppMode_e::MODE_LOGO))
 			{
 				g_pVoices[i]->lpDSBvoice->GetVolume(&g_pVoices[i]->nFadeVolume);
 				g_FadeType = FadeType;
@@ -481,7 +425,7 @@ void SoundCore_TweakVolumes()
 
 static UINT g_uDSInitRefCount = 0;
 
-bool DSInit()
+bool DSInit(HWND window)
 {
 	if(g_bDSAvailable)
 	{
@@ -492,13 +436,7 @@ bool DSInit()
 	HRESULT hr = DirectSoundEnumerate((LPDSENUMCALLBACK)DSEnumProc, NULL);
 	if(FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "DSEnumerate failed (%08X)\n",hr);
 		return false;
-	}
-
-	if(g_fh)
-	{
-		fprintf(g_fh, "Number of sound devices = %d\n",num_sound_devices);
 	}
 
 	bool bCreatedOK = false;
@@ -507,23 +445,19 @@ bool DSInit()
 		hr = DirectSoundCreate(&sound_device_guid[x], &g_lpDS, NULL);
 		if(SUCCEEDED(hr))
 		{
-			if(g_fh) fprintf(g_fh, "DSCreate succeeded for sound device #%d\n",x);
 			bCreatedOK = true;
 			break;
 		}
 
-		if(g_fh) fprintf(g_fh, "DSCreate failed for sound device #%d (%08X)\n",x,hr);
 	}
 	if(!bCreatedOK)
 	{
-		if(g_fh) fprintf(g_fh, "DSCreate failed for all sound devices\n");
 		return false;
 	}
 
-	hr = g_lpDS->SetCooperativeLevel(g_hFrameWindow, DSSCL_NORMAL);
+	hr = g_lpDS->SetCooperativeLevel(window, DSSCL_NORMAL);
 	if(FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "SetCooperativeLevel failed (%08X)\n",hr);
 		return false;
 	}
 
@@ -533,7 +467,6 @@ bool DSInit()
 	hr = g_lpDS->GetCaps(&DSCaps);
 	if(FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "GetCaps failed (%08X)\n",hr);
 		// Not fatal: so continue...
 	}
 
@@ -593,7 +526,6 @@ int SoundCore_GetErrorInc()
 void SoundCore_SetErrorInc(const int nErrorInc)
 {
 	g_nErrorInc = nErrorInc < g_nErrorMax ? nErrorInc : g_nErrorMax;
-	if(g_fh) fprintf(g_fh, "Speaker/MB Error Inc = %d\n", g_nErrorInc);
 }
 
 int SoundCore_GetErrorMax()
@@ -604,7 +536,6 @@ int SoundCore_GetErrorMax()
 void SoundCore_SetErrorMax(const int nErrorMax)
 {
 	g_nErrorMax = nErrorMax < MAX_SAMPLES ? nErrorMax : MAX_SAMPLES;
-	if(g_fh) fprintf(g_fh, "Speaker/MB Error Max = %d\n", g_nErrorMax);
 }
 
 //=============================================================================

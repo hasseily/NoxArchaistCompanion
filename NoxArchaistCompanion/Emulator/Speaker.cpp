@@ -31,11 +31,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "Speaker.h"
 #include "AppleWin.h"
 #include "CPU.h"
-#include "Frame.h"
-#include "Log.h"
 #include "Memory.h"
 #include "SoundCore.h"
 #include "Video.h"	// VideoRedrawScreen()
+#include "../Game.h"
 
 // Notes:
 //
@@ -220,17 +219,6 @@ void SpkrDestroy ()
 
 void SpkrInitialize ()
 {
-	if(g_fh)
-	{
-		fprintf(g_fh, "Spkr Config: soundtype = %d ", (int) soundtype);
-		switch(soundtype)
-		{
-			case SOUND_NONE:   fprintf(g_fh, "(NONE)\n"); break;
-			case SOUND_WAVE:   fprintf(g_fh, "(WAVE)\n"); break;
-			default:           fprintf(g_fh, "(UNDEFINED!)\n"); break;
-		}
-	}
-
 	if(g_bDisableDirectSound)
 	{
 		SpeakerVoice.bMute = true;
@@ -857,6 +845,8 @@ DWORD SpkrGetVolume()
 
 void SpkrSetVolume(DWORD dwVolume, DWORD dwVolumeMax)
 {
+	g_nonVolatile.volumeSpeaker = dwVolume;
+	// g_nonVolatile.SaveToDisk(); Don't save to disk here, only save when changed from the UI
 	SpeakerVoice.dwUserVolume = dwVolume;
 
 	SpeakerVoice.nVolume = NewVolume(dwVolume, dwVolumeMax);
@@ -881,7 +871,6 @@ bool Spkr_DSInit()
 	HRESULT hr = DSGetSoundBuffer(&SpeakerVoice, DSBCAPS_CTRLVOLUME, g_dwDSSpkrBufferSize, SPKR_SAMPLE_RATE, 1);
 	if(FAILED(hr))
 	{
-		if(g_fh) fprintf(g_fh, "Spkr: DSGetSoundBuffer failed (%08X)\n",hr);
 		return false;
 	}
 
@@ -907,8 +896,6 @@ bool Spkr_DSInit()
 		Sleep(200);
 
 		hr = SpeakerVoice.lpDSBvoice->GetCurrentPosition(&dwCurrentPlayCursor, &dwCurrentWriteCursor);
-		char szDbg[100];
-		sprintf(szDbg, "[DSInit] PC=%08X, WC=%08X, Diff=%08X\n", dwCurrentPlayCursor, dwCurrentWriteCursor, dwCurrentWriteCursor-dwCurrentPlayCursor); OutputDebugString(szDbg);
 	}
 
 	return true;

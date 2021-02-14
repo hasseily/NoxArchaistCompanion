@@ -24,7 +24,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 	#include "NTSC.h"
 	#include "AppleWin.h"
 	#include "CPU.h"	// CpuGetCyclesThisVideoFrame()
-	#include "Frame.h"
 	#include "Memory.h" // MemGetMainPtr(), MemGetAuxPtr(), MemGetAnnunciator()
 	#include "Video.h"  // g_pFramebufferbits
 	#include "RGBMonitor.h"
@@ -2186,7 +2185,9 @@ void NTSC_VideoInit( uint8_t* pFramebuffer ) // wsVideoInit
 	for (int y = 0; y < (VIDEO_SCANNER_Y_DISPLAY*2); y++)
 	{
 		uint32_t offset = sizeof(bgra_t) * GetFrameBufferWidth() * ((GetFrameBufferHeight() - 1) - y - GetFrameBufferBorderHeight()) + (sizeof(bgra_t) * GetFrameBufferBorderWidth());
-		g_pScanLines[y] = (bgra_t*) (g_pFramebufferbits + offset);
+		// Swapped the scanlines to be correctly positioned for DX12
+		// g_pScanLines[y] = (bgra_t*) (g_pFramebufferbits + offset);
+		g_pScanLines[(VIDEO_SCANNER_Y_DISPLAY * 2) - y - 1] = (bgra_t*)(g_pFramebufferbits + offset);
 	}
 
 	g_pVideoAddress = g_pScanLines[0];
@@ -2199,61 +2200,6 @@ void NTSC_VideoInit( uint8_t* pFramebuffer ) // wsVideoInit
 	bgra_t baseColors[kNumBaseColors];
 	GenerateBaseColors(&baseColors);
 	VideoInitializeOriginal(&baseColors);
-
-#if HGR_TEST_PATTERN
-// Init HGR to almost all-possible-combinations
-// CALL-151
-// C050 C053 C057
-	unsigned char b = 0;
-	unsigned char *main, *aux;
-	uint16_t ad;
-
-	for( unsigned page = 0; page < 2; page++ )
-	{
-//		for( unsigned w = 0; w < 2; w++ ) // 16 cols
-		{
-			for( unsigned z = 0; z < 2; z++ ) // 8 cols
-			{
-				b  = 0; // 4 columns * 64 rows
-				for( unsigned x = 0; x < 4; x++ ) // 4 cols
-				{
-					for( unsigned y = 0; y < 64; y++ ) // 1 col
-					{
-						unsigned y2 = y*2;
-						ad = 0x2000 + (y2&7)*0x400 + ((y2/8)&7)*0x80 + (y2/64)*0x28 + 2*x + 10*z; // + 20*w;
-						ad += 0x2000*page;
-						main = MemGetMainPtr(ad);
-						aux  = MemGetAuxPtr (ad);
-						main[0] = b; main[1] = z + page*0x80;
-						aux [0] = z; aux [1] = 0;
-
-						if( page == 1 )
-						{
-							// Columns = # of consecutive pixels
-							// x = 0, 1, 2, 3
-							// # = 3, 5, 7, 9
-							// b = 3, 7, 15, 31
-							//   = (4 << x) - 1
-							main[0+z] = (0x80*(y/32) + (((4 << x) - 1) << (y/8))); // (3 | 3+x*2)
-							main[1+z] = (0x80*(y/32) + (((4 << x) - 1) << (y/8))) >> 8;
-						}
-
-						y2 = y*2 + 1;
-						ad = 0x2000 + (y2&7)*0x400 + ((y2/8)&7)*0x80 + (y2/64)*0x28 + 2*x + 10*z; // + 20*w;
-						ad += 0x2000*page;
-						main = MemGetMainPtr(ad);
-						aux  = MemGetAuxPtr (ad);
-						main[0] =   0; main[1] = z + page*0x80;
-						aux [0] =   b; aux [1] = 0;
-
-						b++;
-					}
-				}
-			}
-		}
-	}
-#endif
-
 }
 
 //===========================================================================

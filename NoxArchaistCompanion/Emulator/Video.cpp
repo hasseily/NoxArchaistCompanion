@@ -31,9 +31,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "Video.h"
 #include "AppleWin.h"
 #include "CPU.h"
-#include "Frame.h"
 #include "Keyboard.h"
-#include "Log.h"
 #include "Memory.h"
 #include "NTSC.h"
 #include "RGBMonitor.h"
@@ -132,6 +130,29 @@ void VideoInitialize ()
 
 	// LOAD THE LOGO
 	// g_hLogoBitmap = LoadBitmap( g_hInstance, MAKEINTRESOURCE(IDB_APPLEWIN) );
+
+		// CREATE A BITMAPINFO STRUCTURE FOR THE FRAME BUFFER
+	g_pFramebufferinfo = (LPBITMAPINFO)VirtualAlloc(
+		NULL,
+		sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD),
+		MEM_COMMIT,
+		PAGE_READWRITE);
+
+	ZeroMemory(g_pFramebufferinfo, sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD));
+	g_pFramebufferinfo->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	g_pFramebufferinfo->bmiHeader.biWidth = GetFrameBufferWidth();
+	g_pFramebufferinfo->bmiHeader.biHeight = GetFrameBufferHeight();
+	g_pFramebufferinfo->bmiHeader.biPlanes = 1;
+	g_pFramebufferinfo->bmiHeader.biBitCount = 32;
+	g_pFramebufferinfo->bmiHeader.biCompression = BI_RGB;
+	g_pFramebufferinfo->bmiHeader.biClrUsed = 0;
+
+	// DRAW THE SOURCE IMAGE INTO THE SOURCE BIT BUFFER
+	UINT fbSize = GetFrameBufferWidth() * GetFrameBufferHeight() * sizeof(bgra_t);
+	ZeroMemory(g_pFramebufferbits, fbSize);
+
+	// CREATE THE OFFSET TABLE FOR EACH SCAN LINE IN THE FRAME BUFFER
+	NTSC_VideoInit(g_pFramebufferbits);
 }
 
 //===========================================================================
@@ -193,18 +214,17 @@ void VideoRefreshScreen(uint32_t uRedrawWholeScreenVideoMode /* =0*/, bool bRedr
 {
 	g_RemoteControlMgr.getInput();	// RIK
 
-	if (bRedrawWholeScreen || g_nAppMode == MODE_PAUSED)
+	if (bRedrawWholeScreen || g_nAppMode == AppMode_e::MODE_PAUSED)
 	{
 		// uVideoModeForWholeScreen set if:
-		// . MODE_DEBUG   : always
-		// . MODE_RUNNING : called from VideoRedrawScreen(), eg. during full-speed
+		// . AppMode_e::MODE_RUNNING : called from VideoRedrawScreen(), eg. during full-speed
 		if (bRedrawWholeScreen)
 			NTSC_SetVideoMode(uRedrawWholeScreenVideoMode);
 		NTSC_VideoRedrawWholeScreen();
 
-		// MODE_DEBUG|PAUSED: Need to refresh a 2nd time if changing video-type, otherwise could have residue from prev image!
+		// AppMode_e::MODE_PAUSED: Need to refresh a 2nd time if changing video-type, otherwise could have residue from prev image!
 		// . eg. Amber -> B&W TV
-		if (g_nAppMode == MODE_PAUSED)
+		if (g_nAppMode == AppMode_e::MODE_PAUSED)
 			NTSC_VideoRedrawWholeScreen();
 	}
 	g_RemoteControlMgr.sendOutput(g_pFramebufferinfo, g_pFramebufferbits);	// RIK
