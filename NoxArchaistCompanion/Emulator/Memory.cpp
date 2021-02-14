@@ -1431,7 +1431,7 @@ void MemInitializeROM(void)
 	switch (g_Apple2Type)
 	{
 	case A2TYPE_APPLE2EENHANCED:
-		hResInfo = FindResource(NULL, MAKEINTRESOURCE(IDR_APPLE2E_ENHANCED_ROM), L"ROM");
+		hResInfo = FindResource(NULL, MAKEINTRESOURCE(IDR_APPLE2E_ENHANCED_ROM), L"ROMS");
 		ROM_SIZE = Apple2eRomSize;
 		break;
 	}
