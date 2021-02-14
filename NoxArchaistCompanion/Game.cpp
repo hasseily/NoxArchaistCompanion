@@ -12,6 +12,7 @@
 #include "Keyboard.h"
 #include "HAUtils.h"
 #include "Emulator/AppleWin.h"
+#include "Emulator/Video.h"
 #include <vector>
 
 using namespace DirectX;
@@ -22,7 +23,6 @@ using namespace HA;
 // AppleWin video texture
 D3D12_SUBRESOURCE_DATA g_textureData;
 ComPtr<ID3D12Resource> g_textureUploadHeap;
-extern  LPBITMAPINFO  g_pFramebufferinfo;
 
 // Instance variables
 HWND m_window;

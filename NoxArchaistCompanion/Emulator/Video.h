@@ -172,6 +172,7 @@ extern COLORREF   g_nMonochromeRGB;	// saved to Registry
 extern uint32_t   g_uVideoMode;
 extern DWORD      g_eVideoType;		// saved to Registry
 extern uint8_t   *g_pFramebufferbits;
+extern LPBITMAPINFO  g_pFramebufferinfo;
 
 // Prototypes _______________________________________________________
 

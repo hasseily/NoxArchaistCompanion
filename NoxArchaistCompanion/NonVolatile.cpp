@@ -7,11 +7,11 @@
 
 static nlohmann::json nv_json = R"(
   {
-    "profilePath": "Profiles\Nox Archaist.json",
+    "profilePath": "Profiles\\Nox Archaist.json",
     "hdvPath": "NOXARCHAIST.HDV",
     "volumeSpeaker":	  20,
     "volumeMockingBoard": 20,
-	"useGameLink": false
+	"useGameLink": 0
   }
 )"_json;
 

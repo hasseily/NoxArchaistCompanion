@@ -13,7 +13,7 @@ public:
 	bool destroyMem();
 	void setLoadedHDInfo(ImageInfo* imageInfo);
 	void getInput();
-	void sendOutput(LPBITMAPINFO g_pFramebufferinfo, UINT8* g_pFramebufferbits);
+	void sendOutput(LPBITMAPINFO pFramebufferinfo, UINT8* pFramebufferbits);
 	void updateRunningProgramInfo();
 	void setKeypressExclusionList(UINT8 exclusionList[], UINT8 length);
 

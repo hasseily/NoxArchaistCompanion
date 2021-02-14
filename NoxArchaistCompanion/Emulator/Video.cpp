@@ -51,6 +51,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
     uint8_t      *g_pFramebufferbits = NULL; // last drawn frame
 	int           g_nAltCharSetOffset  = 0; // alternate character set
+	LPBITMAPINFO g_pFramebufferinfo;
 
 // Globals (Private)
 
@@ -76,7 +77,6 @@ static COLORREF      customcolors[256];	// MONOCHROME is last custom color
 
 static HBITMAP       g_hDeviceBitmap;
 static HDC           g_hDeviceDC;
-static LPBITMAPINFO  g_pFramebufferinfo = NULL;
 
        HBITMAP       g_hLogoBitmap;
 

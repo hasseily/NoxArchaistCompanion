@@ -357,7 +357,7 @@ void EmulatorMessageLoopProcessing(void)
 
 
 // DO ONE-TIME INITIALIZATION
-static void EmulatorOneTimeInitialization()
+void EmulatorOneTimeInitialization()
 {
 	g_bSysClkOK = SysClk_InitTimer();
 	SetApple2Type(A2TYPE_APPLE2EENHANCED);
@@ -380,7 +380,7 @@ static void EmulatorOneTimeInitialization()
 }
 
 // DO INITIALIZATION THAT MUST BE REPEATED FOR A RESTART
-static void EmulatorRepeatInitialization(void)
+void EmulatorRepeatInitialization(void)
 {
 	ResetToLogoMode();
 	UseClockMultiplier(1.0f);
@@ -395,7 +395,7 @@ static void EmulatorRepeatInitialization(void)
 	HD_Reset();		// GH#515
 }
 
-static void EmulatorReboot(void)
+void EmulatorReboot(void)
 {
 	HD_Reset();
 	g_bFullSpeed = 0;	// Might've hit reset in middle of InternalCpuExecute() - so beep may get (partially) muted

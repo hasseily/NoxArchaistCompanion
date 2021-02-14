@@ -57,9 +57,6 @@ public:
 	bool ClockRead(int& data);
 	void ClockWrite(int address);
 
-	void SaveSnapshot(class YamlSaveHelper& yamlSaveHelper);
-	void LoadSnapshot(class YamlLoadHelper& yamlLoadHelper);
-
 	bool m_bClockRegisterEnabled;
 	bool m_bWriteEnabled;
 	RingRegister64 m_ClockRegister;

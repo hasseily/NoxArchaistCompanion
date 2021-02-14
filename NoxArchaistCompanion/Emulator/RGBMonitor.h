@@ -39,9 +39,6 @@ bool RGB_IsMixModeInvertBit7(void);
 void RGB_ResetState(void);
 void RGB_SetInvertBit7(bool state);
 
-void RGB_SaveSnapshot(class YamlSaveHelper& yamlSaveHelper);
-void RGB_LoadSnapshot(class YamlLoadHelper& yamlLoadHelper, UINT cardVersion);
-
 RGB_Videocard_e RGB_GetVideocard(void);
 void RGB_SetVideocard(RGB_Videocard_e videocard, int text_foreground = -1, int text_background = -1);
 void RGB_SetRegularTextFG(int color);
