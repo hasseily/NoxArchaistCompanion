@@ -92,12 +92,9 @@ void Game::Initialize(HWND window, int width, int height)
     m_deviceResources->CreateWindowSizeDependentResources();
     CreateWindowSizeDependentResources();
 
-    // Initialize emulator sound
-	EmulatorOneTimeInitialization();
+    // Initialize emulator
+    EmulatorOneTimeInitialization(window);
 	EmulatorRepeatInitialization();
-    DSInit(window);
-	MB_Initialize();
-	SpkrInitialize();
 
     // TODO: We're doing 30 FPS fixed timestep update logic.
     // Might not be ideal

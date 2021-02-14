@@ -119,14 +119,14 @@ static char *DirectSound_ErrorText (HRESULT error)
 
 //-----------------------------------------------------------------------------
 
-bool DSGetLock(LPDIRECTSOUNDBUFFER pVoice, DWORD dwOffset, DWORD dwBytes,
+HRESULT DSGetLock(LPDIRECTSOUNDBUFFER pVoice, DWORD dwOffset, DWORD dwBytes,
 					  SHORT** ppDSLockedBuffer0, DWORD* pdwDSLockedBufferSize0,
 					  SHORT** ppDSLockedBuffer1, DWORD* pdwDSLockedBufferSize1)
 {
 	DWORD nStatus;
 	HRESULT hr = pVoice->GetStatus(&nStatus);
 	if(hr != DS_OK)
-		return false;
+		return hr;
 
 	if(nStatus & DSBSTATUS_BUFFERLOST)
 	{
@@ -146,7 +146,7 @@ bool DSGetLock(LPDIRECTSOUNDBUFFER pVoice, DWORD dwOffset, DWORD dwBytes,
 								(void**)ppDSLockedBuffer0, pdwDSLockedBufferSize0,
 								(void**)ppDSLockedBuffer1, pdwDSLockedBufferSize1,
 								DSBLOCK_ENTIREBUFFER)))
-			return false;
+			return hr;
 	}
 	else
 	{
@@ -154,10 +154,10 @@ bool DSGetLock(LPDIRECTSOUNDBUFFER pVoice, DWORD dwOffset, DWORD dwBytes,
 								(void**)ppDSLockedBuffer0, pdwDSLockedBufferSize0,
 								(void**)ppDSLockedBuffer1, pdwDSLockedBufferSize1,
 								0)))
-			return false;
+			return hr;
 	}
 
-	return true;
+	return hr;
 }
 
 //-----------------------------------------------------------------------------
@@ -595,7 +595,7 @@ void SysClk_StartTimerUsec(DWORD dwUsecPeriod)
 
 	SysClk_StopTimer();
 
-	REFERENCE_TIME rtPeriod = (REFERENCE_TIME) (dwUsecPeriod * 10);	// In units of 100ns
+	REFERENCE_TIME rtPeriod = (REFERENCE_TIME) ((LONGLONG)dwUsecPeriod * 10);	// In units of 100ns
 	REFERENCE_TIME rtNow;
 
 	HRESULT hr = g_pRefClock->GetTime(&rtNow);

@@ -357,16 +357,17 @@ void EmulatorMessageLoopProcessing(void)
 
 
 // DO ONE-TIME INITIALIZATION
-void EmulatorOneTimeInitialization()
+void EmulatorOneTimeInitialization(HWND window)
 {
+	g_hFrameWindow = window;
+	DSInit(g_hFrameWindow);
+	MB_Initialize();
+	SpkrInitialize();
 	g_bSysClkOK = SysClk_InitTimer();
 	SetApple2Type(A2TYPE_APPLE2EENHANCED);
 	GetCardMgr().Insert(SLOT4, CT_MockingboardC);
 	GetCardMgr().Insert(SLOT5, CT_MockingboardC);
 	HD_SetEnabled(true);
-	bool bRes = DoHardDiskInsert(HARDDISK_1, g_nonVolatile.hdvPath.c_str());
-	if (!bRes)
-		MessageBox(g_hFrameWindow, L"Can't find last used Nox Archaist HDV file.\nPlease choose another.", L"Warning", MB_ICONASTERISK | MB_OK);
 
 	// TODO: load these as defaults or override from config file
 	RGB_SetVideocard(Video7_SL7, 15, 0);
@@ -393,6 +394,10 @@ void EmulatorRepeatInitialization(void)
 
 	// Need to test if it's safe to call ResetMachineState(). In the meantime, just call Disk2Card's Reset():
 	HD_Reset();		// GH#515
+	bool bRes = DoHardDiskInsert(HARDDISK_1, g_nonVolatile.hdvPath.c_str());
+	if (!bRes)
+		MessageBox(g_hFrameWindow, L"Can't find last used Nox Archaist HDV file.\nPlease choose another.", L"Warning", MB_ICONASTERISK | MB_OK);
+	g_nAppMode = AppMode_e::MODE_RUNNING;
 }
 
 void EmulatorReboot(void)

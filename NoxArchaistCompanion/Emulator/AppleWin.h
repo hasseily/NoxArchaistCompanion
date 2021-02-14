@@ -28,7 +28,7 @@ UINT GetFrameBufferHeight();
 UINT GetFrameBufferBorderWidth();
 UINT GetFrameBufferBorderHeight();
 
-void EmulatorOneTimeInitialization(void);
+void EmulatorOneTimeInitialization(HWND window);
 void EmulatorRepeatInitialization(void);
 void EmulatorReboot(void);
 void EmulatorMessageLoopProcessing(void);
