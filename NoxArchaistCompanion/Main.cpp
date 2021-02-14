@@ -433,6 +433,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case ID_EMULATOR_SELECTNOXHDV:
 		{
 			HD_Select(HARDDISK_1);
+			break;
 		}
 		case ID_EMULATOR_PAUSE:
 		{

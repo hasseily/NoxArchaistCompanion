@@ -2184,7 +2184,7 @@ void NTSC_VideoInit( uint8_t* pFramebuffer ) // wsVideoInit
 
 	for (int y = 0; y < (VIDEO_SCANNER_Y_DISPLAY*2); y++)
 	{
-		uint32_t offset = sizeof(bgra_t) * GetFrameBufferWidth() * ((GetFrameBufferHeight() - 1) - y - GetFrameBufferBorderHeight()) + (sizeof(bgra_t) * GetFrameBufferBorderWidth());
+		uint32_t offset = sizeof(bgra_t) * GetFrameBufferWidth() * ((uint64_t)(GetFrameBufferHeight() - 1) - y - GetFrameBufferBorderHeight()) + (sizeof(bgra_t) * GetFrameBufferBorderWidth());
 		// Swapped the scanlines to be correctly positioned for DX12
 		// g_pScanLines[y] = (bgra_t*) (g_pFramebufferbits + offset);
 		g_pScanLines[(VIDEO_SCANNER_Y_DISPLAY * 2) - y - 1] = (bgra_t*)(g_pFramebufferbits + offset);

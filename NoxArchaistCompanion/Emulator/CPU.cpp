@@ -267,11 +267,7 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 	    ? IORead[(PC>>4) & 0xFF](PC,PC,0,0,uExecutedCycles)	// Fetch opcode from I/O memory, but params are still from mem[]
 		: *(mem+PC);
 
-#ifdef USE_SPEECH_API
-	if (PC == COUT && g_Speech.IsEnabled() && !g_bFullSpeed)
-		CaptureCOUT();
-#endif
-
+	// This chunk of code extracts the conversation strings outside of combat in Nox Archaist /////////////////////////////
 	if (PC == PC_INITIATE_COMBAT)
 		b_print_suppress = true;
 	if (PC == PC_END_COMBAT)
@@ -293,6 +289,7 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 		}
 		m_logWindow->AppendLog(logstr);
 	}
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	regs.pc++;
 }
 

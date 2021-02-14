@@ -135,7 +135,7 @@ void SetPriorityNormal(void)
 static UINT g_uModeStepping_Cycles = 0;
 static bool g_uModeStepping_LastGetKey_ScrollLock = false;
 
-static void ContinueExecution(void)
+void ContinueExecution(void)
 {
 	_ASSERT(g_nAppMode == AppMode_e::MODE_RUNNING);
 
