@@ -1,7 +1,5 @@
 #pragma once
 
-constexpr auto VOLUME_MAX = 59U;
-
 enum SoundType_e
 {
 	SOUND_NONE = 0,

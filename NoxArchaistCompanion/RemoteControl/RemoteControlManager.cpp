@@ -73,7 +73,7 @@ bool bHardDiskIsLoaded = false;			// If HD is loaded, use it instead of floppy
 bool bFloppyIsLoaded = false;
 
 // Private Prototypes
-void reverseScanlines(uint8_t* destination, uint8_t* source, uint32_t width, uint32_t height, uint8_t depth);
+static void reverseScanlines(uint8_t* destination, uint8_t* source, uint32_t width, uint32_t height, uint8_t depth);
 
 //===========================================================================
 // Global functions
@@ -110,7 +110,7 @@ LPBYTE RemoteControlManager::initializeMem(UINT size)
 	if (GameLink::GetGameLinkEnabled())
 	{
 		iOldVolumeLevel = (UINT8)SpkrGetVolume();
-		LPBYTE mem = (LPBYTE)GameLink::AllocRAM(size);
+		LPBYTE _mem = (LPBYTE)GameLink::AllocRAM(size);
 
 		// initialize the gamelink previous input to 0
 		memset(&g_gamelink.input_prev, 0, sizeof(GameLink::sSharedMMapInput_R2));
@@ -118,7 +118,7 @@ LPBYTE RemoteControlManager::initializeMem(UINT size)
 		(GameLink::Init(isTrackOnlyEnabled()));
 		setKeypressExclusionList(aDefaultKeyExclusionList, sizeof(aDefaultKeyExclusionList));
 		updateRunningProgramInfo();	// Disks might have been loaded before the shm was ready
-		return mem;
+		return _mem;
 	}
 	return NULL;
 }
@@ -159,7 +159,8 @@ void RemoteControlManager::setLoadedHDInfo(ImageInfo* imageInfo)
 		WCHAR szTitle[maxTitleLength];
 		LoadStringW(HINSTANCE(0), IDS_APP_TITLE, szTitle, maxTitleLength);
 		char szcTitle[maxTitleLength];
-		wcstombs(szcTitle, szTitle, maxTitleLength);
+		size_t numConverted = 0;
+		wcstombs_s(&numConverted, szcTitle, szTitle, maxTitleLength);
 		g_infoHdv.VolumeName.assign(szcTitle);
 		g_infoHdv.sig = 0;
 	}
@@ -232,7 +233,7 @@ void RemoteControlManager::getInput()
 			// We keep a cache of the previous state, so we'll know if a key has changed state
 			// and trigger the event
 			// This is a map from the custom DIK scancodes to VK codes
-			HKL hKeyboardLayout = GetKeyboardLayout(0);
+			//HKL hKeyboardLayout = GetKeyboardLayout(0);
 			UINT8 aDIKtoVK[256] = { 0x00, 0x1B, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0xBD, 0xBB,
 									0x08, 0x09, 0x51, 0x57, 0x45, 0x52, 0x54, 0x59, 0x55, 0x49, 0x4F, 0x50, 0xDB, 0xDD, 0x0D,
 									0xA2, 0x41, 0x53, 0x44, 0x46, 0x47, 0x48, 0x4A, 0x4B, 0x4C, 0xBA, 0xDE, 0xC0, 0xA0, 0xDC,
@@ -255,7 +256,7 @@ void RemoteControlManager::getInput()
 			// We need to handle long keypresses
 			// We set up a do-nothing timer for each key so that the first repeat isn't too fast
 
-			iCurrentTicks = GetTickCount();
+			iCurrentTicks = GetTickCount64();
 			for (UINT8 blk = 0; blk < 8; ++blk)
 			{
 				const UINT old = g_gamelink.input_prev.keyb_state[blk];
@@ -263,7 +264,7 @@ void RemoteControlManager::getInput()
 				UINT8 scancode;
 				UINT32 mask;
 				UINT iKeyState;
-				UINT iVK_Code;
+				UINT8 iVK_Code;
 				LPARAM lparam;
 				UINT16 repeat;
 				bool bCD, bPD;	// is current key down? is previous key down?
@@ -293,7 +294,7 @@ void RemoteControlManager::getInput()
 					{	// set up lparam
 						lparam = repeat;
 						lparam = lparam | ((LPARAM)scancode << 16);				// scancode
-						lparam = lparam | (((LPARAM)scancode > 0x7F) << 24);	// extended
+						lparam = lparam | ((LPARAM)(scancode > 0x7F) << 24);	// extended
 						lparam = lparam | ((LPARAM)bPD << 30);				// previous key state
 						lparam = lparam | ((LPARAM)!bCD << 31);		// transition state (1 for keyup)
 					}
@@ -319,7 +320,7 @@ void RemoteControlManager::getInput()
 
 //===========================================================================
 
-void RemoteControlManager::sendOutput(LPBITMAPINFO g_pFramebufferinfo, UINT8 *g_pFramebufferbits)
+void RemoteControlManager::sendOutput(LPBITMAPINFO pFramebufferinfo, UINT8 *pFramebufferbits)
 {
 	if (GameLink::GetGameLinkEnabled()) {
 		// here send the last drawn frame to GameLink
@@ -327,7 +328,7 @@ void RemoteControlManager::sendOutput(LPBITMAPINFO g_pFramebufferinfo, UINT8 *g_
 		// We instead memcpy each scanline of the bitmap of the frame in reverse into another buffer, and pass that to GameLink.
 		// When GridCartographer/GameLink allows to pass in flags specifying the x/y/w/h etc...,
 
-		if (g_pFramebufferinfo == NULL)
+		if (pFramebufferinfo == NULL)
 		{
 			// Don't send out video, just handle out-of-band commands
 			GameLink::Out(MemGetBankPtr(0));
@@ -340,11 +341,11 @@ void RemoteControlManager::sendOutput(LPBITMAPINFO g_pFramebufferinfo, UINT8 *g_
 		if (g_pFramebufferbits != NULL)
 		{
 			GameLink::Out(
-				(UINT16)g_pFramebufferinfo->bmiHeader.biWidth,
-				(UINT16)g_pFramebufferinfo->bmiHeader.biHeight,
+				(UINT16)pFramebufferinfo->bmiHeader.biWidth,
+				(UINT16)pFramebufferinfo->bmiHeader.biHeight,
 				1.0,								// image ratio
 				g_gamelink.want_mouse,
-				(const UINT8*)g_pFramebufferbits,
+				(const UINT8*)pFramebufferbits,
 				MemGetBankPtr(0));					// Main memory pointer
 		}
 	}
@@ -359,7 +360,7 @@ void RemoteControlManager::sendOutput(LPBITMAPINFO g_pFramebufferinfo, UINT8 *g_
 
 // The framebuffer might have its scanlines inverted, from bottom to top
 // To send a correct bitmap out to a 3rd party program we need to reverse the scanlines
-static void reverseScanlines(uint8_t* destination, uint8_t* source, uint32_t width, uint32_t height, uint8_t depth)
+void reverseScanlines(uint8_t* destination, uint8_t* source, uint32_t width, uint32_t height, uint8_t depth)
 {
 	uint32_t linesize = width * depth;
 	uint8_t* loln = source;
