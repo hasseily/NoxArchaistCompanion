@@ -862,20 +862,3 @@ BYTE* AY8910_GetRegsPtr(UINT uChip)
 
 	return g_AY8910[uChip].GetAYRegsPtr();
 }
-
-UINT AY8910_SaveSnapshot(YamlSaveHelper& yamlSaveHelper, UINT uChip, const std::string& suffix)
-{
-	if (uChip >= MAX_8910)
-		return 0;
-
-	g_AY8910[uChip].SaveSnapshot(yamlSaveHelper, suffix);
-	return 1;
-}
-
-UINT AY8910_LoadSnapshot(YamlLoadHelper& yamlLoadHelper, UINT uChip, const std::string& suffix)
-{
-	if (uChip >= MAX_8910)
-		return 0;
-
-	return g_AY8910[uChip].LoadSnapshot(yamlLoadHelper, suffix) ? 1 : 0;
-}

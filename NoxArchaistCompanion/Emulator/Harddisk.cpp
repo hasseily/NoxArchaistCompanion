@@ -331,11 +331,6 @@ BOOL HD_Insert(const int iDrive, const std::wstring & pszImageFilename)
 
 	g_HardDisk[iDrive].hd_imageloaded = (Error == eIMAGE_ERROR_NONE);
 
-	if (Error == eIMAGE_ERROR_NONE)
-	{
-		GetImageTitle(pszImageFilename.c_str(), g_HardDisk[iDrive].imagename, g_HardDisk[iDrive].fullname);
-	}
-
 	HD_SaveLastDiskImage(iDrive);
 
 	// If we've just loaded the boot drive, tell Remote Control

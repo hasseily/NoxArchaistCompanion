@@ -28,11 +28,11 @@ extern  LPBITMAPINFO  g_pFramebufferinfo;
 HWND m_window;
 static SidebarManager m_sbM;
 static SidebarContent m_sbC;
-std::shared_ptr<LogWindow>m_logWindow;
 // fonts and primitives from dxtoolkit12 to draw lines
 static std::vector<std::unique_ptr<SpriteFont>> m_spriteFonts;
 static std::unique_ptr<PrimitiveBatch<VertexPositionColor>> m_primitiveBatch;
 std::unique_ptr<BasicEffect> m_lineEffect;
+AppMode_e m_previousAppMode = AppMode_e::MODE_UNKNOWN;
 
 static std::wstring last_logged_line;
 
@@ -82,9 +82,10 @@ void Game::Initialize(HWND window, int width, int height)
     DX::FindMediaFile(buff, MAX_PATH, L"Background.jpg");
     m_bgImage = HA::LoadBGRAImage(buff, m_bgImageWidth, m_bgImageHeight);
 
+	m_sbC.Initialize();
+
     m_previousFrameCount = 0;
     m_previousGameLinkFrameSequence = 0;
-    m_useGameLink = true;
     shouldRender = true;
 
     GetClientRect(window, &m_cachedClientRect);
@@ -109,7 +110,7 @@ void Game::Initialize(HWND window, int width, int height)
     m_timer.SetTargetElapsedSeconds(1.0 / 30);    
 }
 
-#pragma region Activate GameLink
+#pragma region Window texture and size
 
 // Select which texture to show: The default background or the gamelink data
 D3D12_RESOURCE_DESC Game::ChooseTexture()
@@ -230,65 +231,25 @@ void Game::Render()
         return;
     }
 
+    // Change in mode
+	if (m_previousAppMode != g_nAppMode)
+	{
+        m_previousAppMode = g_nAppMode;
+		OnWindowChanged();
+	}
+
     // change in video layout Normal/Flipped
     if (m_previousLayout != m_currentLayout)
     {
         OnWindowChanged();
     }
 
-    // Every m_framesDelay see if GameLink is active
+    // Every m_framesDelay update the gamelink framebuffer
     if ((currFrameCount - m_previousFrameCount) > m_framesDelay)
     {
-        // char buf[500];
-        if (GameLink::IsActive())
+        if (g_nonVolatile.useGameLink)
         {
-            UINT16 seq = GameLink::GetFrameSequence();
-            if (seq == m_previousGameLinkFrameSequence)
-            {
-                if (seq > 0)
-                {
-                    // GameLink isn't doing anything, could be dead
-                       // Revert to the original texture
-                    //sprintf_s(buf, "Destroying GameLink. Seq: %d - Prev: %d\n", seq, m_previousGameLinkFrameSequence);
-                    //OutputDebugStringA(buf);
-                    GameLink::Destroy();
-                    m_useGameLink = false;
-                    ChooseTexture();
-                    OnWindowChanged();
-                }
-                else
-                {
-                    // GameLink is waiting for a game, the texture size is (0,0)
-                    //sprintf_s(buf, "Gamelink waiting for a game. Seq: %d - Prev: %d\n", seq, m_previousGameLinkFrameSequence);
-                    //OutputDebugStringA(buf);
-                }
-            }
-            else
-            {
-                if (m_previousGameLinkFrameSequence == 0)
-                {
-                    // A game was activated on AppleWin since our last check, let's set the texture the right size
-					m_useGameLink = true;
-					ChooseTexture();
-					OnWindowChanged();
-                    m_sbC.Initialize();
-                }
-                else
-                {
-					//sprintf_s(buf, "Gamelink active. Seq: %d - Prev: %d\n", seq, m_previousGameLinkFrameSequence);
-                    //OutputDebugStringA(buf);
-					ChooseTexture();
-                }
-            }
-            m_previousGameLinkFrameSequence = seq;
-        }
-        else
-        {
-            // Look for an active gamelink
-            //sprintf_s(buf, "Looking for active GameLink. Cur: %d - Prev: %d\n", currFrameCount, m_previousFrameCount);
-            //OutputDebugStringA(buf);
-            m_useGameLink = true;
-            ChooseTexture();
+            // TODO: make a texture out of the backbuffer and send it back to main memory
         }
         m_previousFrameCount = currFrameCount;
     }

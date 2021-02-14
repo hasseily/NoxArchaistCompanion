@@ -20,6 +20,7 @@ enum class EmulatorLayout
 };
 
 static NonVolatile g_nonVolatile = NonVolatile();
+static std::shared_ptr<LogWindow>m_logWindow;
 
 // A basic game implementation that creates a D3D12 device and
 // provides a game loop.
@@ -93,18 +94,19 @@ private:
     // Rendering loop timer.
     DX::StepTimer                           m_timer;
 
-    // Vars to choose whether to display GameLink or not
+
+    // Vars to choose whether to send to GameLink or not
     const uint32_t m_framesDelay = 60;
     uint32_t m_previousFrameCount;    // Last render frame count
     UINT16 m_previousGameLinkFrameSequence;
-    bool m_useGameLink;
 
-    // Background image when GameLink isn't available
+    // Background image when in LOGO mode
     std::vector<uint8_t> m_bgImage;
     uint32_t m_bgImageWidth;
     uint32_t m_bgImageHeight;
 
-    // video texture layout may change depending on gamelink status
+    // video texture layout may change
+    // TODO: Unused, get rid of it
     EmulatorLayout m_currentLayout;
     EmulatorLayout m_previousLayout;
 

@@ -91,13 +91,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "CardManager.h"
 #include "Memory.h"
 #include "Mockingboard.h"
-#ifdef USE_SPEECH_API
-#include "Speech.h"
-#endif
 #include "SynchronousEventManager.h"
 #include "Video.h"
 #include "NTSC.h"
 #include "LogWindow.h"
+#include "Game.h"
 
 #define PC_PRINTSTR			0x7aa1		// program counter of PRINT.STR routine
 #define A_PRINT_RIGHT		0x05		// A register's value for printing to right scroll area (where the conversations are)
@@ -147,8 +145,6 @@ static volatile UINT32 g_bmNMI = 0;
 static volatile BOOL g_bNmiFlank = FALSE; // Positive going flank on NMI line
 
 static bool g_irqDefer1Opcode = false;
-
-std::shared_ptr<LogWindow>m_logWindow;
 
 //
 

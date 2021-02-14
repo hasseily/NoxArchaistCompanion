@@ -6,6 +6,7 @@ public:
 	std::wstring hdvPath;
 	int volumeSpeaker;
 	int volumeMockingBoard;
+	bool useGameLink;
 
 	// I/O
 	int SaveToDisk();

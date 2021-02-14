@@ -531,7 +531,7 @@ void ExitGame() noexcept
 	// Display exit confirmation
 	if (MessageBox(HWND_TOP, TEXT("Are you sure you want to quit?\nSave your game first!"), TEXT("Quit Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
 	{
-		GameLink::Shutdown();
+		GameLink::Term();
 		PostQuitMessage(0);
 	}
 }

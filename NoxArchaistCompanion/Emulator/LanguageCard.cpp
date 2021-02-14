@@ -147,27 +147,6 @@ LanguageCardSlot0::~LanguageCardSlot0(void)
 	m_pMemory = NULL;
 }
 
-//
-
-static const UINT kUNIT_LANGUAGECARD_VER = 1;
-static const UINT kSLOT_LANGUAGECARD = LanguageCardUnit::kSlot0;
-
-#define SS_YAML_VALUE_CARD_LANGUAGECARD "Language Card"
-
-#define SS_YAML_KEY_MEMORYMODE "Memory Mode"
-#define SS_YAML_KEY_LASTRAMWRITE "Last RAM Write"
-
-std::string LanguageCardSlot0::GetSnapshotMemStructName(void)
-{
-	static const std::string name("Memory Bank");
-	return name;
-}
-
-std::string LanguageCardSlot0::GetSnapshotCardName(void)
-{
-	static const std::string name(SS_YAML_VALUE_CARD_LANGUAGECARD);
-	return name;
-}
 
 //-------------------------------------
 

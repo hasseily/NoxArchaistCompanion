@@ -50,12 +50,12 @@ RemoteControlManager g_RemoteControlMgr;
 
 eApple2Type	g_Apple2Type = A2TYPE_APPLE2EENHANCED;
 
-bool      g_bFullSpeed      = false;
+bool      g_bFullSpeed = false;
 
 //=================================================
 
 // Win32
-HINSTANCE g_hInstance          = (HINSTANCE)0;
+HINSTANCE g_hInstance = (HINSTANCE)0;
 HWND g_hFrameWindow;
 
 AppMode_e	g_nAppMode = AppMode_e::MODE_LOGO;
@@ -63,9 +63,9 @@ static bool g_bSysClkOK = false;
 
 bool      g_bRestart = false;
 
-DWORD		g_dwSpeed		= SPEED_NORMAL;	// Affected by Config dialog's speed slider bar
+DWORD		g_dwSpeed = SPEED_NORMAL;	// Affected by Config dialog's speed slider bar
 double		g_fCurrentCLK6502 = CLK_6502_NTSC;	// Affected by Config dialog's speed slider bar
-static double g_fMHz		= 1.0;			// Affected by Config dialog's speed slider bar
+static double g_fMHz = 1.0;			// Affected by Config dialog's speed slider bar
 
 int			g_nCpuCyclesFeedback = 0;
 DWORD       g_dwCyclesThisFrame = 0;
@@ -110,7 +110,7 @@ void SetPriorityAboveNormal(void)
 	if (!g_bPriorityNormal)
 		return;
 
-	if ( SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS) )
+	if (SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS))
 	{
 		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
 		g_bPriorityNormal = false;
@@ -123,7 +123,7 @@ void SetPriorityNormal(void)
 	if (g_bPriorityNormal)
 		return;
 
-	if ( SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS) )
+	if (SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS))
 	{
 		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
 		g_bPriorityNormal = true;
@@ -139,12 +139,12 @@ static void ContinueExecution(void)
 {
 	_ASSERT(g_nAppMode == AppMode_e::MODE_RUNNING);
 
-	const double fUsecPerSec        = 1.e6;
+	const double fUsecPerSec = 1.e6;
 	const UINT nExecutionPeriodUsec = 1000;		// 1.0ms
 	const double fExecutionPeriodClks = g_fCurrentCLK6502 * ((double)nExecutionPeriodUsec / fUsecPerSec);
 
 	const bool bWasFullSpeed = g_bFullSpeed;
-	g_bFullSpeed =	 (g_dwSpeed == SPEED_MAX);
+	g_bFullSpeed = (g_dwSpeed == SPEED_MAX);
 
 	if (g_bFullSpeed)
 	{
@@ -175,12 +175,12 @@ static void ContinueExecution(void)
 
 	//
 
-	int nCyclesWithFeedback = (int) fExecutionPeriodClks + g_nCpuCyclesFeedback;
+	int nCyclesWithFeedback = (int)fExecutionPeriodClks + g_nCpuCyclesFeedback;
 	const UINT uCyclesToExecuteWithFeedback = (nCyclesWithFeedback >= 0) ? nCyclesWithFeedback
-																		 : 0;
+		: 0;
 
-	const DWORD uCyclesToExecute = (g_nAppMode == AppMode_e::MODE_RUNNING)		? uCyclesToExecuteWithFeedback
-												/* AppMode_e::MODE_STEPPING */ : 0;
+	const DWORD uCyclesToExecute = (g_nAppMode == AppMode_e::MODE_RUNNING) ? uCyclesToExecuteWithFeedback
+		/* AppMode_e::MODE_STEPPING */ : 0;
 
 	const bool bVideoUpdate = !g_bFullSpeed;
 	const DWORD uActualCyclesExecuted = CpuExecute(uCyclesToExecute, bVideoUpdate);
@@ -255,7 +255,7 @@ void UseClockMultiplier(double clockMultiplier)
 
 void SetCurrentCLK6502(void)
 {
-	static DWORD dwPrevSpeed = (DWORD) -1;
+	static DWORD dwPrevSpeed = (DWORD)-1;
 	static VideoRefreshRate_e prevVideoRefreshRate = VR_NONE;
 
 	if (dwPrevSpeed == g_dwSpeed && GetVideoRefreshRate() == prevVideoRefreshRate)
@@ -270,7 +270,7 @@ void SetCurrentCLK6502(void)
 	// SPEED_MAX-1  = 39 = 3.90 MHz
 	// SPEED_MAX    = 40 = ???? MHz (run full-speed, /g_fCurrentCLK6502/ is ignored)
 
-	if(g_dwSpeed < SPEED_NORMAL)
+	if (g_dwSpeed < SPEED_NORMAL)
 		g_fMHz = 0.5 + (double)g_dwSpeed * 0.05;
 	else
 		g_fMHz = (double)g_dwSpeed / 10.0;
@@ -286,7 +286,6 @@ void SetCurrentCLK6502(void)
 }
 
 //===========================================================================
-
 
 UINT GetFrameBufferBorderlessWidth(void)
 {
@@ -383,17 +382,17 @@ static void EmulatorOneTimeInitialization()
 // DO INITIALIZATION THAT MUST BE REPEATED FOR A RESTART
 static void EmulatorRepeatInitialization(void)
 {
-		ResetToLogoMode();
-		UseClockMultiplier(1.0f);
-		VideoInitialize();
+	ResetToLogoMode();
+	UseClockMultiplier(1.0f);
+	VideoInitialize();
 
-		// Init palette color
-		VideoSwitchVideocardPalette(RGB_GetVideocard(), GetVideoType());
+	// Init palette color
+	VideoSwitchVideocardPalette(RGB_GetVideocard(), GetVideoType());
 
-		MemInitialize();
+	MemInitialize();
 
-		// Need to test if it's safe to call ResetMachineState(). In the meantime, just call Disk2Card's Reset():
-		HD_Reset();		// GH#515
+	// Need to test if it's safe to call ResetMachineState(). In the meantime, just call Disk2Card's Reset():
+	HD_Reset();		// GH#515
 }
 
 static void EmulatorReboot(void)
