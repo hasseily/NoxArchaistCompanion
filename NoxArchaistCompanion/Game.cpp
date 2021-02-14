@@ -68,12 +68,6 @@ Game::~Game()
 void Game::Initialize(HWND window, int width, int height)
 {
     m_window = window;
-    /*
-    RECT wR;
-    GetWindowRect(window, &wR);
-    // Now that we have the real window size, set the correct aspect ratio that we'll keep all through the life of the app
-    m_sbM.SetAspectRatio(static_cast<FLOAT>(wR.right - wR.left) / static_cast<FLOAT>(wR.bottom - wR.top));
-    */
 
     m_gamePad = std::make_unique<GamePad>();
     m_keyboard = std::make_unique<Keyboard>();
@@ -99,6 +93,8 @@ void Game::Initialize(HWND window, int width, int height)
     CreateWindowSizeDependentResources();
 
     // Initialize emulator sound
+	EmulatorOneTimeInitialization();
+	EmulatorRepeatInitialization();
     DSInit(window);
 	MB_Initialize();
 	SpkrInitialize();
@@ -186,6 +182,7 @@ void Game::Tick()
         Update(m_timer);
     });
 
+    EmulatorMessageLoopProcessing();
     Render();
 }
 

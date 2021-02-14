@@ -342,7 +342,7 @@ static bool DoHardDiskInsert(const int nDrive, LPCWSTR szPathName)
 
 void EmulatorMessageLoopProcessing(void)
 {
-	while (g_nAppMode == AppMode_e::MODE_RUNNING)
+	if (g_nAppMode == AppMode_e::MODE_RUNNING)
 	{
 		ContinueExecution();
 	}

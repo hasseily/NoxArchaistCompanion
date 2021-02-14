@@ -131,14 +131,21 @@ void VideoInitialize ()
 	// LOAD THE LOGO
 	// g_hLogoBitmap = LoadBitmap( g_hInstance, MAKEINTRESOURCE(IDB_APPLEWIN) );
 
-		// CREATE A BITMAPINFO STRUCTURE FOR THE FRAME BUFFER
+	// CREATE A BITMAPINFO STRUCTURE FOR THE FRAME BUFFER, AND THE FRAMEBUFFER
 	g_pFramebufferinfo = (LPBITMAPINFO)VirtualAlloc(
 		NULL,
 		sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD),
 		MEM_COMMIT,
 		PAGE_READWRITE);
 
-	ZeroMemory(g_pFramebufferinfo, sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD));
+	UINT fbSize = GetFrameBufferWidth() * GetFrameBufferHeight() * sizeof(bgra_t);
+
+	g_pFramebufferbits = (uint8_t *)VirtualAlloc(
+		NULL,
+		fbSize,
+		MEM_COMMIT,
+		PAGE_READWRITE);
+
 	g_pFramebufferinfo->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	g_pFramebufferinfo->bmiHeader.biWidth = GetFrameBufferWidth();
 	g_pFramebufferinfo->bmiHeader.biHeight = GetFrameBufferHeight();
@@ -146,10 +153,6 @@ void VideoInitialize ()
 	g_pFramebufferinfo->bmiHeader.biBitCount = 32;
 	g_pFramebufferinfo->bmiHeader.biCompression = BI_RGB;
 	g_pFramebufferinfo->bmiHeader.biClrUsed = 0;
-
-	// DRAW THE SOURCE IMAGE INTO THE SOURCE BIT BUFFER
-	UINT fbSize = GetFrameBufferWidth() * GetFrameBufferHeight() * sizeof(bgra_t);
-	ZeroMemory(g_pFramebufferbits, fbSize);
 
 	// CREATE THE OFFSET TABLE FOR EACH SCAN LINE IN THE FRAME BUFFER
 	NTSC_VideoInit(g_pFramebufferbits);

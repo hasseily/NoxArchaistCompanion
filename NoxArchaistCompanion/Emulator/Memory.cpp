@@ -1430,7 +1430,10 @@ void MemInitializeROM(void)
 	HRSRC hResInfo = NULL;
 	switch (g_Apple2Type)
 	{
-	case A2TYPE_APPLE2EENHANCED:hResInfo = FindResource(NULL, MAKEINTRESOURCE(IDR_APPLE2E_ENHANCED_ROM), L"ROM"); ROM_SIZE = Apple2eRomSize; break;
+	case A2TYPE_APPLE2EENHANCED:
+		hResInfo = FindResource(NULL, MAKEINTRESOURCE(IDR_APPLE2E_ENHANCED_ROM), L"ROM");
+		ROM_SIZE = Apple2eRomSize;
+		break;
 	}
 
 	if (hResInfo == NULL)
@@ -1438,7 +1441,9 @@ void MemInitializeROM(void)
 		TCHAR sRomFileName[MAX_PATH];
 		switch (g_Apple2Type)
 		{
-		case A2TYPE_APPLE2EENHANCED:wcscpy(sRomFileName, TEXT("APPLE2E_ENHANCED.ROM")); break;
+		case A2TYPE_APPLE2EENHANCED:
+			wcscpy(sRomFileName, TEXT("APPLE2E_ENHANCED.ROM"));
+			break;
 		default:
 		{
 			wcscpy(sRomFileName, TEXT("Unknown type!"));

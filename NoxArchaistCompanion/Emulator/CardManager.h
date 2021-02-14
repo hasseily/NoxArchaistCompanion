@@ -11,12 +11,12 @@ public:
 		m_pSSC(NULL)
 	{
 		Insert(0, CT_Empty);
-		Insert(1, CT_GenericPrinter);
-		Insert(2, CT_SSC);
-		Insert(3, CT_Uthernet);
+		Insert(1, CT_Empty);
+		Insert(2, CT_Empty);
+		Insert(3, CT_Empty);
 		Insert(4, CT_Empty);
 		Insert(5, CT_Empty);
-		Insert(6, CT_Disk2);
+		Insert(6, CT_Empty);
 		Insert(7, CT_Empty);
 		InsertAux(CT_Extended80Col);	// For Apple //e and above
 	}
