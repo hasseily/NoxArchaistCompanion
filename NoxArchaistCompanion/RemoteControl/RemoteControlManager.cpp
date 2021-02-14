@@ -41,6 +41,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "Emulator/Mockingboard.h"	// for sound
 #include "Emulator/DiskImageHelper.h"
 #include "Gamelink.h"
+#include "HAUtils.h"
 #include <unordered_set>
 
 
@@ -158,10 +159,8 @@ void RemoteControlManager::setLoadedHDInfo(ImageInfo* imageInfo)
 		constexpr UINT8 maxTitleLength = 100;
 		WCHAR szTitle[maxTitleLength];
 		LoadStringW(HINSTANCE(0), IDS_APP_TITLE, szTitle, maxTitleLength);
-		char szcTitle[maxTitleLength];
-		size_t numConverted = 0;
-		wcstombs_s(&numConverted, szcTitle, szTitle, maxTitleLength);
-		g_infoHdv.VolumeName.assign(szcTitle);
+		std::wstring wsTitle(szTitle);
+		HA::ConvertWStrToStr(&wsTitle, &g_infoHdv.VolumeName);
 		g_infoHdv.sig = 0;
 	}
 	else {

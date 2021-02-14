@@ -57,4 +57,18 @@ namespace HA
 
         return image;
     }
+
+
+    size_t ConvertWStrToStr(std::wstring* wstr, std::string* str)
+    {
+        constexpr int MAX_WSTR_CONVERSION_LENGTH = 4096;
+        size_t maxLength = wstr->length();
+        if (maxLength > MAX_WSTR_CONVERSION_LENGTH)
+            maxLength = MAX_WSTR_CONVERSION_LENGTH;
+		size_t numConverted = 0;
+        char szStr[MAX_WSTR_CONVERSION_LENGTH] = "";
+		wcstombs_s(&numConverted, szStr, wstr->c_str(), maxLength);
+        str->assign(szStr);
+        return numConverted;
+    }
 }

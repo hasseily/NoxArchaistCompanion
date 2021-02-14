@@ -4,6 +4,7 @@
 #include <iomanip>
 #include "NonVolatile.h"
 #include "nlohmann/json.hpp"
+#include "HAUtils.h"
 
 static nlohmann::json nv_json = R"(
   {
@@ -19,6 +20,16 @@ static std::string configfilename = "noxcompanion.conf";
 
 int NonVolatile::SaveToDisk()
 {
+	std::string sprofPath;
+	std::string sHdvPath;
+	HA::ConvertWStrToStr(&profilePath, &sprofPath);
+	HA::ConvertWStrToStr(&hdvPath, &sHdvPath);
+
+	nv_json["profilePath"]			= sprofPath;
+	nv_json["hdvPath"]				= sHdvPath;
+	nv_json["volumeSpeaker"]		= volumeSpeaker;
+	nv_json["volumeMockingBoard"]	= volumeMockingBoard;
+	nv_json["useGameLink"]			= useGameLink;
 	std::ofstream out(configfilename);
 	out << std::setw(4) << nv_json << std::endl;
 	out.close();
