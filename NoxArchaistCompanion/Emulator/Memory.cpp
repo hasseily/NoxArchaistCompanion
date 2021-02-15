@@ -466,14 +466,8 @@ static BYTE __stdcall IOWrite_C05x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULON
 
 static BYTE __stdcall IORead_C06x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG nExecutedCycles)
 {	
-	switch (addr & 0x7) // address bit 4 is ignored (UTAIIe:7-5)
-	{
-		// no support for mouse or joystick
-	default:
-		return IO_Null(pc, addr, bWrite, d, nExecutedCycles);
-	}
-
-	return 0;
+	// no support for mouse or joystick
+	return IO_Null(pc, addr, bWrite, d, nExecutedCycles);
 }
 
 static BYTE __stdcall IOWrite_C06x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG nExecutedCycles)
@@ -992,7 +986,7 @@ static void UpdatePaging(BOOL initialize)
 		CopyMemory(oldshadow,memshadow,256*sizeof(LPBYTE));
 
 	// UPDATE THE PAGING TABLES BASED ON THE NEW PAGING SWITCH VALUES
-	UINT loop;
+	UINT64 loop;
 	if (initialize)
 	{
 		for (loop = 0x00; loop < 0xC0; loop++)
@@ -1174,7 +1168,7 @@ bool MemCheckINTCXROM()
 
 static void BackMainImage(void)
 {
-	for (UINT loop = 0; loop < 256; loop++)
+	for (UINT64 loop = 0; loop < 256; loop++)
 	{
 		if (memshadow[loop] && ((*(memdirty+loop) & 1) || (loop <= 1)))
 			CopyMemory(memshadow[loop], mem+(loop << 8), 256);
@@ -1192,7 +1186,7 @@ static LPBYTE MemGetPtrBANK1(const WORD offset, const LPBYTE pMemBase)
 
 	// NB. This works for memaux when set to any RWpages[] value, ie. RamWork III "just works"
 	const BYTE bank1page = (offset >> 8) & 0xF;
-	return (memshadow[0xD0+bank1page] == pMemBase+(0xC0+bank1page)*256)
+	return (memshadow[0xD0+bank1page] == pMemBase+(((UINT64)0xC0)+bank1page)*256)
 		? mem+offset+0x1000				// Return ptr to $Dxxx address - 'mem' has (a potentially dirty) 4K RAM BANK1 mapped in at $D000
 		: pMemBase+offset;				// Else return ptr to $Cxxx address
 }
@@ -1404,8 +1398,13 @@ void MemInitialize()
 		g_uActiveBank = 0;
 
 		UINT i = 1;
-		while ((i < g_uMaxExPages) && (RWpages[i] = (LPBYTE) VirtualAlloc(NULL, _6502_MEM_END+1, MEM_COMMIT, PAGE_READWRITE)))
+		while (i < g_uMaxExPages)
+		{
+			RWpages[i] = (LPBYTE)VirtualAlloc(NULL, _6502_MEM_END + 1, MEM_COMMIT, PAGE_READWRITE);
+			if (!RWpages[i])
+				break;
 			i++;
+		}
 		while (i < kMaxExMemoryBanks)
 			RWpages[i++] = NULL;
 	}
@@ -1441,11 +1440,11 @@ void MemInitializeROM(void)
 		switch (g_Apple2Type)
 		{
 		case A2TYPE_APPLE2EENHANCED:
-			wcscpy(sRomFileName, TEXT("APPLE2E_ENHANCED.ROM"));
+			wcscpy_s(sRomFileName, TEXT("APPLE2E_ENHANCED.ROM"));
 			break;
 		default:
 		{
-			wcscpy(sRomFileName, TEXT("Unknown type!"));
+			wcscpy_s(sRomFileName, TEXT("Unknown type!"));
 		}
 		}
 
