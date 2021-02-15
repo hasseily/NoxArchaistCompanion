@@ -372,7 +372,7 @@ void EmulatorOneTimeInitialization(HWND window)
 	// TODO: load these as defaults or override from config file
 	RGB_SetVideocard(Video7_SL7, 15, 0);
 	SetVideoType(VT_COLOR_TV);
-	SetVideoStyle(VS_COLOR_VERTICAL_BLEND);
+	SetVideoStyle(VS_HALF_SCANLINES);
 	SetVideoRefreshRate(VR_60HZ);
 	SetCurrentCLK6502();
 	MB_Reset();

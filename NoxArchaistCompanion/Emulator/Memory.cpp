@@ -209,7 +209,7 @@ static LanguageCardUnit* g_pLanguageCard = NULL;	// For all Apple II, //e and ab
 
 static UINT		g_uMaxExPages = 1;				// user requested ram pages (default to 1 aux bank: so total = 128KB)
 static UINT		g_uActiveBank = 0;				// 0 = aux 64K for: //e extended 80 Col card, or //c -- ALSO RAMWORKS
-static LPBYTE	RWpages[1];						// pointers to aux memory banks
+static LPBYTE	RWpages[kMaxExMemoryBanks];		// pointers to aux memory banks
 
 static const UINT kNumAnnunciators = 4;
 static bool g_Annunciator[kNumAnnunciators] = {};
@@ -229,8 +229,6 @@ static UINT g_uSaturnBanksFromCmdLine = 0;
 const UINT CxRomSize = 4 * 1024;
 const UINT Apple2RomSize = 12 * 1024;
 const UINT Apple2eRomSize = Apple2RomSize + CxRomSize;
-//const UINT Pravets82RomSize = 12*1024;
-//const UINT Pravets8ARomSize = Pravets82RomSize+CxRomSize;
 const UINT MaxRomPages = 4;		// For Copam Base64A
 const UINT Base64ARomSize = MaxRomPages * Apple2RomSize;
 
@@ -471,6 +469,7 @@ static BYTE __stdcall IORead_C06x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG
 	switch (addr & 0x7) // address bit 4 is ignored (UTAIIe:7-5)
 	{
 		// no support for mouse or joystick
+	default:
 		return IO_Null(pc, addr, bWrite, d, nExecutedCycles);
 	}
 
@@ -1789,6 +1788,17 @@ BYTE __stdcall MemSetPaging(WORD programcounter, WORD address, BYTE write, BYTE 
 		case 0x55: SetMemMode(memmode |  MF_PAGE2);      break;
 		case 0x56: SetMemMode(memmode & ~MF_HIRES);      break;
 		case 0x57: SetMemMode(memmode |  MF_HIRES);      break;
+#ifdef RAMWORKS
+		case 0x71: // extended memory aux page number
+		case 0x73: // Ramworks III set aux page number
+			if ((value < g_uMaxExPages) && RWpages[value])
+			{
+				g_uActiveBank = value;
+				memaux = RWpages[g_uActiveBank];
+				UpdatePaging(FALSE);	// Initialize=FALSE
+			}
+			break;
+#endif
 	}
 
 
