@@ -218,7 +218,6 @@
     <None Include="Emulator\Resources\Mockingboard-D.rom" />
     <None Include="Emulator\Resources\Parallel.rom" />
     <None Include="Emulator\Resources\TKClock.rom" />
-    <None Include="firmware.bin" />
     <None Include="packages.config" />
     <None Include="Profiles\Nox Archaist - Duo.json">
       <DeploymentContent>true</DeploymentContent>

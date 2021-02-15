@@ -605,6 +605,15 @@ inline void updateFramebufferTVSingleScanline( uint16_t signal, bgra_t *pTable )
 	if (g_nVideoClockVert == (VIDEO_SCANNER_Y_DISPLAY-1))
 		*getScanlineNextInbetween() = ((color0 & 0x00fcfcfc) >> 2) | ALPHA32_MASK;	// 50% of (50% current + black)) = 25% of current
 
+#ifdef _DEBUG
+	if (g_pVideoAddress != nullptr)
+	{
+		g_debug_video_field = (UINT64)g_pVideoAddress;
+		g_debug_video_data = ((UINT64)(g_pVideoAddress->a) << 24) + ((UINT64)(g_pVideoAddress->r) << 16)
+								+ ((UINT64)(g_pVideoAddress->g) << 8) + (UINT64)g_pVideoAddress->b;
+	}
+#endif
+
 	g_pVideoAddress++;
 }
 
@@ -732,6 +741,7 @@ inline void updatePixels(uint16_t bits)
 		g_pFuncUpdateHuePixel(bits & 1);           
         g_nLastColumnPixelNTSC = bits & 1;
 	}
+
 }
 
 //===========================================================================
@@ -850,7 +860,7 @@ INLINE uint16_t getVideoScannerAddressHGR()
 //===========================================================================
 static void initChromaPhaseTables (void)
 {
-	int phase,s,t,n;
+	UINT64 phase,s,t,n;
 	real z,y0,y1,c,i,q;
 	real phi,zz;
 	float brightness;
@@ -1232,8 +1242,6 @@ void updateScreenDoubleHires80Simplified(long cycles6502) // wsUpdateVideoDblHir
 
 	for (; cycles6502 > 0; --cycles6502)
 	{
-		uint16_t addr = getVideoScannerAddressHGR();
-
 		if (g_nVideoClockVert < VIDEO_SCANNER_Y_DISPLAY)
 		{
 			if ((g_nVideoClockHorz < VIDEO_SCANNER_HORZ_COLORBURST_END) && (g_nVideoClockHorz >= VIDEO_SCANNER_HORZ_COLORBURST_BEG))
@@ -1243,8 +1251,6 @@ void updateScreenDoubleHires80Simplified(long cycles6502) // wsUpdateVideoDblHir
 			else if (g_nVideoClockHorz >= VIDEO_SCANNER_HORZ_START)
 			{
 				uint16_t addr = getVideoScannerAddressHGR();
-				uint8_t a = *MemGetAuxPtr(addr);
-				uint8_t m = *MemGetMainPtr(addr);
 
 				UpdateDHiResCell(g_nVideoClockHorz - VIDEO_SCANNER_HORZ_START, g_nVideoClockVert, addr, g_pVideoAddress, true, true);
 				g_pVideoAddress += 14;
@@ -2184,10 +2190,10 @@ void NTSC_VideoInit( uint8_t* pFramebuffer ) // wsVideoInit
 
 	for (int y = 0; y < (VIDEO_SCANNER_Y_DISPLAY*2); y++)
 	{
-		uint32_t offset = sizeof(bgra_t) * GetFrameBufferWidth() * ((uint64_t)(GetFrameBufferHeight() - 1) - y - GetFrameBufferBorderHeight()) + (sizeof(bgra_t) * GetFrameBufferBorderWidth());
-		// Swapped the scanlines to be correctly positioned for DX12
-		// g_pScanLines[y] = (bgra_t*) (g_pFramebufferbits + offset);
-		g_pScanLines[(VIDEO_SCANNER_Y_DISPLAY * 2) - y - 1] = (bgra_t*)(g_pFramebufferbits + offset);
+		// Reverted the scanlines to normal to be correctly positioned for DX12, not the inverted GDI+ stuff
+		// each scanline starts at the offset of the border width
+		uint32_t offset = sizeof(bgra_t) * (GetFrameBufferWidth() * (GetFrameBufferBorderHeight() + y) + GetFrameBufferBorderWidth());
+		g_pScanLines[y] = (bgra_t*) (g_pFramebufferbits + offset);
 	}
 
 	g_pVideoAddress = g_pScanLines[0];

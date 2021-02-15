@@ -35,6 +35,9 @@ void EmulatorMessageLoopProcessing(void);
 
 
 extern bool       g_bFullSpeed;
+extern UINT64	  g_debug_video_field;	// defined in Game.cpp // shows debug video info on screen
+extern UINT64	  g_debug_video_data;	// defined in Game.cpp // shows debug video info on screen
+
 
 //===========================================
 

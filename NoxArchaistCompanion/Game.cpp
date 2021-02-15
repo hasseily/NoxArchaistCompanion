@@ -40,6 +40,9 @@ static float m_clientFrameScale = 1.f;
 static Vector2 m_vector2ero = { 0.f, 0.f };
 static RECT m_cachedClientRect;
 
+UINT64	g_debug_video_field = 0;
+UINT64	g_debug_video_data = 0;
+
 Game::Game() noexcept(false)
 {
     g_textureData = {};
@@ -131,7 +134,7 @@ D3D12_RESOURCE_DESC Game::ChooseTexture()
 		txtDesc.Width = fbI.biWidth;
 		txtDesc.Height = fbI.biHeight;
 		g_textureData.pData = g_pFramebufferbits;
-		g_textureData.SlicePitch = GetFrameBufferWidth() * GetFrameBufferHeight() * sizeof(bgra_t);
+		g_textureData.SlicePitch = ((long long)GetFrameBufferWidth()) * ((long long)GetFrameBufferHeight()) * sizeof(bgra_t);
 		SetVideoLayout(EmulatorLayout::NORMAL);
 		break;
 	}
@@ -324,8 +327,8 @@ void Game::Render()
 #ifdef _DEBUG
     // TEMPORARY
     // TODO: REMOVE
-    char pcbuf[11];
-    snprintf(pcbuf, sizeof(pcbuf), "DEBUG");
+    char pcbuf[4000];
+    snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %I64x : %I64x", g_debug_video_field, g_debug_video_data);
     m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
         { 10.f, 10.f }, Colors::OrangeRed, 0.f, m_vector2ero, m_clientFrameScale);
 #endif // _DEBUG

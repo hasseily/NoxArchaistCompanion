@@ -385,7 +385,10 @@ void EmulatorRepeatInitialization(void)
 {
 	ResetToLogoMode();
 	UseClockMultiplier(1.0f);
-	VideoInitialize();
+	if (!VideoInitialize())
+	{
+		MessageBox(g_hFrameWindow, L"Fatal Error: Can't initialize Apple video memory!.", L"Alert", MB_ICONASTERISK | MB_OK);
+	}
 
 	// Init palette color
 	VideoSwitchVideocardPalette(RGB_GetVideocard(), GetVideoType());
