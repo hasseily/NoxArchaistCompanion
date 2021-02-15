@@ -531,7 +531,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 void ExitGame() noexcept
 {
 	// Display exit confirmation
-	if (MessageBox(HWND_TOP, TEXT("Are you sure you want to quit?\nSave your game first!"), TEXT("Quit Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
+	if (MessageBox(HWND_TOP, TEXT("Are you sure you want to quit?\nSave your game first!\nYou want to go back to your boring life?"), TEXT("Quit Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
 	{
 		GameLink::Term();
 		PostQuitMessage(0);
