@@ -465,7 +465,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case AppMode_e::MODE_PAUSED:
 				if (lParam == 0)
 				{
-					if (MessageBox(HWND_TOP, TEXT("Are you sure you want to reboot?\nUnsaved progress will be lost!"), TEXT("Reboot Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
+					if (MessageBox(HWND_TOP, TEXT("Are you sure you want to reboot?\nYou died again?"), TEXT("Reboot Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
 						EmulatorReboot();
 				}
 				else	// gamelink requests will pass 1 here, so no message box
