@@ -123,7 +123,7 @@ static bool g_bVideoScannerNTSC = true;  // NTSC video scanning (or PAL)
 
 
 //===========================================================================
-void VideoInitialize ()
+bool VideoInitialize ()
 {
 	// RESET THE VIDEO MODE SWITCHES AND THE CHARACTER SET OFFSET
 	VideoResetState();
@@ -137,6 +137,9 @@ void VideoInitialize ()
 		sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD),
 		MEM_COMMIT,
 		PAGE_READWRITE);
+
+	if (g_pFramebufferinfo == NULL)
+		return false;
 
 	UINT fbSize = GetFrameBufferWidth() * GetFrameBufferHeight() * sizeof(bgra_t);
 
@@ -156,6 +159,7 @@ void VideoInitialize ()
 
 	// CREATE THE OFFSET TABLE FOR EACH SCAN LINE IN THE FRAME BUFFER
 	NTSC_VideoInit(g_pFramebufferbits);
+	return true;
 }
 
 //===========================================================================

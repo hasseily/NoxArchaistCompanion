@@ -177,7 +177,7 @@ extern LPBITMAPINFO  g_pFramebufferinfo;
 // Prototypes _______________________________________________________
 
 void    VideoDestroy ();
-void    VideoInitialize ();
+bool    VideoInitialize ();
 void    VideoRedrawScreenDuringFullSpeed(DWORD dwCyclesThisFrame, bool bInit = false);
 void    VideoRedrawScreenAfterFullSpeed(DWORD dwCyclesThisFrame);
 void    VideoRedrawScreen (void);
