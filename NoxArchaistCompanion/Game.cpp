@@ -42,9 +42,11 @@ static RECT m_cachedClientRect;
 
 UINT64	g_debug_video_field = 0;
 UINT64	g_debug_video_data = 0;
+NonVolatile g_nonVolatile;
 
 Game::Game() noexcept(false)
 {
+    g_nonVolatile = NonVolatile();
     g_textureData = {};
     m_sbM = SidebarManager();
     m_sbC = SidebarContent();

@@ -19,7 +19,7 @@ enum class EmulatorLayout
 	NONE = UINT8_MAX
 };
 
-static NonVolatile g_nonVolatile = NonVolatile();
+extern NonVolatile g_nonVolatile;
 static std::shared_ptr<LogWindow>m_logWindow;
 
 // A basic game implementation that creates a D3D12 device and
