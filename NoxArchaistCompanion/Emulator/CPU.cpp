@@ -255,12 +255,57 @@ static __forceinline void DoIrqProfiling(DWORD uCycles)
 
 //===========================================================================
 
+//#define DBG_HDD_ENTRYPOINT
+#if defined(_DEBUG) && defined(DBG_HDD_ENTRYPOINT)
+// Output a debug msg whenever the HDD f/w is called or jump to.
+static void DebugHddEntrypoint(const USHORT PC, BYTE& iOpcode, ULONG uExecutedCycles)
+{
+	static bool bOldPCAtC7xx = false;
+	static WORD OldPC = 0;
+	static UINT Count = 0;
+
+	static bool hasHeader = false;
+	static bool didDump = false;
+	wchar_t tempw[200];
+	if (!hasHeader)
+	{
+		m_logWindow->AppendLog(L"PC\tOpCode\tCycles\n");
+		hasHeader = true;
+	}
+	if (!didDump)
+	{
+		wsprintf(tempw, L"%.2x\t%.2x\t%.4d\n", PC, iOpcode, uExecutedCycles);
+		m_logWindow->AppendLog(std::wstring(tempw));
+	}
+
+
+	if ((PC >> 8) == 0xC7)
+	{
+		if (!bOldPCAtC7xx /*&& PC != 0xc70a*/)
+		{
+			didDump = true;
+			Count++;
+			wchar_t szDebug[100];
+			wsprintf(szDebug, L"HDD Entrypoint: $%04X\n", PC);
+			OutputDebugString(szDebug);
+		}
+
+		bOldPCAtC7xx = true;
+	}
+	else
+	{
+		bOldPCAtC7xx = false;
+	}
+	OldPC = PC;
+}
+#endif
+
 static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 {
 	const USHORT PC = regs.pc;
 
 #if defined(_DEBUG) && defined(DBG_HDD_ENTRYPOINT)
-	DebugHddEntrypoint(PC);
+	DebugHddEntrypoint(PC, iOpcode, uExecutedCycles);
 #endif
 
 	iOpcode = ((PC & 0xF000) == 0xC000)
