@@ -43,10 +43,15 @@ int NonVolatile::LoadFromDisk()
 	in >> j;
 	in.close();
 	nv_json.merge_patch(j);
-	profilePath			= nv_json["profilePath"].get<std::wstring>();
-	hdvPath				= nv_json["hdvPath"].get<std::wstring>();
-	volumeSpeaker		= nv_json["volumeSpeaker"].get<int>();
-	volumeMockingBoard	= nv_json["volumeMockingBoard"].get<int>();
-	useGameLink			= nv_json["useGameLink"].get<bool>();
+	
+	std::string _profilePath = nv_json["profilePath"].get<std::string>();
+	HA::ConvertStrToWStr(&_profilePath, &profilePath);
+	std::string _hdvPath = nv_json["hdvPath"].get<std::string>();
+	HA::ConvertStrToWStr(&_hdvPath, &hdvPath);
+
+	volumeSpeaker = nv_json["volumeSpeaker"].get<int>();
+	volumeMockingBoard = nv_json["volumeMockingBoard"].get<int>();
+	useGameLink = nv_json["useGameLink"].get<bool>();
+
 	return 0;
 }
