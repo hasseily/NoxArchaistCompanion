@@ -75,6 +75,12 @@ void Game::Initialize(HWND window, int width, int height)
     m_gamePad = std::make_unique<GamePad>();
     m_keyboard = std::make_unique<Keyboard>();
 
+    g_nonVolatile.LoadFromDisk();
+
+	// Initialize emulator
+	EmulatorOneTimeInitialization(window);
+	EmulatorRepeatInitialization();
+
     wchar_t buff[MAX_PATH];
     DX::FindMediaFile(buff, MAX_PATH, L"Background.jpg");
     m_bgImage = HA::LoadBGRAImage(buff, m_bgImageWidth, m_bgImageHeight);
@@ -85,9 +91,6 @@ void Game::Initialize(HWND window, int width, int height)
     m_previousGameLinkFrameSequence = 0;
     shouldRender = true;
 
-	// Initialize emulator
-	EmulatorOneTimeInitialization(window);
-	EmulatorRepeatInitialization();
 
     GetClientRect(window, &m_cachedClientRect);
     m_clientFrameScale = 1.f;
