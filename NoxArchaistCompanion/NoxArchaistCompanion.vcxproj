@@ -52,7 +52,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointModel>Precise</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
@@ -237,7 +237,6 @@
     <None Include="Profiles\_Profiles_Schema.json">
       <DeploymentContent>true</DeploymentContent>
     </None>
-    <None Include="rom1.bin" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Assets\PixelShader.hlsl">

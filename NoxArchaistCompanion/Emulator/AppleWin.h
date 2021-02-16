@@ -29,9 +29,9 @@ UINT GetFrameBufferBorderWidth();
 UINT GetFrameBufferBorderHeight();
 
 void EmulatorOneTimeInitialization(HWND window);
-void EmulatorRepeatInitialization(void);
-void EmulatorReboot(void);
-void EmulatorMessageLoopProcessing(void);
+void EmulatorRepeatInitialization();
+void EmulatorReboot();
+void EmulatorMessageLoopProcessing();
 
 
 extern bool       g_bFullSpeed;

@@ -58,7 +58,7 @@ bool      g_bFullSpeed = false;
 HINSTANCE g_hInstance = (HINSTANCE)0;
 HWND g_hFrameWindow;
 
-AppMode_e	g_nAppMode = AppMode_e::MODE_LOGO;
+AppMode_e	g_nAppMode = AppMode_e::MODE_RUNNING;		// Default. Don't use MODE_LOGO, there's no point in having it
 static bool g_bSysClkOK = false;
 
 bool      g_bRestart = false;
@@ -287,37 +287,38 @@ void SetCurrentCLK6502(void)
 
 //===========================================================================
 
-UINT GetFrameBufferBorderlessWidth(void)
+
+UINT GetFrameBufferBorderlessWidth()
 {
 	static const UINT uFrameBufferBorderlessW = 560;	// 560 = Double Hi-Res
 	return uFrameBufferBorderlessW;
 }
 
-UINT GetFrameBufferBorderlessHeight(void)
+UINT GetFrameBufferBorderlessHeight()
 {
 	static const UINT uFrameBufferBorderlessH = 384;	// 384 = Double Scan Line
 	return uFrameBufferBorderlessH;
 }
 
 // NB. These border areas are not visible (... and these border areas are unrelated to the 3D border below)
-UINT GetFrameBufferBorderWidth(void)
+UINT GetFrameBufferBorderWidth()
 {
 	static const UINT uBorderW = 20;
 	return uBorderW;
 }
 
-UINT GetFrameBufferBorderHeight(void)
+UINT GetFrameBufferBorderHeight()
 {
 	static const UINT uBorderH = 18;
 	return uBorderH;
 }
 
-UINT GetFrameBufferWidth(void)
+UINT GetFrameBufferWidth()
 {
 	return GetFrameBufferBorderlessWidth() + 2 * GetFrameBufferBorderWidth();
 }
 
-UINT GetFrameBufferHeight(void)
+UINT GetFrameBufferHeight()
 {
 	return GetFrameBufferBorderlessHeight() + 2 * GetFrameBufferBorderHeight();
 }
@@ -340,7 +341,7 @@ static bool DoHardDiskInsert(const int nDrive, LPCWSTR szPathName)
 
 // This method should be called from within the main message loop
 
-void EmulatorMessageLoopProcessing(void)
+void EmulatorMessageLoopProcessing()
 {
 	if (g_nAppMode == AppMode_e::MODE_RUNNING)
 	{
@@ -381,9 +382,8 @@ void EmulatorOneTimeInitialization(HWND window)
 }
 
 // DO INITIALIZATION THAT MUST BE REPEATED FOR A RESTART
-void EmulatorRepeatInitialization(void)
+void EmulatorRepeatInitialization()
 {
-	ResetToLogoMode();
 	UseClockMultiplier(1.0f);
 	if (!VideoInitialize())
 	{
@@ -393,18 +393,22 @@ void EmulatorRepeatInitialization(void)
 	// Init palette color
 	VideoSwitchVideocardPalette(RGB_GetVideocard(), GetVideoType());
 
-	MemInitialize();
-
-	// Need to test if it's safe to call ResetMachineState(). In the meantime, just call Disk2Card's Reset():
-	HD_Reset();		// GH#515
 	bool bRes = DoHardDiskInsert(HARDDISK_1, g_nonVolatile.hdvPath.c_str());
 	if (!bRes)
+	{
 		MessageBox(g_hFrameWindow, L"Can't find last used Nox Archaist HDV file.\nPlease choose another.", L"Warning", MB_ICONASTERISK | MB_OK);
-	g_nAppMode = AppMode_e::MODE_RUNNING;
+		return;
+	}
+	MemInitialize();
+	HD_Reset();
+	// Now boot the HD!
+	SoundCore_TweakVolumes();
+	VideoRedrawScreen();
 }
 
-void EmulatorReboot(void)
+void EmulatorReboot()
 {
+	g_nAppMode = AppMode_e::MODE_RUNNING;
 	HD_Reset();
 	g_bFullSpeed = 0;	// Might've hit reset in middle of InternalCpuExecute() - so beep may get (partially) muted
 	MemReset();	// calls CpuInitialize(), CNoSlotClock.Reset()

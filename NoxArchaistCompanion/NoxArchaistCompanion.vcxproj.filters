@@ -268,7 +268,6 @@
     <None Include="Emulator\Resources\Parallel.rom">
       <Filter>Emulator\Resources</Filter>
     </None>
-    <None Include="rom1.bin" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Profiles">
