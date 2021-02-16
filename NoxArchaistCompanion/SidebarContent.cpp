@@ -24,9 +24,7 @@ SidebarContent::SidebarContent()
 
 void SidebarContent::Initialize()
 {
-    // LoadProfilesFromDisk();
     // Get memory start address
-    pmem = MemGetMainPtr(0);
     memsize = 0x20000;  // 128k of RAM
 }
 
@@ -46,7 +44,7 @@ bool SidebarContent::setActiveProfile(SidebarManager* sbM, std::string* name)
         return true;
     }
     */
-    nlohmann::json j;
+	nlohmann::json j;
     try {
         j = m_allProfiles.at(*name);
     }
@@ -246,9 +244,6 @@ nlohmann::json SidebarContent::ParseProfile(fs::path filepath)
 
 std::string SidebarContent::SerializeVariable(nlohmann::json* pvar)
 {
-    if (pmem == nullptr)
-        return "";
-
     nlohmann::json j = *pvar;
     // initialize variables
     // OutputDebugStringA((j.dump()+string("\n")).c_str());
@@ -256,19 +251,27 @@ std::string SidebarContent::SerializeVariable(nlohmann::json* pvar)
     if (j.count("length") != 1)
         return s;
     int length = j["length"];
-
     if (j.count("memstart") != 1)
         return s;
+	if (j.count("type") != 1)
+		return s;
     int memoffset = std::stoul(j["memstart"].get<std::string>(), nullptr, 0);
-
-    if (j.count("type") != 1)
+    if ((memoffset + length) >= memsize)    // overflow
         return s;
-
-    if ((length == 0) || (length > memsize))
+    if (length == 0)
+        return s;
+    // Check if it's in main or aux based on the offset, and adapt accordingly
+    if ((memoffset + length) < memsize / 2)
     {
-        return s;
+		pmem = MemGetMainPtr(0);
     }
-
+    else
+    {
+        memoffset = memoffset - (memsize / 2);
+		pmem = MemGetAuxPtr(0);
+    }
+	if (pmem == nullptr)
+		return s;
 
     // now we have the memory offset and length, and we need to parse
     if (j["type"] == "ascii")
