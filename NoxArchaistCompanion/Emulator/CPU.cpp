@@ -261,20 +261,17 @@ static __forceinline void DoIrqProfiling(DWORD uCycles)
 static void DebugHddEntrypoint(const USHORT PC, BYTE& iOpcode, ULONG uExecutedCycles)
 {
 	static bool bOldPCAtC7xx = false;
-	static WORD OldPC = 0;
-	static UINT Count = 0;
-
 	static bool hasHeader = false;
 	static bool didDump = false;
 	wchar_t tempw[200];
 	if (!hasHeader)
 	{
-		m_logWindow->AppendLog(L"PC\tOpCode\tCycles\n");
+		m_logWindow->AppendLog(L"NOX COMPANION\nCycles   A: X: Y: SP:  Addr:Opcode\n");
 		hasHeader = true;
 	}
 	if (!didDump)
 	{
-		wsprintf(tempw, L"%.2x\t%.2x\t%.4d\n", PC, iOpcode, uExecutedCycles);
+		wsprintf(tempw, L"%.8X %.2X %.2X %.2X %.4X %.4X:%.2X\n", g_nCumulativeCycles + uExecutedCycles, regs.a, regs.x, regs.y, regs.sp, PC, iOpcode);
 		m_logWindow->AppendLog(std::wstring(tempw));
 	}
 
@@ -284,7 +281,6 @@ static void DebugHddEntrypoint(const USHORT PC, BYTE& iOpcode, ULONG uExecutedCy
 		if (!bOldPCAtC7xx /*&& PC != 0xc70a*/)
 		{
 			didDump = true;
-			Count++;
 			wchar_t szDebug[100];
 			wsprintf(szDebug, L"HDD Entrypoint: $%04X\n", PC);
 			OutputDebugString(szDebug);
@@ -296,7 +292,6 @@ static void DebugHddEntrypoint(const USHORT PC, BYTE& iOpcode, ULONG uExecutedCy
 	{
 		bOldPCAtC7xx = false;
 	}
-	OldPC = PC;
 }
 #endif
 
@@ -304,13 +299,13 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 {
 	const USHORT PC = regs.pc;
 
-#if defined(_DEBUG) && defined(DBG_HDD_ENTRYPOINT)
-	DebugHddEntrypoint(PC, iOpcode, uExecutedCycles);
-#endif
-
 	iOpcode = ((PC & 0xF000) == 0xC000)
 	    ? IORead[(PC>>4) & 0xFF](PC,PC,0,0,uExecutedCycles)	// Fetch opcode from I/O memory, but params are still from mem[]
 		: *(mem+PC);
+
+#if defined(_DEBUG) && defined(DBG_HDD_ENTRYPOINT)
+	DebugHddEntrypoint(PC, iOpcode, uExecutedCycles);
+#endif
 
 	// This chunk of code extracts the conversation strings outside of combat in Nox Archaist /////////////////////////////
 	if (PC == PC_INITIATE_COMBAT)
