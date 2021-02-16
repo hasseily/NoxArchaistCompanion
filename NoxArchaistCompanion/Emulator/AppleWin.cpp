@@ -364,9 +364,9 @@ void EmulatorOneTimeInitialization(HWND window)
 {
 	g_hFrameWindow = window;
 	DSInit(g_hFrameWindow);
+	g_bSysClkOK = SysClk_InitTimer();
 	MB_Initialize();
 	SpkrInitialize();
-	g_bSysClkOK = SysClk_InitTimer();
 	SetApple2Type(A2TYPE_APPLE2EENHANCED);
 	GetCardMgr().Insert(SLOT4, CT_MockingboardC);
 	GetCardMgr().Insert(SLOT5, CT_MockingboardC);
@@ -386,6 +386,9 @@ void EmulatorOneTimeInitialization(HWND window)
 // DO INITIALIZATION THAT MUST BE REPEATED FOR A RESTART
 void EmulatorRepeatInitialization()
 {
+	SpkrSetVolume(g_nonVolatile.volumeSpeaker, VOLUME_MAX);
+	MB_SetVolume(g_nonVolatile.volumeMockingBoard, VOLUME_MAX);
+
 	UseClockMultiplier(1.0f);
 	if (!VideoInitialize())
 	{
