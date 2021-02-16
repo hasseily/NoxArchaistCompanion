@@ -59,7 +59,7 @@ namespace HA
     }
 
 
-    size_t ConvertWStrToStr(std::wstring* wstr, std::string* str)
+    size_t ConvertWStrToStr(const std::wstring* wstr, std::string* str)
     {
         constexpr int MAX_WSTR_CONVERSION_LENGTH = 4096;
         size_t maxLength = wstr->length();
@@ -71,4 +71,17 @@ namespace HA
         str->assign(szStr);
         return numConverted;
     }
+
+	size_t ConvertStrToWStr(const std::string* str, std::wstring* wstr)
+	{
+		constexpr int MAX_STR_CONVERSION_LENGTH = 4096;
+		size_t maxLength = str->length();
+		if (maxLength > MAX_STR_CONVERSION_LENGTH)
+			maxLength = MAX_STR_CONVERSION_LENGTH;
+		size_t numConverted = 0;
+		wchar_t wzStr[MAX_STR_CONVERSION_LENGTH] = L"";
+		mbstowcs_s(&numConverted, wzStr, str->c_str(), maxLength);
+		wstr->assign(wzStr);
+		return numConverted;
+	}
 }
