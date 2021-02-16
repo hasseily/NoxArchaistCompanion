@@ -84,6 +84,9 @@
       <Filter>Remote Control</Filter>
     </ClCompile>
     <ClCompile Include="NonVolatile.cpp" />
+    <ClCompile Include="Emulator\Joystick.cpp">
+      <Filter>Emulator\Input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h" />
@@ -195,6 +198,9 @@
       <Filter>Remote Control</Filter>
     </ClInclude>
     <ClInclude Include="NonVolatile.h" />
+    <ClInclude Include="Emulator\Joystick.h">
+      <Filter>Emulator\Input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />

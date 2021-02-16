@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "CPU.h"
 #include "Harddisk.h"
 #include "Keyboard.h"
+#include "Joystick.h"
 #include "LanguageCard.h"
 #include "Mockingboard.h"
 #include "Video.h"
@@ -466,8 +467,20 @@ static BYTE __stdcall IOWrite_C05x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULON
 
 static BYTE __stdcall IORead_C06x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG nExecutedCycles)
 {	
-	// no support for mouse or joystick
-	return IO_Null(pc, addr, bWrite, d, nExecutedCycles);
+	// Need joystick support for OpenApple and ClosedApple, otherwise the emulator won't boot.
+	// It could also be useful for other games
+	switch (addr & 0x7) // address bit 4 is ignored (UTAIIe:7-5)
+	{
+	case 0x0:	return IO_Null(pc, addr, bWrite, d, nExecutedCycles);			// $C060 TAPEIN - No tape support
+	case 0x1:	return JoyReadButton(pc, addr, bWrite, d, nExecutedCycles);		//$C061 Digital input 0 (If bit 7=1 then JoyButton 0 or OpenApple is pressed)
+	case 0x2:	return JoyReadButton(pc, addr, bWrite, d, nExecutedCycles);		//$C062 Digital input 1 (If bit 7=1 then JoyButton 1 or ClosedApple is pressed)
+	case 0x3:	return JoyReadButton(pc, addr, bWrite, d, nExecutedCycles);		//$C063 Digital input 2
+	case 0x4:	return JoyReadPosition(pc, addr, bWrite, d, nExecutedCycles);	//$C064 Analog input 0
+	case 0x5:	return JoyReadPosition(pc, addr, bWrite, d, nExecutedCycles);	//$C065 Analog input 1
+	case 0x6:	return JoyReadPosition(pc, addr, bWrite, d, nExecutedCycles);	//$C066 Analog input 2
+	case 0x7:	return JoyReadPosition(pc, addr, bWrite, d, nExecutedCycles);	//$C067 Analog input 3
+	}
+	return 0;
 }
 
 static BYTE __stdcall IOWrite_C06x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG nExecutedCycles)
@@ -599,6 +612,8 @@ BYTE __stdcall IO_Annunciator(WORD programcounter, WORD address, BYTE write, BYT
 
 	g_Annunciator[(address>>1) & 3] = (address&1) ? true : false;
 
+	if (address >= 0xC058 && address <= 0xC05B)
+		JoyportControl(address & 0x3);	// AN0 and AN1 control
 
 	if (!write)
 		return MemReadFloatingBus(nExecutedCycles);

@@ -114,6 +114,7 @@
     <ClInclude Include="Emulator\DiskImage.h" />
     <ClInclude Include="Emulator\DiskImageHelper.h" />
     <ClInclude Include="Emulator\Harddisk.h" />
+    <ClInclude Include="Emulator\Joystick.h" />
     <ClInclude Include="Emulator\Keyboard.h" />
     <ClInclude Include="Emulator\LanguageCard.h" />
     <ClInclude Include="Emulator\Memory.h" />
@@ -152,6 +153,7 @@
     <ClCompile Include="Emulator\DiskImage.cpp" />
     <ClCompile Include="Emulator\DiskImageHelper.cpp" />
     <ClCompile Include="Emulator\Harddisk.cpp" />
+    <ClCompile Include="Emulator\Joystick.cpp" />
     <ClCompile Include="Emulator\Keyboard.cpp" />
     <ClCompile Include="Emulator\LanguageCard.cpp" />
     <ClCompile Include="Emulator\Memory.cpp" />

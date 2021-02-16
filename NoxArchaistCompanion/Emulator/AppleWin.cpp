@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "DiskImage.h"
 #include "Harddisk.h"
 #include "Keyboard.h"
+#include "Joystick.h"
 #include "LanguageCard.h"
 #include "Memory.h"
 #include "Mockingboard.h"
@@ -186,6 +187,7 @@ void ContinueExecution(void)
 	const DWORD uActualCyclesExecuted = CpuExecute(uCyclesToExecute, bVideoUpdate);
 	g_dwCyclesThisFrame += uActualCyclesExecuted;
 
+	JoyUpdateButtonLatch(nExecutionPeriodUsec);	// Button latch time is independent of CPU clock frequency
 	MB_PeriodicUpdate(uActualCyclesExecuted);
 
 	//
