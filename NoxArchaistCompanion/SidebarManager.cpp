@@ -60,7 +60,7 @@ SidebarError SidebarManager::CreateSidebar(SidebarTypes type, UINT8 numBlocks, U
     case SidebarTypes::Right:
     {
         if (size == 0)
-            w = GetFrameBufferHeight();
+            w = SIDEBAR_LR_WIDTH;
         else
             w = size;
         h = GetFrameBufferHeight();
