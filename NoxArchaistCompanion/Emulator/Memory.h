@@ -56,6 +56,8 @@ extern LPBYTE     memdirty;
 
 #ifdef RAMWORKS
 const UINT kMaxExMemoryBanks = 127;	// 127 * aux mem(64K) + main mem(64K) = 8MB
+#else
+const UINT kMaxExMemoryBanks = 1;
 #endif
 
 void	RegisterIoHandler(UINT uSlot, iofunction IOReadC0, iofunction IOWriteC0, iofunction IOReadCx, iofunction IOWriteCx, LPVOID lpSlotParameter, BYTE* pExpansionRom);
