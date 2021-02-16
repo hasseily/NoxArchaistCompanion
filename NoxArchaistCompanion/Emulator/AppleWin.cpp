@@ -404,7 +404,6 @@ void EmulatorRepeatInitialization()
 		return;
 	}
 	MemInitialize();
-	HD_Reset();
 	// Now boot the HD!
 	SoundCore_TweakVolumes();
 	VideoRedrawScreen();

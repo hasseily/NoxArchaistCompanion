@@ -262,28 +262,23 @@ static void DebugHddEntrypoint(const USHORT PC, BYTE& iOpcode, ULONG uExecutedCy
 {
 	static bool bOldPCAtC7xx = false;
 	static bool hasHeader = false;
-	static bool didDump = false;
+	static bool shouldLog = false;
+	static int maxLines = 100;
+	static int currLines = 0;
 	wchar_t tempw[200];
 	if (!hasHeader)
 	{
 		m_logWindow->AppendLog(L"NOX COMPANION\nCycles   A: X: Y: SP:  Addr:Opcode\n");
 		hasHeader = true;
 	}
-	if (!didDump)
-	{
-		wsprintf(tempw, L"%.8X %.2X %.2X %.2X %.4X %.4X:%.2X\n", g_nCumulativeCycles + uExecutedCycles, regs.a, regs.x, regs.y, regs.sp, PC, iOpcode);
-		m_logWindow->AppendLog(std::wstring(tempw));
-	}
-
-
 	if ((PC >> 8) == 0xC7)
 	{
 		if (!bOldPCAtC7xx /*&& PC != 0xc70a*/)
 		{
-			didDump = true;
-			wchar_t szDebug[100];
-			wsprintf(szDebug, L"HDD Entrypoint: $%04X\n", PC);
-			OutputDebugString(szDebug);
+			shouldLog = true;
+			//wchar_t szDebug[100];
+			//wsprintf(szDebug, L"HDD Entrypoint: $%04X\n", PC);
+			//OutputDebugString(szDebug);
 		}
 
 		bOldPCAtC7xx = true;
@@ -291,6 +286,12 @@ static void DebugHddEntrypoint(const USHORT PC, BYTE& iOpcode, ULONG uExecutedCy
 	else
 	{
 		bOldPCAtC7xx = false;
+	}
+	if (shouldLog && (currLines < maxLines))
+	{
+		wsprintf(tempw, L"%.8X %.2X %.2X %.2X %.4X %.4X:%.2X\n", g_nCumulativeCycles + uExecutedCycles, regs.a, regs.x, regs.y, regs.sp, PC, iOpcode);
+		m_logWindow->AppendLog(std::wstring(tempw));
+		currLines++;
 	}
 }
 #endif
