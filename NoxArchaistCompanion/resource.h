@@ -15,6 +15,10 @@
 #define IDR_HDDRVR_FW                   128
 #define IDR_MOCKINGBOARD_D_FW           129
 #define IDR_APPLE2E_ENHANCED_ROM        130
+#define IDB_CHARSET40                   138
+#define IDB_CHARSET82                   139
+#define IDB_CHARSET8C                   140
+#define IDB_CHARSET8M                   141
 #define IDC_LOGSTATIC                   1000
 #define ID_FILE_ACTIVATEPROFILE         32771
 #define ID_EMULATOR_PAUSE               32772
@@ -40,7 +44,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        134
+#define _APS_NEXT_RESOURCE_VALUE        142
 #define _APS_NEXT_COMMAND_VALUE         32789
 #define _APS_NEXT_CONTROL_VALUE         1001
 #define _APS_NEXT_SYMED_VALUE           110

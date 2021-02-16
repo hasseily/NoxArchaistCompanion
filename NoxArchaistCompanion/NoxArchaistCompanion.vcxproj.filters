@@ -213,6 +213,18 @@
       <Filter>Assets</Filter>
     </Image>
     <Image Include="noxarchaistcompanion.ico" />
+    <Image Include="Emulator\Resources\CHARSET82.bmp">
+      <Filter>Emulator\Resources</Filter>
+    </Image>
+    <Image Include="Emulator\Resources\CHARSET4.BMP">
+      <Filter>Emulator\Resources</Filter>
+    </Image>
+    <Image Include="Emulator\Resources\CHARSET8C.bmp">
+      <Filter>Emulator\Resources</Filter>
+    </Image>
+    <Image Include="Emulator\Resources\CHARSET8M.bmp">
+      <Filter>Emulator\Resources</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />

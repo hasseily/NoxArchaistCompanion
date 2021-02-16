@@ -56,7 +56,6 @@ bool      g_bFullSpeed = false;
 //=================================================
 
 // Win32
-HINSTANCE g_hInstance = (HINSTANCE)0;
 HWND g_hFrameWindow;
 
 AppMode_e	g_nAppMode = AppMode_e::MODE_RUNNING;		// Default. Don't use MODE_LOGO, there's no point in having it
@@ -374,8 +373,8 @@ void EmulatorOneTimeInitialization(HWND window)
 
 	// TODO: load these as defaults or override from config file
 	RGB_SetVideocard(Video7_SL7, 15, 0);
-	SetVideoType(VT_COLOR_TV);
-	SetVideoStyle(VS_HALF_SCANLINES);
+	SetVideoType(VT_COLOR_IDEALIZED);
+	SetVideoStyle(VS_NONE);
 	SetVideoRefreshRate(VR_60HZ);
 	SetCurrentCLK6502();
 	MB_Reset();

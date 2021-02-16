@@ -192,6 +192,10 @@
     <Image Include="Assets\Background.jpg">
       <DeploymentContent>true</DeploymentContent>
     </Image>
+    <Image Include="Emulator\Resources\CHARSET4.BMP" />
+    <Image Include="Emulator\Resources\CHARSET82.bmp" />
+    <Image Include="Emulator\Resources\CHARSET8C.bmp" />
+    <Image Include="Emulator\Resources\CHARSET8M.bmp" />
     <Image Include="noxarchaistcompanion.ico" />
   </ItemGroup>
   <ItemGroup>
