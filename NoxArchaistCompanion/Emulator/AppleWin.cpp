@@ -326,20 +326,6 @@ UINT GetFrameBufferHeight()
 
 //===========================================================================
 
-static bool DoHardDiskInsert(const int nDrive, LPCWSTR szPathName)
-{
-	if (szPathName[0] == '\0')
-	{
-		HD_Unplug(nDrive);
-		return true;
-	}
-
-	BOOL bRes = HD_Insert(nDrive, szPathName);
-	return bRes;
-}
-
-//===========================================================================
-
 // This method should be called from within the main message loop
 
 void EmulatorMessageLoopProcessing()
@@ -397,7 +383,7 @@ void EmulatorRepeatInitialization()
 	// Init palette color
 	VideoSwitchVideocardPalette(RGB_GetVideocard(), GetVideoType());
 
-	bool bRes = DoHardDiskInsert(HARDDISK_1, g_nonVolatile.hdvPath.c_str());
+	bool bRes = HD_Insert(HARDDISK_1, g_nonVolatile.hdvPath.c_str());
 	if (!bRes)
 	{
 		MessageBox(g_hFrameWindow, L"Can't find last used Nox Archaist HDV file.\nPlease choose another.", L"Warning", MB_ICONASTERISK | MB_OK);
