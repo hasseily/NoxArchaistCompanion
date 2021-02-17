@@ -40,10 +40,13 @@ int NonVolatile::LoadFromDisk()
 {
 	nlohmann::json j;
 	std::ifstream in(configfilename);
-	in >> j;
-	in.close();
-	nv_json.merge_patch(j);
-	
+	if (!in.fail())
+	{
+		in >> j;
+		in.close();
+		nv_json.merge_patch(j);
+	}
+
 	std::string _profilePath = nv_json["profilePath"].get<std::string>();
 	HA::ConvertStrToWStr(&_profilePath, &profilePath);
 	std::string _hdvPath = nv_json["hdvPath"].get<std::string>();
