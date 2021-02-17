@@ -276,7 +276,7 @@ void GetImageTitle(LPCTSTR pPathname, std::wstring & pImageName, std::wstring & 
 	if (wcsrchr(startpos, TEXT('\\')))
 		startpos = wcsrchr(startpos, TEXT('\\'))+1;
 
-	wcsncpy(imagetitle, startpos, MAX_DISK_FULL_NAME);
+	wcsncpy_s(imagetitle, startpos, MAX_DISK_FULL_NAME);
 	imagetitle[MAX_DISK_FULL_NAME] = 0;
 
 	// if imagetitle contains a lowercase char, then found=1 (why?)

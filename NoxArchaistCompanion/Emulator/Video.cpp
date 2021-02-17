@@ -35,6 +35,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "Memory.h"
 #include "NTSC.h"
 #include "RGBMonitor.h"
+#include "../HAUtils.h"
 
 #include "resource.h"
 #include "RemoteControl/RemoteControlManager.h"	// RIK
@@ -138,7 +139,7 @@ bool VideoInitialize ()
 		MEM_COMMIT,
 		PAGE_READWRITE);
 
-	if (g_pFramebufferinfo == NULL)
+	if (HA::AlertIfError(g_hFrameWindow))
 		return false;
 
 	UINT fbSize = GetFrameBufferWidth() * GetFrameBufferHeight() * sizeof(bgra_t);
@@ -182,7 +183,7 @@ void VideoDestroy () {
 
 void VideoRedrawScreenDuringFullSpeed(DWORD dwCyclesThisFrame, bool bInit /*=false*/)
 {
-	static DWORD dwFullSpeedStartTime = 0;
+	static ULONGLONG dwFullSpeedStartTime = 0;
 //	static bool bValid = false;
 
 	if (bInit)
@@ -193,7 +194,7 @@ void VideoRedrawScreenDuringFullSpeed(DWORD dwCyclesThisFrame, bool bInit /*=fal
 		return;
 	}
 
-	DWORD dwFullSpeedDuration = GetTickCount64() - dwFullSpeedStartTime;
+	ULONGLONG dwFullSpeedDuration = GetTickCount64() - dwFullSpeedStartTime;
 	if (dwFullSpeedDuration <= 16)	// Only update after every realtime ~17ms of *continuous* full-speed
 		return;
 
@@ -394,7 +395,6 @@ WORD VideoGetScannerAddress(DWORD nCycles, VideoScanner_e videoScannerAddr /*= V
     int v_2 = (nVState >> 5) & 1;
     int v_3 = (nVState >> 6) & 1;
     int v_4 = (nVState >> 7) & 1;
-    int v_5 = (nVState >> 8) & 1;
 
     // calculate scanning memory address
     //

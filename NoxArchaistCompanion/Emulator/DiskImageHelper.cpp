@@ -36,8 +36,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "DiskImage.h"
 #include "Memory.h"
 #include <sstream>	// RIK -- Parse metadata of WOZ disks
-#include "Applewin.h"	// RIK -- g_programName
-#include "RemoteControl/RemoteControlManager.h"	// RIK -- send signature info
+#include "Applewin.h"
+#include "RemoteControl/RemoteControlManager.h"
+#include "../HAUtils.h"
 
 
 ImageInfo::ImageInfo()
@@ -188,11 +189,14 @@ bool CImageBase::WriteImageData(ImageInfo* pImageInfo, LPBYTE pSrcBuffer, const 
 	if (pImageInfo->FileType == eFileNormal)
 	{
 		if (pImageInfo->hFile == INVALID_HANDLE_VALUE)
+		{
+			HA::AlertIfError(g_hFrameWindow);
 			return false;
+		}
 
 		if (SetFilePointer(pImageInfo->hFile, offset, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
 		{
-			DWORD err = GetLastError();
+			HA::AlertIfError(g_hFrameWindow);
 			return false;
 		}
 
@@ -200,7 +204,10 @@ bool CImageBase::WriteImageData(ImageInfo* pImageInfo, LPBYTE pSrcBuffer, const 
 		BOOL bRes = WriteFile(pImageInfo->hFile, pSrcBuffer, uSrcSize, &dwBytesWritten, NULL);
 		_ASSERT(dwBytesWritten == uSrcSize);
 		if (!bRes || dwBytesWritten != uSrcSize)
+		{
+			HA::AlertIfError(g_hFrameWindow);
 			return false;
+		}
 	}
 	else
 	{

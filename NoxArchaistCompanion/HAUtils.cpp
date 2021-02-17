@@ -84,4 +84,33 @@ namespace HA
 		wstr->assign(wzStr);
 		return numConverted;
 	}
+
+	//Returns the last Win32 error, in string format. Returns an empty string if there is no error.
+	std::wstring GetLastErrorAsString()
+	{
+		//Get the error message ID, if any.
+		DWORD errorMessageID = ::GetLastError();
+		if (errorMessageID == 0) {
+			return std::wstring(); //No error message has been recorded
+		}
+
+		LPWSTR messageBuffer = nullptr;
+		size_t size = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&messageBuffer, 0, NULL);
+
+		std::wstring message(messageBuffer, size);
+		LocalFree(messageBuffer);
+		return message;
+	}
+
+    //Shows an alert if GetLastError() exists. Returns false if no error.
+    bool AlertIfError(HWND parentWindow)
+    {
+		std::wstring serr = HA::GetLastErrorAsString();
+        if (serr == L"")
+            return false;
+		serr.insert(0, L"Error:\n");
+		MessageBox(parentWindow, serr.c_str(), L"Alert", MB_ICONASTERISK | MB_OK);
+        return true;
+    }
 }
