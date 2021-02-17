@@ -456,7 +456,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				// TODO: There is absolutely no need for a AppMode_e::MODE_LOGO. When the game is launched, if the HDV can't be found then
 				//			open the file dialog to select an hdv
-				//		Need to code the load/save config (in json since we have it) and store the path to the hdv
 			case AppMode_e::MODE_LOGO:
 				g_nAppMode = AppMode_e::MODE_RUNNING;
 				break;
