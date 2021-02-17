@@ -28,11 +28,13 @@ UINT GetFrameBufferHeight();
 UINT GetFrameBufferBorderWidth();
 UINT GetFrameBufferBorderHeight();
 
+void ApplyNonVolatileConfig();
 void EmulatorOneTimeInitialization(HWND window);
 void EmulatorRepeatInitialization();
 void EmulatorReboot();
 void EmulatorMessageLoopProcessing();
 
+void UseClockMultiplier(double clockMultiplier);
 
 extern bool       g_bFullSpeed;
 extern UINT64	  g_debug_video_field;	// defined in Game.cpp // shows debug video info on screen

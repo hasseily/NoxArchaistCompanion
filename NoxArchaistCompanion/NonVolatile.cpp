@@ -10,9 +10,12 @@ static nlohmann::json nv_json = R"(
   {
     "profilePath": "Profiles\\Nox Archaist.json",
     "hdvPath": "NOXARCHAIST.HDV",
-    "volumeSpeaker":	  20,
-    "volumeMockingBoard": 20,
-	"useGameLink": 0
+	"speed":			  0,
+	"scanlines":		  false,
+	"video":			  0,
+    "volumeSpeaker":	  4,
+    "volumeMockingBoard": 4,
+	"useGameLink":        false
   }
 )"_json;
 
@@ -27,6 +30,9 @@ int NonVolatile::SaveToDisk()
 
 	nv_json["profilePath"]			= sprofPath;
 	nv_json["hdvPath"]				= sHdvPath;
+	nv_json["speed"]				= speed;
+	nv_json["scanlines"]			= scanlines;
+	nv_json["video"]				= video;
 	nv_json["volumeSpeaker"]		= volumeSpeaker;
 	nv_json["volumeMockingBoard"]	= volumeMockingBoard;
 	nv_json["useGameLink"]			= useGameLink;
@@ -52,6 +58,9 @@ int NonVolatile::LoadFromDisk()
 	std::string _hdvPath = nv_json["hdvPath"].get<std::string>();
 	HA::ConvertStrToWStr(&_hdvPath, &hdvPath);
 
+	speed = nv_json["speed"].get<int>();
+	scanlines = nv_json["scanlines"].get<bool>();
+	video = nv_json["video"].get<int>();
 	volumeSpeaker = nv_json["volumeSpeaker"].get<int>();
 	volumeMockingBoard = nv_json["volumeMockingBoard"].get<int>();
 	useGameLink = nv_json["useGameLink"].get<bool>();

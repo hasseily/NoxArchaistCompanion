@@ -113,4 +113,17 @@ namespace HA
 		MessageBox(parentWindow, serr.c_str(), L"Alert", MB_ICONASTERISK | MB_OK);
         return true;
     }
+
+    // Unchecks all menu items and only checks the one position
+    bool checkMenuItemByPosition(HMENU m, int pos)
+    {
+		int i = 0;
+		while (CheckMenuItem(m, i,
+			MF_BYPOSITION | (i == pos ? MF_CHECKED : MF_UNCHECKED))
+			!= -1)
+		{
+			++m;
+		}
+        return false;
+    }
 }

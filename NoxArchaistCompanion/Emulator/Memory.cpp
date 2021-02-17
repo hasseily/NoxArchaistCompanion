@@ -1179,6 +1179,11 @@ bool MemCheckINTCXROM()
 	return SW_INTCXROM ? true : false;
 }
 
+LPBYTE MemGetRealMainPtr(const WORD offset)
+{
+	return memmain + offset;
+}
+
 //===========================================================================
 
 static void BackMainImage(void)
@@ -1352,19 +1357,17 @@ void MemInitialize()
 {
 	// ALLOCATE MEMORY FOR THE APPLE MEMORY IMAGE AND ASSOCIATED DATA STRUCTURES
 
-	// RIK BEGIN
-	// if Remote Control is active, allocate memmain and memaux as one block of shared memory
+	// always allocate memmain and memaux as one block of shared memory
+	// so we can access the ram directly without having to play games with main and aux
 
-	memmain = g_RemoteControlMgr.initializeMem((_6502_MEM_END + 1) * 2);
-	if (memmain)
+	//memmain = g_RemoteControlMgr.initializeMem((_6502_MEM_END + 1) * 2);
+	if (!memmain)
 	{
-		memaux = memmain + (_6502_MEM_END + 1);
+		memmain = (LPBYTE)VirtualAlloc(NULL, (_6502_MEM_END + 1) * 2, MEM_COMMIT, PAGE_READWRITE);
 	}
-	else {
-		memaux = (LPBYTE)VirtualAlloc(NULL, _6502_MEM_END + 1, MEM_COMMIT, PAGE_READWRITE);
-		memmain = (LPBYTE)VirtualAlloc(NULL, _6502_MEM_END + 1, MEM_COMMIT, PAGE_READWRITE);
-	}
-	// RIK END
+	memaux = memmain + (_6502_MEM_END + 1);
+	
+
 	memdirty = (LPBYTE)VirtualAlloc(NULL,0x100  ,MEM_COMMIT,PAGE_READWRITE);
 	memrom   = (LPBYTE)VirtualAlloc(NULL,0x3000 * MaxRomPages ,MEM_COMMIT,PAGE_READWRITE);
 	memimage = (LPBYTE)VirtualAlloc(NULL,_6502_MEM_END+1,MEM_RESERVE,PAGE_NOACCESS);

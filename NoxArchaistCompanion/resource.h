@@ -37,6 +37,33 @@
 #define ID_LOGWINDOW_LOAD               32786
 #define ID_LOGWINDOW_SAVE               32787
 #define ID_EMULATOR_SELECTNOXHDV        32788
+#define ID_EMULATOR_SPEED               32789
+#define ID_SPEED_0	                    32790
+#define ID_SPEED_1	                    32791
+#define ID_SPEED_2	                    32792
+#define ID_SPEED_3	                    32793
+#define ID_SPEED_4	                    32794
+#define ID_SPEED_5	                    32795
+#define ID_SPEED_6	                    32796
+#define ID_EMULATOR_VIDEO               32797
+#define ID_VIDEO_IDEALIZED              32798
+#define ID_VIDEO_MONITOR                32799
+#define ID_VIDEO_COMPOSITEMONITOR       32800
+#define ID_VIDEO_TVSCREEN               32801
+#define ID_VIDEO_SCANLINES              32802
+#define ID_EMULATOR_GAMELINK            32803
+#define ID_EMULATOR_VOLUME              32804
+#define ID_EMULATOR_VOLUMEMUSIC         32805
+#define ID_VOLUME_OFF                   32806
+#define ID_VOLUME_25                    32807
+#define ID_VOLUME_50                    32808
+#define ID_VOLUME_75                    32809
+#define ID_VOLUME_100                   32810
+#define ID_VOLUMEMUSIC_OFF              32811
+#define ID_VOLUMEMUSIC_25               32812
+#define ID_VOLUMEMUSIC_50               32813
+#define ID_VOLUMEMUSIC_75               32814
+#define ID_VOLUMEMUSIC_100              32815
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -45,7 +72,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        142
-#define _APS_NEXT_COMMAND_VALUE         32789
+#define _APS_NEXT_COMMAND_VALUE         32816
 #define _APS_NEXT_CONTROL_VALUE         1001
 #define _APS_NEXT_SYMED_VALUE           110
 #endif

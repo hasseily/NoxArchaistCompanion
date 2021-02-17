@@ -260,16 +260,9 @@ std::string SidebarContent::SerializeVariable(nlohmann::json* pvar)
         return s;
     if (length == 0)
         return s;
-    // Check if it's in main or aux based on the offset, and adapt accordingly
-    if ((memoffset + length) < memsize / 2)
-    {
-		pmem = MemGetMainPtr(0);
-    }
-    else
-    {
-        memoffset = memoffset - (memsize / 2);
-		pmem = MemGetAuxPtr(0);
-    }
+    // since the memory is contiguous, no need to check if the info is in main or aux mem
+    // and since we're only reading, we don't care if the mem is dirty
+    pmem = MemGetRealMainPtr(0);
 	if (pmem == nullptr)
 		return s;
 

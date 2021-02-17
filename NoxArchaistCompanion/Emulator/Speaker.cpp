@@ -845,8 +845,6 @@ DWORD SpkrGetVolume()
 
 void SpkrSetVolume(DWORD dwVolume, DWORD dwVolumeMax)
 {
-	g_nonVolatile.volumeSpeaker = dwVolume;
-	// g_nonVolatile.SaveToDisk(); Don't save to disk here, only save when changed from the UI
 	SpeakerVoice.dwUserVolume = dwVolume;
 
 	SpeakerVoice.nVolume = NewVolume(dwVolume, dwVolumeMax);

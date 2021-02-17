@@ -360,25 +360,80 @@ void EmulatorOneTimeInitialization(HWND window)
 	// TODO: load these as defaults or override from config file
 	RGB_SetVideocard(Video7_SL7, 15, 0);
 	SetVideoType(VT_COLOR_IDEALIZED);
-	SetVideoStyle(VS_NONE);
-	SetVideoRefreshRate(VR_60HZ);
+	SetVideoStyle(VS_COLOR_VERTICAL_BLEND);	// Always set vertical blend
+	SetVideoRefreshRate(VR_60HZ);			// Always set 60HZ
 	SetCurrentCLK6502();
 	MB_Reset();
-	g_RemoteControlMgr.setRemoteControlEnabled(true);
+	g_RemoteControlMgr.setRemoteControlEnabled(true);	// turn it on by default, so we don't have to reboot to switch it on or off
 	g_RemoteControlMgr.setTrackOnlyEnabled(false);
+}
+
+void ApplyNonVolatileConfig()
+{
+	// Use the non-volatile info for the initialization
+	SpkrSetVolume(VOLUME_MAX * g_nonVolatile.volumeSpeaker / 4, VOLUME_MAX);
+	MB_SetVolume(VOLUME_MAX * g_nonVolatile.volumeMockingBoard / 4, VOLUME_MAX);
+	RGB_SetVideocard(LeChatMauve_EVE);	// Because that's what I have
+	switch (g_nonVolatile.video)
+	{
+	case 0:
+		SetVideoType(VT_COLOR_IDEALIZED);
+		break;
+	case 1:
+		SetVideoType(VT_COLOR_VIDEOCARD_RGB);
+		break;
+	case 2:
+		SetVideoType(VT_COLOR_MONITOR_NTSC);
+		break;
+	case 3:
+		SetVideoType(VT_COLOR_TV);
+		break;
+	default:
+		SetVideoType(VT_COLOR_MONITOR_NTSC);
+	}
+	switch (g_nonVolatile.speed)
+	{
+	case 0:
+		g_dwSpeed = SPEED_MIN;
+		break;
+	case 1:
+		g_dwSpeed = SPEED_NORMAL;
+		break;
+	case 2:
+		g_dwSpeed = 20;
+		break;
+	case 3:
+		g_dwSpeed = 30;
+		break;
+	case 4:
+		g_dwSpeed = 40;
+		break;
+	case 5:
+		g_dwSpeed = 60;
+		break;
+	case 6:
+		g_dwSpeed = SPEED_MAX;
+		break;
+	default:
+		g_dwSpeed = SPEED_NORMAL;
+	}
+	SetVideoStyle((VideoStyle_e)(VS_COLOR_VERTICAL_BLEND + g_nonVolatile.scanlines * VS_HALF_SCANLINES));
+	RemoteControlManager::setRemoteControlEnabled(g_nonVolatile.useGameLink);
+	SetCurrentCLK6502();
+	VideoReinitialize(true);
 }
 
 // DO INITIALIZATION THAT MUST BE REPEATED FOR A RESTART
 void EmulatorRepeatInitialization()
 {
-	SpkrSetVolume(g_nonVolatile.volumeSpeaker, VOLUME_MAX);
-	MB_SetVolume(g_nonVolatile.volumeMockingBoard, VOLUME_MAX);
 
-	UseClockMultiplier(1.0f);
 	if (!VideoInitialize())
 	{
 		MessageBox(g_hFrameWindow, L"Fatal Error: Can't initialize Apple video memory!.", L"Alert", MB_ICONASTERISK | MB_OK);
 	}
+
+	ApplyNonVolatileConfig();
+
 
 	// Init palette color
 	VideoSwitchVideocardPalette(RGB_GetVideocard(), GetVideoType());

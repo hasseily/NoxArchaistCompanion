@@ -15,6 +15,7 @@
 #include "Emulator/SoundCore.h"
 #include "Emulator/Keyboard.h"
 #include "Emulator/Harddisk.h"
+#include "Emulator/RGBMonitor.h"
 
 using namespace DirectX;
 
@@ -87,6 +88,31 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	}
 	return (INT_PTR)FALSE;
+}
+
+void UpdateMenuBarStatus(HWND hwnd)
+{
+	
+	HMENU topMenu = GetMenu(hwnd);
+	HMENU emuMenu = GetSubMenu(topMenu, 1);	// Emulator menu
+	HMENU cmpMenu = GetSubMenu(topMenu, 2);	// Companion menu
+	HMENU speedMenu = GetSubMenu(emuMenu, 2);
+	HMENU videoMenu = GetSubMenu(emuMenu, 3);
+	HMENU volumeMenu = GetSubMenu(emuMenu, 4);
+	HMENU musicMenu = GetSubMenu(emuMenu, 5);
+	HMENU logMenu = GetSubMenu(cmpMenu, 2);
+
+	CheckMenuRadioItem(speedMenu, 0, 10, g_nonVolatile.speed, MF_BYPOSITION);
+	CheckMenuRadioItem(videoMenu, 0, 10, g_nonVolatile.video, MF_BYPOSITION);
+	CheckMenuRadioItem(volumeMenu, 0, 10, g_nonVolatile.volumeSpeaker, MF_BYPOSITION);
+	CheckMenuRadioItem(musicMenu, 0, 10, g_nonVolatile.volumeMockingBoard, MF_BYPOSITION);
+
+	CheckMenuItem(emuMenu, ID_EMULATOR_GAMELINK,
+		MF_BYCOMMAND | (g_nonVolatile.useGameLink ? MF_CHECKED : MF_UNCHECKED));
+	CheckMenuItem(videoMenu, ID_VIDEO_SCANLINES,
+		MF_BYCOMMAND | (g_nonVolatile.scanlines ? MF_CHECKED : MF_UNCHECKED));
+	
+	ApplyNonVolatileConfig();
 }
 
 // Entry point
@@ -163,6 +189,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 
 			g_game->Initialize(hwnd, wi.rcClient.right - wi.rcClient.left, wi.rcClient.bottom - wi.rcClient.top);
+
+			// Game has now loaded the saved/default settings
+			// Update the menu bar with the settings
+			UpdateMenuBarStatus(hwnd);
 		}
 
 		// Main message loop
@@ -185,10 +215,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		return static_cast<int>(msg.wParam);
 	}
 	catch (std::runtime_error exception)
-	{
-		ExceptionHandler(exception.what());
-	}
-	catch (std::exception exception)
 	{
 		ExceptionHandler(exception.what());
 	}
@@ -442,10 +468,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case AppMode_e::MODE_RUNNING:
 				g_nAppMode = AppMode_e::MODE_PAUSED;
 				SoundCore_SetFade(FADE_OUT);
+				CheckMenuItem(GetSubMenu(GetMenu(hWnd), 1), ID_EMULATOR_PAUSE, MF_BYCOMMAND | MF_CHECKED);
 				break;
 			case AppMode_e::MODE_PAUSED:
 				g_nAppMode = AppMode_e::MODE_RUNNING;
 				SoundCore_SetFade(FADE_IN);
+				CheckMenuItem(GetSubMenu(GetMenu(hWnd), 1), ID_EMULATOR_PAUSE, MF_BYCOMMAND | MF_UNCHECKED);
 				break;
 			}
 			break;
@@ -465,10 +493,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				if (lParam == 0)
 				{
 					if (MessageBox(HWND_TOP, TEXT("Are you sure you want to reboot?\nYou died again?"), TEXT("Reboot Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
+					{
+						// Uncheck the pause
+						CheckMenuItem(GetSubMenu(GetMenu(hWnd), 1), ID_EMULATOR_PAUSE, MF_BYCOMMAND | MF_UNCHECKED);
 						EmulatorReboot();
+					}
 				}
 				else	// gamelink requests will pass 1 here, so no message box
 				{
+					// Uncheck the pause
+					CheckMenuItem(GetSubMenu(GetMenu(hWnd), 1), ID_EMULATOR_PAUSE, MF_BYCOMMAND | MF_UNCHECKED);
 					EmulatorReboot();
 				}
 				break;
@@ -477,11 +511,127 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			VideoRedrawScreen();
 			break;
 		}
+		case ID_SPEED_0:
+			g_nonVolatile.speed = 0;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_SPEED_1:
+			g_nonVolatile.speed = 1;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_SPEED_2:
+			g_nonVolatile.speed = 2;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_SPEED_3:
+			SetCurrentCLK6502();
+			g_nonVolatile.speed = 3;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_SPEED_4:
+			g_nonVolatile.speed = 4;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_SPEED_5:
+			g_nonVolatile.speed = 5;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_SPEED_6:
+			g_nonVolatile.speed = 6;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VIDEO_IDEALIZED:
+			g_nonVolatile.video = 0;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VIDEO_MONITOR:
+			g_nonVolatile.video = 1;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VIDEO_COMPOSITEMONITOR:
+			g_nonVolatile.video = 2;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VIDEO_TVSCREEN:
+			g_nonVolatile.video = 3;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUME_OFF:
+			g_nonVolatile.volumeSpeaker = 0;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUME_25:
+			g_nonVolatile.volumeSpeaker = 1;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUME_50:
+			g_nonVolatile.volumeSpeaker = 2;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUME_75:
+			g_nonVolatile.volumeSpeaker = 3;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUME_100:
+			g_nonVolatile.volumeSpeaker = 4;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUMEMUSIC_OFF:
+			g_nonVolatile.volumeMockingBoard = 0;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUMEMUSIC_25:
+			g_nonVolatile.volumeMockingBoard = 1;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUMEMUSIC_50:
+			g_nonVolatile.volumeMockingBoard = 2;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUMEMUSIC_75:
+			g_nonVolatile.volumeMockingBoard = 3;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VOLUMEMUSIC_100:
+			g_nonVolatile.volumeMockingBoard = 4;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_VIDEO_SCANLINES:
+			g_nonVolatile.scanlines = !g_nonVolatile.scanlines;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_EMULATOR_GAMELINK:
+			g_nonVolatile.useGameLink = !g_nonVolatile.useGameLink;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
 		case ID_LOGWINDOW_SHOW:
 		{
 			if (game)
 			{
-				game->MenuShowLogWindow(true);
+				game->MenuShowLogWindow();
 			}
 			break;
 		}
@@ -490,7 +640,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_logW->LoadFromFile();
 			if (game)
 			{
-				game->MenuShowLogWindow(true);
+				game->MenuShowLogWindow();
 			}
 			break;
 		}

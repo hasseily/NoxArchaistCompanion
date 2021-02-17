@@ -2115,8 +2115,6 @@ DWORD MB_GetVolume()
 
 void MB_SetVolume(DWORD dwVolume, DWORD dwVolumeMax)
 {
-	g_nonVolatile.volumeMockingBoard = dwVolume;
-	// g_nonVolatile.SaveToDisk(); Don't save to disk here, only save when changed from the UI
 	MockingboardVoice.dwUserVolume = dwVolume;
 
 	MockingboardVoice.nVolume = NewVolume(dwVolume, dwVolumeMax);

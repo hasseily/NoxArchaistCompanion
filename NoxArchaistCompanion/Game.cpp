@@ -106,9 +106,10 @@ void Game::Initialize(HWND window, int width, int height)
 
     // TODO: We're doing 30 FPS fixed timestep update logic.
     // Might not be ideal
-    
-    m_timer.SetFixedTimeStep(true);
-    m_timer.SetTargetElapsedSeconds(1.0 / 30);    
+	// m_timer.SetFixedTimeStep(true);
+	// m_timer.SetTargetElapsedSeconds(1.0 / 30);
+
+    m_timer.SetFixedTimeStep(false);
 }
 
 #pragma region Window texture and size
@@ -249,7 +250,7 @@ void Game::Render()
     // Every m_framesDelay update the gamelink framebuffer
     if ((currFrameCount - m_previousFrameCount) > m_framesDelay)
     {
-        if (g_nonVolatile.useGameLink)
+        if (RemoteControlManager::isRemoteControlEnabled())
         {
             // TODO: make a texture out of the backbuffer and send it back to main memory
         }
@@ -333,7 +334,8 @@ void Game::Render()
     // TEMPORARY
     // TODO: REMOVE
     char pcbuf[4000];
-    snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %I64x : %I64x", g_debug_video_field, g_debug_video_data);
+//    snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %I64x : %I64x", g_debug_video_field, g_debug_video_data);
+	snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %d FPS", m_timer.GetFramesPerSecond());
     m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
         { 10.f, 10.f }, Colors::OrangeRed, 0.f, m_vector2ero, m_clientFrameScale);
 #endif // _DEBUG
@@ -464,13 +466,10 @@ void Game::MenuDeactivateProfile()
     SetWindowSizeOnChangedProfile();
 }
 
-void Game::MenuShowLogWindow(bool toggle)
+void Game::MenuShowLogWindow()
 {
-     m_logWindow = GetLogWindow();
-    if (toggle)
-    {
-        IsWindowVisible(m_logWindow->hwndLog) ? m_logWindow->HideLogWindow() : m_logWindow->ShowLogWindow();
-    }
+    m_logWindow = GetLogWindow();
+    m_logWindow->ShowLogWindow();
 }
 
 #pragma endregion
