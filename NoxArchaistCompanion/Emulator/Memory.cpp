@@ -1360,7 +1360,7 @@ void MemInitialize()
 	// always allocate memmain and memaux as one block of shared memory
 	// so we can access the ram directly without having to play games with main and aux
 
-	//memmain = g_RemoteControlMgr.initializeMem((_6502_MEM_END + 1) * 2);
+	memmain = g_RemoteControlMgr.initializeMem((_6502_MEM_END + 1) * 2);
 	if (!memmain)
 	{
 		memmain = (LPBYTE)VirtualAlloc(NULL, (_6502_MEM_END + 1) * 2, MEM_COMMIT, PAGE_READWRITE);
