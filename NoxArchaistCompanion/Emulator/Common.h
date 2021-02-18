@@ -28,7 +28,7 @@ enum class AppMode_e
 
 #define  SPEED_MIN         0
 #define  SPEED_NORMAL      10
-#define  SPEED_MAX         200
+#define  SPEED_MAX         100
 
 enum eIRQSRC {IS_6522=0, IS_SPEECH, IS_SSC, IS_MOUSE};
 

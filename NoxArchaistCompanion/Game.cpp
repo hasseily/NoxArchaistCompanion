@@ -33,6 +33,7 @@ static std::vector<std::unique_ptr<SpriteFont>> m_spriteFonts;
 static std::unique_ptr<PrimitiveBatch<VertexPositionColor>> m_primitiveBatch;
 std::unique_ptr<BasicEffect> m_lineEffect;
 AppMode_e m_previousAppMode = AppMode_e::MODE_UNKNOWN;
+static UINT64 ticksSinceLastCompanionUpdate = 0;
 
 static std::wstring last_logged_line;
 
@@ -52,7 +53,9 @@ Game::Game() noexcept(false)
     m_sbC = SidebarContent();
     GameLink::Init(false);
 
-    m_deviceResources = std::make_unique<DX::DeviceResources>();
+    // TODO: Allow configuration for vsync on/off?
+	//m_deviceResources = std::make_unique<DX::DeviceResources>(DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_D32_FLOAT, 2, D3D_FEATURE_LEVEL_11_0, DX::DeviceResources::c_AllowTearing);
+	m_deviceResources = std::make_unique<DX::DeviceResources>(DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_D32_FLOAT, 2, D3D_FEATURE_LEVEL_11_0);
     m_deviceResources->RegisterDeviceNotify(this);
 
     // Any time the layouts differ, a recreation of the vertex buffer is triggered
@@ -89,8 +92,6 @@ void Game::Initialize(HWND window, int width, int height)
 
 	m_sbC.Initialize();
 
-    m_previousFrameCount = 0;
-    m_previousGameLinkFrameSequence = 0;
     shouldRender = true;
 
 
@@ -104,12 +105,10 @@ void Game::Initialize(HWND window, int width, int height)
     m_deviceResources->CreateWindowSizeDependentResources();
     CreateWindowSizeDependentResources();
 
-    // TODO: We're doing 30 FPS fixed timestep update logic.
-    // Might not be ideal
-	// m_timer.SetFixedTimeStep(true);
-	// m_timer.SetTargetElapsedSeconds(1.0 / 30);
-
-    m_timer.SetFixedTimeStep(false);
+    // TODO: TargetElapsedSeconds gives the number of times a second we'll call Update()
+    // It should be fixed to align best with the emulator's needs
+	m_timer.SetTargetElapsedSeconds(1.0 / 200);
+	m_timer.SetFixedTimeStep(false);
 }
 
 #pragma region Window texture and size
@@ -188,16 +187,17 @@ void Game::Tick()
         Update(m_timer);
     });
 
-    EmulatorMessageLoopProcessing();
     Render();
 }
 
 // Updates the world.
 void Game::Update(DX::StepTimer const& timer)
 {
+	EmulatorMessageLoopProcessing();
     PIXBeginEvent(PIX_COLOR_DEFAULT, L"Update");
 
-    auto elapsedTime = float(timer.GetElapsedSeconds());
+    // auto elapsedTime = float(timer.GetElapsedSeconds());
+    ticksSinceLastCompanionUpdate += timer.GetElapsedTicks();
 
     auto pad = m_gamePad->GetState(0);
     if (pad.IsConnected())
@@ -214,7 +214,12 @@ void Game::Update(DX::StepTimer const& timer)
         // Do something when escape or other keys pressed
     }
 
-    elapsedTime;
+	// update stuff that needs slow updates (100ms)
+	if (ticksSinceLastCompanionUpdate > (timer.TicksPerSecond / 10))
+	{
+		m_sbC.UpdateAllSidebarText(&m_sbM);
+        ticksSinceLastCompanionUpdate = 0;
+	}
 
     PIXEndEvent();
 }
@@ -228,7 +233,7 @@ void Game::Render()
     if (!shouldRender)
         return;
     // Don't try to render anything before the first Update.
-    uint32_t currFrameCount = m_timer.GetFrameCount();
+	uint32_t currFrameCount = m_timer.GetFrameCount();
     if (currFrameCount == 0)
     {
         return;
@@ -246,18 +251,6 @@ void Game::Render()
     {
         OnWindowChanged();
     }
-
-    // Every m_framesDelay update the gamelink framebuffer
-    if ((currFrameCount - m_previousFrameCount) > m_framesDelay)
-    {
-        if (RemoteControlManager::isRemoteControlEnabled())
-        {
-            // TODO: make a texture out of the backbuffer and send it back to main memory
-        }
-        m_previousFrameCount = currFrameCount;
-    }
-
-    m_sbC.UpdateAllSidebarText(&m_sbM);
 
     // Prepare the command list to render a new frame.
     m_deviceResources->Prepare();
@@ -335,7 +328,7 @@ void Game::Render()
     // TODO: REMOVE
     char pcbuf[4000];
 //    snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %I64x : %I64x", g_debug_video_field, g_debug_video_data);
-	snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %d FPS", m_timer.GetFramesPerSecond());
+	snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %d FPS - Total seconds: %.3f", m_timer.GetFramesPerSecond(), m_timer.GetTotalSeconds());
     m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
         { 10.f, 10.f }, Colors::OrangeRed, 0.f, m_vector2ero, m_clientFrameScale);
 #endif // _DEBUG

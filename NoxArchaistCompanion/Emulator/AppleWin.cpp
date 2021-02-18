@@ -140,7 +140,7 @@ void ContinueExecution(void)
 	_ASSERT(g_nAppMode == AppMode_e::MODE_RUNNING);
 
 	const double fUsecPerSec = 1.e6;
-	const UINT nExecutionPeriodUsec = 1000;		// 1.0ms
+	const UINT nExecutionPeriodUsec = 1000;		// 1ms
 	const double fExecutionPeriodClks = g_fCurrentCLK6502 * ((double)nExecutionPeriodUsec / fUsecPerSec);
 
 	const bool bWasFullSpeed = g_bFullSpeed;
@@ -409,7 +409,7 @@ void ApplyNonVolatileConfig()
 		g_dwSpeed = 40;
 		break;
 	case 5:
-		g_dwSpeed = 60;
+		g_dwSpeed = 50;
 		break;
 	case 6:
 		g_dwSpeed = SPEED_MAX;

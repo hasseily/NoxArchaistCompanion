@@ -94,12 +94,6 @@ private:
     // Rendering loop timer.
     DX::StepTimer                           m_timer;
 
-
-    // Vars to choose whether to send to GameLink or not
-    const uint32_t m_framesDelay = 60;
-    uint32_t m_previousFrameCount;    // Last render frame count
-    UINT16 m_previousGameLinkFrameSequence;
-
     // Background image when in LOGO mode
     std::vector<uint8_t> m_bgImage;
     uint32_t m_bgImageWidth;
