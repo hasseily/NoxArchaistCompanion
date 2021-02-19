@@ -404,13 +404,13 @@ void ApplyNonVolatileConfig()
 		g_dwSpeed = 20;
 		break;
 	case 3:
-		g_dwSpeed = 30;
-		break;
-	case 4:
 		g_dwSpeed = 40;
 		break;
+	case 4:
+		g_dwSpeed = 60;
+		break;
 	case 5:
-		g_dwSpeed = 50;
+		g_dwSpeed = 80;
 		break;
 	case 6:
 		g_dwSpeed = SPEED_MAX;
