@@ -149,11 +149,12 @@ void ContinueExecution(void)
 	if (g_bFullSpeed)
 	{
 		if (!bWasFullSpeed)
+		{
 			VideoRedrawScreenDuringFullSpeed(0, true);	// Init for full-speed mode
-
+			SysClk_StopTimer();
+		}
 		// Don't call Spkr_Mute() - will get speaker clicks
 		MB_Mute();
-		SysClk_StopTimer();
 		g_nCpuCyclesFeedback = 0;	// For the case when this is a big -ve number
 
 		// Switch to normal priority so that APPLEWIN process doesn't hog machine!
@@ -371,8 +372,8 @@ void EmulatorOneTimeInitialization(HWND window)
 void ApplyNonVolatileConfig()
 {
 	// Use the non-volatile info for the initialization
-	SpkrSetVolume(VOLUME_MAX * g_nonVolatile.volumeSpeaker / 4, VOLUME_MAX);
-	MB_SetVolume(VOLUME_MAX * g_nonVolatile.volumeMockingBoard / 4, VOLUME_MAX);
+	SpkrSetVolume(VOLUME_MAX * (1 - (g_nonVolatile.volumeSpeaker / 4.f)), VOLUME_MAX);
+	MB_SetVolume(VOLUME_MAX * (1 - (g_nonVolatile.volumeMockingBoard / 4.f)), VOLUME_MAX);
 	RGB_SetVideocard(LeChatMauve_EVE);	// Because that's what I have
 	switch (g_nonVolatile.video)
 	{
