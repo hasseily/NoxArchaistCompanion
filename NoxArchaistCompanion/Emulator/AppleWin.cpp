@@ -151,7 +151,7 @@ void ContinueExecution(void)
 		if (!bWasFullSpeed)
 		{
 			VideoRedrawScreenDuringFullSpeed(0, true);	// Init for full-speed mode
-			//SysClk_StopTimer();
+			//SysClk_StopTimer();	// DO NOT STOP THE TIMER. IT CRASHES ON RELEASE BUILDS
 			// Don't call Spkr_Mute() - will get speaker clicks
 			MB_Mute();
 			g_nCpuCyclesFeedback = 0;	// For the case when this is a big -ve number
