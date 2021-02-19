@@ -168,7 +168,7 @@ HRESULT DSGetSoundBuffer(VOICE* pVoice, DWORD dwFlags, DWORD dwBufferSize, DWORD
 	DSBUFFERDESC dsbdesc;
 
 	wavfmt.wFormatTag = WAVE_FORMAT_PCM;
-	wavfmt.nChannels = nChannels;
+	wavfmt.nChannels = (WORD)nChannels;
 	wavfmt.nSamplesPerSec = nSampleRate;
 	wavfmt.wBitsPerSample = 16;
 	wavfmt.nBlockAlign = wavfmt.nChannels==1 ? 2 : 4;
