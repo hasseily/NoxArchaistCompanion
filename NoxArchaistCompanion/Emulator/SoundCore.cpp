@@ -552,14 +552,14 @@ bool SysClk_InitTimer()
 	g_hSemaphore = CreateSemaphore(NULL, 0, 1, NULL);		// Max count = 1
 	if (g_hSemaphore == NULL)
 	{
-		fprintf(stderr, "Error creating semaphore\n");
+		OutputDebugString(L"Error creating semaphore\n");
 		return false;
 	}
 
 	if (CoCreateInstance(CLSID_SystemClock, NULL, CLSCTX_INPROC,
                          IID_IReferenceClock, (LPVOID*)&g_pRefClock) != S_OK)
 	{
-		fprintf(stderr, "Error initialising COM\n");
+		OutputDebugString(L"Error initialising COM\n");
 		return false;	// Fails for Win95!
 	}
 
@@ -573,7 +573,7 @@ void SysClk_UninitTimer()
 	SAFE_RELEASE(g_pRefClock);
 
 	if (CloseHandle(g_hSemaphore) == 0)
-		fprintf(stderr, "Error closing semaphore handle\n");
+		OutputDebugString(L"Error closing semaphore handle\n");
 }
 
 //
@@ -625,7 +625,7 @@ void SysClk_StopTimer()
 
 	if (g_pRefClock->Unadvise(g_dwAdviseToken) != S_OK)
 	{
-		fprintf(stderr, "Error deleting timer\n");
+		OutputDebugString(L"SYSCLK: Error deleting timer\n");
 		_ASSERT(0);
 		return;
 	}

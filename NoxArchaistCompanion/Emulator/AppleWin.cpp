@@ -151,27 +151,29 @@ void ContinueExecution(void)
 		if (!bWasFullSpeed)
 		{
 			VideoRedrawScreenDuringFullSpeed(0, true);	// Init for full-speed mode
-			SysClk_StopTimer();
-		}
-		// Don't call Spkr_Mute() - will get speaker clicks
-		MB_Mute();
-		g_nCpuCyclesFeedback = 0;	// For the case when this is a big -ve number
+			//SysClk_StopTimer();
+			// Don't call Spkr_Mute() - will get speaker clicks
+			MB_Mute();
+			g_nCpuCyclesFeedback = 0;	// For the case when this is a big -ve number
 
-		// Switch to normal priority so that APPLEWIN process doesn't hog machine!
-		//. EG: No disk in Drive-1, and boot Apple: Windows will start to crawl!
-		SetPriorityNormal();
+			// Switch to normal priority so that APPLEWIN process doesn't hog machine!
+			//. EG: No disk in Drive-1, and boot Apple: Windows will start to crawl!
+			SetPriorityNormal();
+		}
 	}
 	else
 	{
 		if (bWasFullSpeed)
+		{
 			VideoRedrawScreenAfterFullSpeed(g_dwCyclesThisFrame);
 
-		// Don't call Spkr_Demute()
-		MB_Demute();
-		SysClk_StartTimerUsec(nExecutionPeriodUsec);
+			// Don't call Spkr_Demute()
+			MB_Demute();
+			SysClk_StartTimerUsec(nExecutionPeriodUsec);
 
-		// Switch to higher priority, eg. for audio (BUG #015394)
-		SetPriorityAboveNormal();
+			// Switch to higher priority, eg. for audio (BUG #015394)
+			SetPriorityAboveNormal();
+		}
 	}
 
 	//
