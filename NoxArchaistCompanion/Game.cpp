@@ -33,9 +33,9 @@ static std::vector<std::unique_ptr<SpriteFont>> m_spriteFonts;
 static std::unique_ptr<PrimitiveBatch<VertexPositionColor>> m_primitiveBatch;
 std::unique_ptr<BasicEffect> m_lineEffect;
 AppMode_e m_previousAppMode = AppMode_e::MODE_UNKNOWN;
-static UINT64 ticksSinceLastCompanionUpdate = 0;
 
 static std::wstring last_logged_line;
+static UINT64 tickOfLastRender = 0;
 
 static float m_clientFrameScale = 1.f;
 static Vector2 m_vector2ero = { 0.f, 0.f };
@@ -53,9 +53,10 @@ Game::Game() noexcept(false)
     m_sbC = SidebarContent();
     GameLink::Init(false);
 
-    // TODO: Allow configuration for vsync on/off?
-	//m_deviceResources = std::make_unique<DX::DeviceResources>(DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_D32_FLOAT, 2, D3D_FEATURE_LEVEL_11_0, DX::DeviceResources::c_AllowTearing);
-	m_deviceResources = std::make_unique<DX::DeviceResources>(DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_D32_FLOAT, 2, D3D_FEATURE_LEVEL_11_0);
+    // TODO: give option to un-vsync?
+    // TODO: give option to show FPS?
+	m_deviceResources = std::make_unique<DX::DeviceResources>(DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_D32_FLOAT, 2, D3D_FEATURE_LEVEL_11_0, DX::DeviceResources::c_AllowTearing);
+	//m_deviceResources = std::make_unique<DX::DeviceResources>(DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_D32_FLOAT, 2, D3D_FEATURE_LEVEL_11_0);
     m_deviceResources->RegisterDeviceNotify(this);
 
     // Any time the layouts differ, a recreation of the vertex buffer is triggered
@@ -105,9 +106,9 @@ void Game::Initialize(HWND window, int width, int height)
     m_deviceResources->CreateWindowSizeDependentResources();
     CreateWindowSizeDependentResources();
 
-    // TODO: TargetElapsedSeconds gives the number of times a second we'll call Update()
-    // It should be fixed to align best with the emulator's needs
-	m_timer.SetTargetElapsedSeconds(1.0 / 200);
+    // Use a variable timestep to give as much time to the emulator as possible
+    // Then we control how often we render later in the Render() method
+	// m_timer.SetTargetElapsedSeconds(1.0 / MAX_RENDERED_FRAMES_PER_SECOND);
 	m_timer.SetFixedTimeStep(false);
 }
 
@@ -193,11 +194,10 @@ void Game::Tick()
 // Updates the world.
 void Game::Update(DX::StepTimer const& timer)
 {
-	EmulatorMessageLoopProcessing();
     PIXBeginEvent(PIX_COLOR_DEFAULT, L"Update");
 
+	EmulatorMessageLoopProcessing();
     // auto elapsedTime = float(timer.GetElapsedSeconds());
-    ticksSinceLastCompanionUpdate += timer.GetElapsedTicks();
 
     auto pad = m_gamePad->GetState(0);
     if (pad.IsConnected())
@@ -213,13 +213,6 @@ void Game::Update(DX::StepTimer const& timer)
     {
         // Do something when escape or other keys pressed
     }
-
-	// update stuff that needs slow updates (100ms)
-	if (ticksSinceLastCompanionUpdate > (timer.TicksPerSecond / 10))
-	{
-		m_sbC.UpdateAllSidebarText(&m_sbM);
-        ticksSinceLastCompanionUpdate = 0;
-	}
 
     PIXEndEvent();
 }
@@ -252,76 +245,88 @@ void Game::Render()
         OnWindowChanged();
     }
 
-    // Prepare the command list to render a new frame.
-    m_deviceResources->Prepare();
-    Clear();
+    // Only render 30 times a second. No need to render more often.
+    // The tick loop is running as fast as possible so that the emulator runs as fast as possible
+    // Here we'll just decide whether to render or not
 
-    auto commandList = m_deviceResources->GetCommandList();
-    PIXBeginEvent(commandList, PIX_COLOR_DEFAULT, L"Render");
-
-    // Drawing video texture
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-    commandList->ResourceBarrier(1, &barrier);
-    UpdateSubresources(commandList, m_texture.Get(), g_textureUploadHeap.Get(), 0, 0, 1, &g_textureData);
-    barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    commandList->ResourceBarrier(1, &barrier);
-
-    commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-    commandList->SetPipelineState(m_pipelineState.Get());
-
-    auto heap = m_srvHeap.Get();
-    commandList->SetDescriptorHeaps(1, &heap);
-
-    commandList->SetGraphicsRootDescriptorTable(0, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
-
-    // Set necessary state.
-    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-    commandList->IASetIndexBuffer(&m_indexBufferView);
-
-    // Draw quad.
-    commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
-    // End drawing video texture
-
-    // Drawing text
-    ID3D12DescriptorHeap* heaps[] = { m_resourceDescriptors->Heap() };
-    commandList->SetDescriptorHeaps(static_cast<UINT>(std::size(heaps)), heaps);
-
-    m_spriteBatch->Begin(commandList);
-   
-    m_lineEffect->Apply(commandList);
-    m_primitiveBatch->Begin(commandList);
-    for each (auto sb in m_sbM.sidebars)
+    UINT64 ticksSinceLastRender = m_timer.GetTotalTicks() - tickOfLastRender;
+    if (ticksSinceLastRender > m_timer.TicksPerSecond / MAX_RENDERED_FRAMES_PER_SECOND)
     {
-        // Draw each block's text
-        for each (auto b in sb.blocks)
-        {
-            m_spriteFonts.at((int)b->fontId)->DrawString(m_spriteBatch.get(), b->text.c_str(),
-                b->position * m_clientFrameScale, b->color, 0.f, m_vector2ero, m_clientFrameScale);
-        }
+        tickOfLastRender = m_timer.GetTotalTicks();
 
-        // Now draw a delimiter line for the block
-        // if the block is not the first block of its type
-        // (having the gamelink video boxed in by lines is not pretty)
-        XMFLOAT3 lstart = XMFLOAT3(sb.position.x, sb.position.y, 0);
-        XMFLOAT3 lend = XMFLOAT3(sb.position.x, sb.position.y, 0);
-        switch (sb.type)
-        {
-        case SidebarTypes::Right:
-			lend.y += GetFrameBufferHeight();
-			break;
-		case SidebarTypes::Bottom:
-			lend.x += GetFrameBufferWidth();
-			break;
-		default:
-			break;
-        }
-        m_primitiveBatch->DrawLine(
-            VertexPositionColor(lstart* m_clientFrameScale, static_cast<XMFLOAT4>(Colors::DimGray)),
-            VertexPositionColor(lend* m_clientFrameScale, static_cast<XMFLOAT4>(Colors::Black))
-        );
-    }
-    m_primitiveBatch->End();
+        // First update the sidebar, it doesn't need to be updated until right before the render
+		m_sbC.UpdateAllSidebarText(&m_sbM);
+
+		// Prepare the command list to render a new frame.
+		m_deviceResources->Prepare();
+		Clear();
+
+		auto commandList = m_deviceResources->GetCommandList();
+		PIXBeginEvent(commandList, PIX_COLOR_DEFAULT, L"Render");
+
+		// Drawing video texture
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+		commandList->ResourceBarrier(1, &barrier);
+		UpdateSubresources(commandList, m_texture.Get(), g_textureUploadHeap.Get(), 0, 0, 1, &g_textureData);
+		barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		commandList->ResourceBarrier(1, &barrier);
+
+		commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+		commandList->SetPipelineState(m_pipelineState.Get());
+
+		auto heap = m_srvHeap.Get();
+		commandList->SetDescriptorHeaps(1, &heap);
+
+		commandList->SetGraphicsRootDescriptorTable(0, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
+
+		// Set necessary state.
+		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+		commandList->IASetIndexBuffer(&m_indexBufferView);
+
+		// Draw quad.
+		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+		// End drawing video texture
+
+		// Drawing text
+		ID3D12DescriptorHeap* heaps[] = { m_resourceDescriptors->Heap() };
+		commandList->SetDescriptorHeaps(static_cast<UINT>(std::size(heaps)), heaps);
+
+		m_spriteBatch->Begin(commandList);
+
+		m_lineEffect->Apply(commandList);
+		m_primitiveBatch->Begin(commandList);
+		for each (auto sb in m_sbM.sidebars)
+		{
+			// Draw each block's text
+			for each (auto b in sb.blocks)
+			{
+				m_spriteFonts.at((int)b->fontId)->DrawString(m_spriteBatch.get(), b->text.c_str(),
+					b->position * m_clientFrameScale, b->color, 0.f, m_vector2ero, m_clientFrameScale);
+			}
+
+			// Now draw a delimiter line for the block
+			// if the block is not the first block of its type
+			// (having the gamelink video boxed in by lines is not pretty)
+			XMFLOAT3 lstart = XMFLOAT3(sb.position.x, sb.position.y, 0);
+			XMFLOAT3 lend = XMFLOAT3(sb.position.x, sb.position.y, 0);
+			switch (sb.type)
+			{
+			case SidebarTypes::Right:
+				lend.y += GetFrameBufferHeight();
+				break;
+			case SidebarTypes::Bottom:
+				lend.x += GetFrameBufferWidth();
+				break;
+			default:
+				break;
+			}
+			m_primitiveBatch->DrawLine(
+				VertexPositionColor(lstart * m_clientFrameScale, static_cast<XMFLOAT4>(Colors::DimGray)),
+				VertexPositionColor(lend * m_clientFrameScale, static_cast<XMFLOAT4>(Colors::Black))
+			);
+		}
+		m_primitiveBatch->End();
 
 #ifdef _DEBUG
     // TEMPORARY
@@ -333,17 +338,18 @@ void Game::Render()
         { 10.f, 10.f }, Colors::OrangeRed, 0.f, m_vector2ero, m_clientFrameScale);
 #endif // _DEBUG
 
-    m_spriteBatch->End();
-    // End drawing text
+		m_spriteBatch->End();
+		// End drawing text
 
 
-    PIXEndEvent(commandList);
+		PIXEndEvent(commandList);
 
-    // Show the new frame.
-    PIXBeginEvent(PIX_COLOR_DEFAULT, L"Present");
-    m_deviceResources->Present();
-    m_graphicsMemory->Commit(m_deviceResources->GetCommandQueue());
-    PIXEndEvent();
+		// Show the new frame.
+		PIXBeginEvent(PIX_COLOR_DEFAULT, L"Present");
+		m_deviceResources->Present();
+		m_graphicsMemory->Commit(m_deviceResources->GetCommandQueue());
+		PIXEndEvent();
+    }
 }
 
 // Helper method to clear the back buffers.
