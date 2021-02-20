@@ -158,10 +158,10 @@ void RemoteControlManager::setLoadedHDInfo(ImageInfo* imageInfo)
 		// Get the title, and convert from wstring to string
 		constexpr UINT8 maxTitleLength = 100;
 		WCHAR szTitle[maxTitleLength];
-		LoadStringW(HINSTANCE(0), IDS_APP_TITLE, szTitle, maxTitleLength);
+		LoadStringW(HINSTANCE(0), IDS_GAMELINK_TITLE, szTitle, maxTitleLength);
 		std::wstring wsTitle(szTitle);
 		HA::ConvertWStrToStr(&wsTitle, &g_infoHdv.VolumeName);
-		g_infoHdv.sig = 0;
+		g_infoHdv.sig = 0x58c37f8c;		// Nox Archaist
 	}
 	else {
 		bHardDiskIsLoaded = false;

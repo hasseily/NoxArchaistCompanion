@@ -4,6 +4,7 @@
 //
 #define IDC_MYICON                      2
 #define IDS_APP_TITLE                   3
+#define IDS_GAMELINK_TITLE              4
 #define IDD_LOGVIEW                     101
 #define IDD_NOXARCHAISTCOMPANION_DIALOG 102
 #define IDD_ABOUTBOX                    103
@@ -38,13 +39,13 @@
 #define ID_LOGWINDOW_SAVE               32787
 #define ID_EMULATOR_SELECTNOXHDV        32788
 #define ID_EMULATOR_SPEED               32789
-#define ID_SPEED_0	                    32790
-#define ID_SPEED_1	                    32791
-#define ID_SPEED_2	                    32792
-#define ID_SPEED_3	                    32793
-#define ID_SPEED_4	                    32794
-#define ID_SPEED_5	                    32795
-#define ID_SPEED_6	                    32796
+#define ID_SPEED_0                      32790
+#define ID_SPEED_1                      32791
+#define ID_SPEED_2                      32792
+#define ID_SPEED_3                      32793
+#define ID_SPEED_4                      32794
+#define ID_SPEED_5                      32795
+#define ID_SPEED_6                      32796
 #define ID_EMULATOR_VIDEO               32797
 #define ID_VIDEO_IDEALIZED              32798
 #define ID_VIDEO_MONITOR                32799
