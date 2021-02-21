@@ -71,7 +71,7 @@ static void shared_memory_init()
 	g_p_shared_memory->flags = 0;
 
 	memset( g_p_shared_memory->system, 0, sizeof( g_p_shared_memory->system ) );
-	strcpy( g_p_shared_memory->system, SYSTEM_NAME );
+	strcpy_s( g_p_shared_memory->system, SYSTEM_NAME );
 	memset( g_p_shared_memory->program, 0, sizeof( g_p_shared_memory->program ) );
 
 	g_p_shared_memory->program_hash[0] = 0;
@@ -371,7 +371,7 @@ void GameLink::SetProgramInfo(const std::string name, UINT i1, UINT i2, UINT i3,
 	if (g_p_shared_memory)
 	{
 		std::string szTmp = name.substr(0, sizeof(g_p_shared_memory->program));
-		strcpy(g_p_shared_memory->program, szTmp.c_str());
+		strcpy_s(g_p_shared_memory->program, szTmp.c_str());
 		g_p_shared_memory->program_hash[0] = i1;
 		g_p_shared_memory->program_hash[1] = i2;
 		g_p_shared_memory->program_hash[2] = i3;

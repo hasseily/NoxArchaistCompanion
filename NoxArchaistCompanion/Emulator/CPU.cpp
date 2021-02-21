@@ -527,7 +527,8 @@ DWORD CpuExecute(const DWORD uCycles, const bool bVideoUpdate)
 	// uCycles:
 	//  =0  : Do single step
 	//  >0  : Do multi-opcode emulation
-	const DWORD uExecutedCycles = InternalCpuExecute(uCycles, bVideoUpdate);
+	DWORD uExecutedCycles = 0;
+	uExecutedCycles = InternalCpuExecute(uCycles, bVideoUpdate);
 
 	// NB. Required for normal-speed (even though 6522 is updated after every opcode), as may've finished on IRQ()
 	MB_UpdateCycles(uExecutedCycles);	// Update 6522s (NB. Do this before updating g_nCumulativeCycles below)

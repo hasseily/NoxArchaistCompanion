@@ -374,8 +374,8 @@ void EmulatorOneTimeInitialization(HWND window)
 void ApplyNonVolatileConfig()
 {
 	// Use the non-volatile info for the initialization
-	SpkrSetVolume(VOLUME_MAX * (1 - (g_nonVolatile.volumeSpeaker / 4.f)), VOLUME_MAX);
-	MB_SetVolume(VOLUME_MAX * (1 - (g_nonVolatile.volumeMockingBoard / 4.f)), VOLUME_MAX);
+	SpkrSetVolume(DWORD(VOLUME_MAX * (1 - (g_nonVolatile.volumeSpeaker / 4.f))), VOLUME_MAX);
+	MB_SetVolume(DWORD(VOLUME_MAX * (1 - (g_nonVolatile.volumeMockingBoard / 4.f))), VOLUME_MAX);
 	RGB_SetVideocard(LeChatMauve_EVE);	// Because that's what I have
 	switch (g_nonVolatile.video)
 	{

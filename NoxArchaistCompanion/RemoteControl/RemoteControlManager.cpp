@@ -64,7 +64,7 @@ struct Info_HDV {
 };
 Info_HDV g_infoHdv = { std::string(UNKNOWN_VOLUME_NAME), 0 };
 
-UINT iCurrentTicks;						// Used to check the repeat interval
+UINT64 iCurrentTicks;						// Used to check the repeat interval
 UINT8 iOldVolumeLevel;
 static std::unordered_set<UINT8> exclusionSet;		// list of VK codes that will not be passed through to Applewin
 
