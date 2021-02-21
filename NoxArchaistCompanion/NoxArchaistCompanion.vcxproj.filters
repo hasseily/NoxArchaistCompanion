@@ -87,6 +87,9 @@
     <ClCompile Include="Emulator\Joystick.cpp">
       <Filter>Emulator\Input</Filter>
     </ClCompile>
+    <ClCompile Include="Emulator\XAudioCore.cpp">
+      <Filter>Emulator\Sound</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h" />
@@ -200,6 +203,9 @@
     <ClInclude Include="NonVolatile.h" />
     <ClInclude Include="Emulator\Joystick.h">
       <Filter>Emulator\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Emulator\XAudioCore.h">
+      <Filter>Emulator\Sound</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -326,5 +332,10 @@
     <Manifest Include="settings.manifest">
       <Filter>Assets</Filter>
     </Manifest>
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="Assets\Sample.wav">
+      <Filter>Assets</Filter>
+    </Media>
   </ItemGroup>
 </Project>

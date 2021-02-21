@@ -45,6 +45,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "Video.h"
 #include "RGBMonitor.h"
 #include "NTSC.h"
+#include "XAudioCore.h"
 #include "../Game.h"
 
 RemoteControlManager g_RemoteControlMgr;
@@ -75,6 +76,8 @@ bool		g_bDisableDirectSoundMockingboard = false;
 int			g_nMemoryClearType = MIP_FF_FF_00_00; // Note: -1 = random MIP in Memory.cpp MemReset()
 
 SynchronousEventManager g_SynchronousEventMgr;
+
+static XAudioCore g_xaudiocore = XAudioCore();
 
 //---------------------------------------------------------------------------
 
@@ -352,6 +355,7 @@ void EmulatorOneTimeInitialization(HWND window)
 {
 	g_hFrameWindow = window;
 	DSInit(g_hFrameWindow);
+	g_xaudiocore.Init(g_hFrameWindow);
 	g_bSysClkOK = SysClk_InitTimer();
 	MB_Initialize();
 	SpkrInitialize();
