@@ -9,8 +9,10 @@
 #include "Video.h"
 #include <string>
 #include "RemoteControl/RemoteControlManager.h"
+#include "XAudioCore.h"
 
 static std::wstring g_pAppTitle = L"Nox Archaist Companion";
+extern XAudioCore g_xaudiocore;
 
 extern RemoteControlManager g_RemoteControlMgr;			// RIK -- Necessary to have a single instance only
 

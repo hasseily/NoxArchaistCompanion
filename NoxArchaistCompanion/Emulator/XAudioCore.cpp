@@ -5,6 +5,31 @@
 #include "pch.h"
 #include "XAudioCore.h"
 
+//-----------------------------------------------------------------------------
+
+#define MAX_SOUND_DEVICES 10
+const DWORD SPKR_SAMPLE_RATE = 44100;
+
+static wchar_t* sound_devices[MAX_SOUND_DEVICES];
+static GUID sound_device_guid[MAX_SOUND_DEVICES];
+static int num_sound_devices = 0;
+
+//-------------------------------------
+
+// Used for muting & fading:
+
+static const UINT uMAX_VOICES = 66;	// 64 phonemes + spkr + mockingboard
+static UINT g_uNumVoices = 0;
+static XAVOICE* g_pVoices[uMAX_VOICES] = { NULL };
+static XAVOICE* g_pSpeakerVoice = NULL;
+
+//-------------------------------------
+
+bool g_bXAAvailable = false;
+
+//-----------------------------------------------------------------------------
+
+
 // Forward declarations
 // TODO: Remove them as this is just for loading wav files that we don't need
 #ifdef _XBOX //Big-Endian
@@ -42,12 +67,11 @@ HRESULT XAudioCore::Init(HWND window)
 	if (FAILED(hr = pXAudio2->CreateMasteringVoice(&pMasterVoice)))
 		return hr;
 
-	wfx = { 0 };
+	WAVEFORMATEXTENSIBLE wfx = { 0 };
 	// THIS IS A TEST - See DSGetSoundBuffer()
 	WAVEFORMATEX wavfmt;
 	wavfmt.wFormatTag = WAVE_FORMAT_PCM;
 	wavfmt.nChannels = 1;
-	const DWORD SPKR_SAMPLE_RATE = 44100;
 	wavfmt.nSamplesPerSec = SPKR_SAMPLE_RATE;
 	wavfmt.wBitsPerSample = 16;
 	wavfmt.nBlockAlign = wavfmt.nChannels == 1 ? 2 : 4;
@@ -55,9 +79,10 @@ HRESULT XAudioCore::Init(HWND window)
 
 	wfx.Format = wavfmt;
 
+
 	if (FAILED(hr = pXAudio2->CreateSourceVoice(&pSourceVoice, (WAVEFORMATEX*)&wfx)))
 		return hr;
-
+	/*
 	// TEST PLAY
 	buffer = { 0 };
 	HANDLE hFile = CreateFile(
@@ -99,6 +124,8 @@ HRESULT XAudioCore::Init(HWND window)
 		return hr;
 	if (FAILED(hr = pSourceVoice->Start(0)))
 		return hr;
+		*/
+	return S_OK;
 }
 
 void XAudioCore::Uninit()
@@ -107,6 +134,62 @@ void XAudioCore::Uninit()
 	pMasterVoice = nullptr;
 	pXAudio2->Release();
 	pXAudio2 = nullptr;
+}
+
+ULONG XAudioCore::PlayBuffer(const short* pSpeakerBuffer, ULONG nNumSamples)
+{
+	if (pSpeakerBuffer == NULL)
+	{
+		return 0;
+	}
+	WAVEFORMATEXTENSIBLE wfx = { 0 };
+	WAVEFORMATEX wavfmt;
+	wavfmt.wFormatTag = WAVE_FORMAT_PCM;
+	wavfmt.nChannels = 2;
+	wavfmt.nSamplesPerSec = SPKR_SAMPLE_RATE;
+	wavfmt.wBitsPerSample = 16;
+	wavfmt.nBlockAlign = wavfmt.nChannels == 1 ? 2 : 4;
+	wavfmt.nAvgBytesPerSec = wavfmt.nBlockAlign * wavfmt.nSamplesPerSec;
+	wfx.Format = wavfmt;
+
+	buffer.AudioBytes = nNumSamples*sizeof(short);
+	BYTE* buf = (BYTE*)malloc(buffer.AudioBytes);
+	memcpy_s(buf, buffer.AudioBytes, pSpeakerBuffer, buffer.AudioBytes);
+	buffer.pAudioData = buf;
+	buffer.PlayBegin = 0;
+	buffer.PlayLength = 0;
+	buffer.LoopBegin = 0;
+	buffer.LoopLength = 0;
+	buffer.LoopCount = 1;
+	//pXAudio2->CreateSourceVoice(&pSourceVoice, (WAVEFORMATEX*)&wfx);
+	pSourceVoice->SetVolume(1.f);
+	pSourceVoice->SubmitSourceBuffer(&buffer);
+	pSourceVoice->Start(0);
+	return nNumSamples;
+}
+
+HRESULT XAudioCore::GetSoundBuffer(XAVOICE* pVoice, DWORD dwFlags, DWORD dwBufferSize, DWORD nSampleRate, int nChannels)
+{
+	WAVEFORMATEXTENSIBLE wfx = { 0 };
+	WAVEFORMATEX wavfmt;
+	wavfmt.wFormatTag = WAVE_FORMAT_PCM;
+	wavfmt.nChannels = 1;
+	wavfmt.nSamplesPerSec = SPKR_SAMPLE_RATE;
+	wavfmt.wBitsPerSample = 16;
+	wavfmt.nBlockAlign = wavfmt.nChannels == 1 ? 2 : 4;
+	wavfmt.nAvgBytesPerSec = wavfmt.nBlockAlign * wavfmt.nSamplesPerSec;
+	wfx.Format = wavfmt;
+
+	buffer.AudioBytes = dwBufferSize;
+	BYTE* buf = (BYTE *)malloc(dwBufferSize);
+	buffer.pAudioData = buf;
+	buffer.PlayBegin = 0;
+	buffer.PlayLength = 0;
+	buffer.LoopBegin = 0;
+	buffer.LoopLength = 0;
+	buffer.LoopCount = 1;
+	pVoice->pXABvoice = &buffer;
+	return S_FALSE;
 }
 
 //

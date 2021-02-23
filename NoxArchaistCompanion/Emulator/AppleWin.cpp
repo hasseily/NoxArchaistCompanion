@@ -61,6 +61,7 @@ HWND g_hFrameWindow;
 
 AppMode_e	g_nAppMode = AppMode_e::MODE_RUNNING;		// Default. Don't use MODE_LOGO, there's no point in having it
 static bool g_bSysClkOK = false;
+XAudioCore g_xaudiocore = XAudioCore();
 
 bool      g_bRestart = false;
 
@@ -76,8 +77,6 @@ bool		g_bDisableDirectSoundMockingboard = false;
 int			g_nMemoryClearType = MIP_FF_FF_00_00; // Note: -1 = random MIP in Memory.cpp MemReset()
 
 SynchronousEventManager g_SynchronousEventMgr;
-
-static XAudioCore g_xaudiocore = XAudioCore();
 
 //---------------------------------------------------------------------------
 
@@ -354,8 +353,8 @@ void EmulatorMessageLoopProcessing()
 void EmulatorOneTimeInitialization(HWND window)
 {
 	g_hFrameWindow = window;
-	DSInit(g_hFrameWindow);
 	g_xaudiocore.Init(g_hFrameWindow);
+	DSInit(g_hFrameWindow);
 	g_bSysClkOK = SysClk_InitTimer();
 	MB_Initialize();
 	SpkrInitialize();

@@ -57,7 +57,7 @@ static const DWORD g_dwDSSpkrBufferSize = MAX_SAMPLES * sizeof(short) * g_nSPKR_
 static short*	g_pSpeakerBuffer = NULL;
 
 // Globals (SOUND_WAVE)
-const short		SPKR_DATA_INIT = (short)0x8000;
+const short		SPKR_DATA_INIT = (short)4000;
 
 short		g_nSpeakerData	= SPKR_DATA_INIT;
 static UINT		g_nBufferIdx	= 0;
@@ -146,7 +146,7 @@ inline void ResetDCFilter(void)
 {
 	// reset the attenuator with an additional 250ms of full gain
 	// (10000 samples) before it starts attenuating
-	g_uDCFilterState = 32768 + 10000;
+	g_uDCFilterState = SPKR_DATA_INIT + 10000;
 }
 
 inline short DCFilter(short sample_in)
@@ -154,13 +154,13 @@ inline short DCFilter(short sample_in)
 	if (g_uDCFilterState == 0)		// no sound for a while, stay 0
 		return 0;
 
-	if (g_uDCFilterState >= 32768)	// full gain after recent sound
+	if (g_uDCFilterState >= SPKR_DATA_INIT)	// full gain after recent sound
 	{
 		g_uDCFilterState--;
 		return sample_in;
 	}
 
-	return (((int)sample_in) * (g_uDCFilterState--)) / 32768;	// scale & divide by 32768 (NB. Don't ">>15" as undefined behaviour)
+	return (((int)sample_in) * (g_uDCFilterState--)) / SPKR_DATA_INIT;	// scale & divide by SPKR_DATA_INIT
 }
 
 //=============================================================================
@@ -343,8 +343,16 @@ static void UpdateSpkr()
 
 	  ULONG nCyclesRemaining = (ULONG) ((double)nCycleDiff - (double)nNumSamples * g_fClksPerSpkrSample);
 
-	  while((nNumSamples--) && (g_nBufferIdx < SPKR_SAMPLE_RATE-1))
-		g_pSpeakerBuffer[g_nBufferIdx++] = DCFilter(g_nSpeakerData);
+//	  wchar_t spkstr[20] = L"";
+	  while ((nNumSamples--) && (g_nBufferIdx < SPKR_SAMPLE_RATE - 1))
+	  {
+		  g_pSpeakerBuffer[g_nBufferIdx++] = DCFilter(g_nSpeakerData);
+//		  if (g_pSpeakerBuffer[g_nBufferIdx - 1] != 0)
+//		  {
+//			  wsprintf(spkstr, L"%h ", g_pSpeakerBuffer[g_nBufferIdx - 1]);
+//			  OutputDebugString(spkstr);
+//		  }
+	  }
 
 	  ReinitRemainderBuffer(nCyclesRemaining);	// Partially fill 1Mhz sample buffer
   }
@@ -471,7 +479,7 @@ static int nDbgSpkrCnt = 0;
 
 static ULONG Spkr_SubmitWaveBuffer_FullSpeed(short* pSpeakerBuffer, ULONG nNumSamples)
 {
-	//char szDbg[200];
+	//char szDbg[2000];
 	nDbgSpkrCnt++;
 
 	if(!SpeakerVoice.bActive)
@@ -664,6 +672,7 @@ static ULONG Spkr_SubmitWaveBuffer(short* pSpeakerBuffer, ULONG nNumSamples)
 	}
 
 	//
+//	return g_xaudiocore.PlayBuffer(pSpeakerBuffer, nNumSamples);
 
 	DWORD dwDSLockedBufferSize0, dwDSLockedBufferSize1;
 	SHORT *pDSLockedBuffer0, *pDSLockedBuffer1;
@@ -674,7 +683,15 @@ static ULONG Spkr_SubmitWaveBuffer(short* pSpeakerBuffer, ULONG nNumSamples)
 	if(FAILED(hr))
 		return nNumSamples;
 
-//	wchar_t szDbg[2000];
+	wchar_t szDbg[2000];
+	if (dwCurrentPlayCursor > SPKR_SAMPLE_RATE)
+	{
+		wsprintf(szDbg, L"PC=%08X, WC=%08X, Diff=%08X, Off=%08X, NS=%08X [RIK]\n", dwCurrentPlayCursor, dwCurrentWriteCursor, dwCurrentWriteCursor - dwCurrentPlayCursor, dwByteOffset, nNumSamples);
+		OutputDebugString(szDbg);
+		dwCurrentPlayCursor = dwCurrentWriteCursor - 0xA56;
+		SpeakerVoice.lpDSBvoice->SetCurrentPosition(dwCurrentPlayCursor);
+		HRESULT hr = SpeakerVoice.lpDSBvoice->GetCurrentPosition(&dwCurrentPlayCursor, &dwCurrentWriteCursor);
+	}
 //	dwCurrentPlayCursor = dwCurrentWriteCursor - 0xA56;
 	if(dwByteOffset == (DWORD)-1)
 	{
@@ -703,12 +720,12 @@ static ULONG Spkr_SubmitWaveBuffer(short* pSpeakerBuffer, ULONG nNumSamples)
 				nNumSamplesError = 0;
 				bBufferError = true;
 			}
-//			else
-//			{
-//				wsprintf(szDbg, L"[IN ELSE]: [Submit]    PC=%08X, WC=%08X, Diff=%08X, Off=%08X, NS=%08X xxx\n", dwCurrentPlayCursor, dwCurrentWriteCursor, dwCurrentWriteCursor - dwCurrentPlayCursor, dwByteOffset, nNumSamples);
-//				OutputDebugString(szDbg);
-			}
-//		}
+			//else
+			//{
+			//	wsprintf(szDbg, L"[IN ELSE]: [Submit]    PC=%08X, WC=%08X, Diff=%08X, Off=%08X, NS=%08X xxx\n", dwCurrentPlayCursor, dwCurrentWriteCursor, dwCurrentWriteCursor - dwCurrentPlayCursor, dwByteOffset, nNumSamples);
+			//	OutputDebugString(szDbg);
+			//}
+		}
 		else
 		{
 			// |xxW----------Pxxx|
@@ -723,11 +740,11 @@ static ULONG Spkr_SubmitWaveBuffer(short* pSpeakerBuffer, ULONG nNumSamples)
 				nNumSamplesError = 0;
 				bBufferError = true;
 			}
-//			else
-//			{
-//				wsprintf(szDbg, L"[IN ELSE 2]: [Submit 2]    PC=%08X, WC=%08X, Diff=%08X, Off=%08X, NS=%08X xxx\n", dwCurrentPlayCursor, dwCurrentWriteCursor, dwCurrentWriteCursor - dwCurrentPlayCursor, dwByteOffset, nNumSamples);
-//				OutputDebugString(szDbg);
-//			}
+			//else
+			//{
+			//	wsprintf(szDbg, L"[IN ELSE 2]: [Submit 2]    PC=%08X, WC=%08X, Diff=%08X, Off=%08X, NS=%08X xxx\n", dwCurrentPlayCursor, dwCurrentWriteCursor, dwCurrentWriteCursor - dwCurrentPlayCursor, dwByteOffset, nNumSamples);
+			//	OutputDebugString(szDbg);
+			//}
 		}
 	}
 
@@ -760,19 +777,22 @@ static ULONG Spkr_SubmitWaveBuffer(short* pSpeakerBuffer, ULONG nNumSamples)
 	if(nNumSamplesToUse * sizeof(short) > nBytesFree)
 		nNumSamplesToUse = nBytesFree / sizeof(short);
 
-	if(bBufferError)
+	if (bBufferError)
+	{
 		pSpeakerBuffer = &pSpeakerBuffer[nNumSamples - nNumSamplesToUse];
+	}
 
 	//
 
 	if(nNumSamplesToUse)
 	{
-		//sprintf(szDbg, "[Submit]    C=%08X, PC=%08X, WC=%08X, Diff=%08X, Off=%08X, NS=%08X +++\n", nDbgSpkrCnt, dwCurrentPlayCursor, dwCurrentWriteCursor, dwCurrentWriteCursor-dwCurrentPlayCursor, dwByteOffset, nNumSamplesToUse); OutputDebugString(szDbg);
+		wsprintf(szDbg, L"[Submit]    C=%08X, PC=%08X, WC=%08X, Diff=%08X, Off=%08X, NS=%08X +++\n", nDbgSpkrCnt, dwCurrentPlayCursor, dwCurrentWriteCursor, dwCurrentWriteCursor-dwCurrentPlayCursor, dwByteOffset, nNumSamplesToUse); OutputDebugString(szDbg);
 
-		if(!DSGetLock(SpeakerVoice.lpDSBvoice,
-							dwByteOffset, (DWORD)nNumSamplesToUse*sizeof(short),
-							&pDSLockedBuffer0, &dwDSLockedBufferSize0,
-							&pDSLockedBuffer1, &dwDSLockedBufferSize1))
+		hr = DSGetLock(SpeakerVoice.lpDSBvoice,
+			dwByteOffset, (DWORD)nNumSamplesToUse * sizeof(short),
+			&pDSLockedBuffer0, &dwDSLockedBufferSize0,
+			&pDSLockedBuffer1, &dwDSLockedBufferSize1);
+		if (FAILED(hr))
 			return nNumSamples;
 
 		memcpy(pDSLockedBuffer0, &pSpeakerBuffer[0], dwDSLockedBufferSize0);
