@@ -1248,7 +1248,8 @@ static void SSI263_Play(unsigned int nPhoneme)
 
 	hr = SSI263Voice.lpDSBvoice->Stop();
 
-	if(!DSGetLock(SSI263Voice.lpDSBvoice, 0, 0, &pDSLockedBuffer, &dwDSLockedBufferSize, NULL, 0))
+	hr = DSGetLock(SSI263Voice.lpDSBvoice, 0, 0, &pDSLockedBuffer, &dwDSLockedBufferSize, NULL, 0);
+	if (FAILED(hr))
 		return;
 
 	unsigned int nPhonemeShortLength = g_nPhonemeInfo[nPhoneme].nLength;

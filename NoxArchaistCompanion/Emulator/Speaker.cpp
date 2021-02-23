@@ -770,10 +770,11 @@ static ULONG Spkr_SubmitWaveBuffer(short* pSpeakerBuffer, ULONG nNumSamples)
 	{
 		//sprintf(szDbg, "[Submit]    C=%08X, PC=%08X, WC=%08X, Diff=%08X, Off=%08X, NS=%08X +++\n", nDbgSpkrCnt, dwCurrentPlayCursor, dwCurrentWriteCursor, dwCurrentWriteCursor-dwCurrentPlayCursor, dwByteOffset, nNumSamplesToUse); OutputDebugString(szDbg);
 
-		if(!DSGetLock(SpeakerVoice.lpDSBvoice,
-							dwByteOffset, (DWORD)nNumSamplesToUse*sizeof(short),
-							&pDSLockedBuffer0, &dwDSLockedBufferSize0,
-							&pDSLockedBuffer1, &dwDSLockedBufferSize1))
+		hr = DSGetLock(SpeakerVoice.lpDSBvoice,
+			dwByteOffset, (DWORD)nNumSamplesToUse * sizeof(short),
+			&pDSLockedBuffer0, &dwDSLockedBufferSize0,
+			&pDSLockedBuffer1, &dwDSLockedBufferSize1);
+		if (FAILED(hr))
 			return nNumSamples;
 
 		memcpy(pDSLockedBuffer0, &pSpeakerBuffer[0], dwDSLockedBufferSize0);
