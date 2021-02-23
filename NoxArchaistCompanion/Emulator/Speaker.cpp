@@ -559,10 +559,11 @@ static ULONG Spkr_SubmitWaveBuffer_FullSpeed(short* pSpeakerBuffer, ULONG nNumSa
 
 	if(nNumSamplesToUse >= 128)	// Limit the buffer unlock/locking to a minimum
 	{
-		if(!DSGetLock(SpeakerVoice.lpDSBvoice,
-							dwByteOffset, (DWORD)nNumSamplesToUse*sizeof(short),
-							&pDSLockedBuffer0, &dwDSLockedBufferSize0,
-							&pDSLockedBuffer1, &dwDSLockedBufferSize1))
+		hr = DSGetLock(SpeakerVoice.lpDSBvoice,
+			dwByteOffset, (DWORD)nNumSamplesToUse * sizeof(short),
+			&pDSLockedBuffer0, &dwDSLockedBufferSize0,
+			&pDSLockedBuffer1, &dwDSLockedBufferSize1);
+		if (FAILED(hr))
 			return nNumSamples;
 
 		//
