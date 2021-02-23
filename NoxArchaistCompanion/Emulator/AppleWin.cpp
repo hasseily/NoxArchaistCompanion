@@ -151,15 +151,16 @@ void ContinueExecution(void)
 		if (!bWasFullSpeed)
 		{
 			VideoRedrawScreenDuringFullSpeed(0, true);	// Init for full-speed mode
-			//SysClk_StopTimer();	// DO NOT STOP THE TIMER. IT CRASHES ON RELEASE BUILDS
-			// Don't call Spkr_Mute() - will get speaker clicks
-			MB_Mute();
-			g_nCpuCyclesFeedback = 0;	// For the case when this is a big -ve number
-
-			// Switch to normal priority so that APPLEWIN process doesn't hog machine!
-			//. EG: No disk in Drive-1, and boot Apple: Windows will start to crawl!
-			SetPriorityNormal();
 		}
+		// SysClk_StopTimer(); Don't call it! It crashes on release builds
+		// Don't call Spkr_Mute() - will get speaker clicks
+		Spkr_Mute();
+		MB_Mute();
+		g_nCpuCyclesFeedback = 0;	// For the case when this is a big -ve number
+
+		// Switch to normal priority so that APPLEWIN process doesn't hog machine!
+		//. EG: No disk in Drive-1, and boot Apple: Windows will start to crawl!
+		SetPriorityNormal();
 	}
 	else
 	{
@@ -168,6 +169,7 @@ void ContinueExecution(void)
 			VideoRedrawScreenAfterFullSpeed(g_dwCyclesThisFrame);
 
 			// Don't call Spkr_Demute()
+			Spkr_Demute();
 			MB_Demute();
 			SysClk_StartTimerUsec(nExecutionPeriodUsec);
 
@@ -371,11 +373,32 @@ void EmulatorOneTimeInitialization(HWND window)
 	g_RemoteControlMgr.setTrackOnlyEnabled(false);
 }
 
+UINT CalculateVolumeLevel(UINT nonVolatileVolume)
+{
+	// Max volume is 0, min volume is VOLUME_MAX
+	if (nonVolatileVolume == 0)
+		return VOLUME_MAX;
+	if (nonVolatileVolume == 1)
+		return VOLUME_MAX * 40 / 100;
+	if (nonVolatileVolume == 2)
+		return VOLUME_MAX * 30 / 100;
+	if (nonVolatileVolume == 3)
+		return VOLUME_MAX * 25 / 100;
+	if (nonVolatileVolume >= 4)
+		return 5;	// Almost max volume, but max volume is way too loud
+}
+
 void ApplyNonVolatileConfig()
 {
 	// Use the non-volatile info for the initialization
-	SpkrSetVolume(DWORD(VOLUME_MAX * (1 - (g_nonVolatile.volumeSpeaker / 4.f))), VOLUME_MAX);
-	MB_SetVolume(DWORD(VOLUME_MAX * (1 - (g_nonVolatile.volumeMockingBoard / 4.f))), VOLUME_MAX);
+
+	// Volume is not linear and inverted. VOLUME_MAX is actually the low volume. The max volume is 0.
+	// Max volume is crazy high. Need to reduce it somehow.
+	SpkrSetVolume(CalculateVolumeLevel(g_nonVolatile.volumeSpeaker), VOLUME_MAX);
+	MB_SetVolume(CalculateVolumeLevel(g_nonVolatile.volumeMockingBoard), VOLUME_MAX);
+	//SpkrSetVolume(DWORD(VOLUME_MAX * (1 - (g_nonVolatile.volumeSpeaker / 4.f))), VOLUME_MAX);
+	//MB_SetVolume(DWORD(VOLUME_MAX * (1 - (g_nonVolatile.volumeMockingBoard / 4.f))), VOLUME_MAX);
+
 	RGB_SetVideocard(LeChatMauve_EVE);	// Because that's what I have
 	switch (g_nonVolatile.video)
 	{
