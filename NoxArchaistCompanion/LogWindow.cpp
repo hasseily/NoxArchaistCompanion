@@ -10,6 +10,8 @@ static HINSTANCE appInstance = nullptr;
 static HWND hwndMain = nullptr;				// handle to main window
 static HWND hwndEdit = nullptr;			// handle to rich edit window
 
+static bool isDisplayed = false;
+
 std::wstring m_prevLogString;
 
 // Register the window class.
@@ -302,6 +304,7 @@ void LogWindow::ShowLogWindow()
     SetForegroundWindow(hwndLog);
     ShowWindow(hwndLog, SW_SHOWNORMAL);
     CheckMenuItem(hm, ID_LOGWINDOW_SHOW, MF_BYCOMMAND | MF_CHECKED);
+	isDisplayed = true;
 }
 
 void LogWindow::HideLogWindow()
@@ -309,11 +312,12 @@ void LogWindow::HideLogWindow()
 	HMENU hm = GetMenu(hwndMain);
     ShowWindow(hwndLog, SW_HIDE);
 	CheckMenuItem(hm, ID_LOGWINDOW_SHOW, MF_BYCOMMAND | MF_UNCHECKED);
+	isDisplayed = false;
 }
 
 bool LogWindow::IsLogWindowDisplayed()
 {
-    return false;
+    return isDisplayed;
 }
 
 void LogWindow::ClearLog()

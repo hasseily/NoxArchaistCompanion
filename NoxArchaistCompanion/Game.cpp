@@ -474,6 +474,15 @@ void Game::MenuShowLogWindow()
     m_logWindow->ShowLogWindow();
 }
 
+void Game::MenuToggleLogWindow()
+{
+	m_logWindow = GetLogWindow();
+    if (m_logWindow->IsLogWindowDisplayed())
+        m_logWindow->HideLogWindow();
+    else
+        m_logWindow->ShowLogWindow();
+}
+
 #pragma endregion
 
 #pragma region Direct3D Resources

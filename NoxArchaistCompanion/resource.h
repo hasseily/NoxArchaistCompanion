@@ -13,6 +13,7 @@
 #define IDI_NOXARCHAISTCOMPANION        107
 #define IDI_SMALL                       108
 #define IDC_NOXARCHAISTCOMPANION        109
+#define IDR_ACCELERATOR1				110
 #define IDR_HDDRVR_FW                   128
 #define IDR_MOCKINGBOARD_D_FW           129
 #define IDR_APPLE2E_ENHANCED_ROM        130
@@ -66,6 +67,7 @@
 #define ID_VOLUMEMUSIC_75               32814
 #define ID_VOLUMEMUSIC_100              32815
 #define ID_LOGWINDOW_ALSOLOGCOMBAT      32816
+#define ID_VIDEO_INCREMENT				32817
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -73,9 +75,9 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        142
-#define _APS_NEXT_COMMAND_VALUE         32817
+#define _APS_NEXT_RESOURCE_VALUE        143
+#define _APS_NEXT_COMMAND_VALUE         32821
 #define _APS_NEXT_CONTROL_VALUE         1001
-#define _APS_NEXT_SYMED_VALUE           110
+#define _APS_NEXT_SYMED_VALUE           111
 #endif
 #endif

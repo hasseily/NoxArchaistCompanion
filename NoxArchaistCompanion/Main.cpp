@@ -120,6 +120,8 @@ void UpdateMenuBarStatus(HWND hwnd)
 // Entry point
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
+	HWND hwnd;
+	HACCEL haccel;      // handle to accelerator table 
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
@@ -166,7 +168,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			m_initialWindowWidth = rc.right - rc.left;
 			m_initialWindowHeight = rc.bottom - rc.top;
 
-			HWND hwnd = CreateWindowExW(0, L"NoxArchaistCompanionWindowClass", L"Nox Archaist Companion", WS_OVERLAPPEDWINDOW,
+			hwnd = CreateWindowExW(0, L"NoxArchaistCompanionWindowClass", L"Nox Archaist Companion", WS_OVERLAPPEDWINDOW,
 				CW_USEDEFAULT, CW_USEDEFAULT, m_initialWindowWidth, m_initialWindowHeight, nullptr, nullptr, hInstance,
 				nullptr);
 			// TODO: Change to CreateWindowExW(WS_EX_TOPMOST, L"NoxArchaistCompanionWindowClass", L"NoxArchaistCompanion", WS_POPUP,
@@ -177,6 +179,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			ShowWindow(hwnd, nCmdShow);
 			// TODO: Change nCmdShow to SW_SHOWMAXIMIZED to default to fullscreen.
+
+			// Set up the accelerators
+			haccel = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATOR1));
 
 			// create the log window at the start
 			g_logW = std::make_unique<LogWindow>(g_hInstance, hwnd);
@@ -203,8 +208,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		{
 			if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 			{
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
+				if (haccel && !TranslateAccelerator(
+					hwnd,		// handle to receiving window 
+					haccel,    // handle to active accelerator table 
+					&msg))         // message data 
+				{
+					TranslateMessage(&msg);
+					DispatchMessage(&msg);
+				}
 			}
 			else
 			{
@@ -592,6 +603,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_nonVolatile.SaveToDisk();
 			UpdateMenuBarStatus(hWnd);
 			break;
+		case ID_VIDEO_INCREMENT:
+			g_nonVolatile.video = (g_nonVolatile.video + 1) % 4;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
 		case ID_VOLUME_OFF:
 			g_nonVolatile.volumeSpeaker = 0;
 			g_nonVolatile.SaveToDisk();
@@ -661,7 +677,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			if (game)
 			{
-				game->MenuShowLogWindow();
+				game->MenuToggleLogWindow();
 			}
 			break;
 		}

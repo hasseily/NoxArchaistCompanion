@@ -62,6 +62,7 @@ public:
     void MenuActivateProfile();
     void MenuDeactivateProfile();
     void MenuShowLogWindow();
+	void MenuToggleLogWindow();
 
     // Other methods
     D3D12_RESOURCE_DESC ChooseTexture();
