@@ -45,6 +45,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "Video.h"
 #include "RGBMonitor.h"
 #include "NTSC.h"
+#include "../resource.h"
 #include "../Game.h"
 
 RemoteControlManager g_RemoteControlMgr;
@@ -481,15 +482,16 @@ void EmulatorRepeatInitialization()
 	// Init palette color
 	VideoSwitchVideocardPalette(RGB_GetVideocard(), GetVideoType());
 
-	bool bRes = HD_Insert(HARDDISK_1, g_nonVolatile.hdvPath.c_str());
-	if (!bRes)
-	{
-		MessageBox(g_hFrameWindow, L"Can't find last used Nox Archaist HDV file.\nPlease choose another.", L"Warning", MB_ICONASTERISK | MB_OK);
-		return;
-	}
 	MemInitialize();
 	SoundCore_TweakVolumes();
 	VideoRedrawScreen();
+
+	bool bRes = HD_Insert(HARDDISK_1, g_nonVolatile.hdvPath.c_str());
+	if (!bRes)
+	{
+		HD_Select(HARDDISK_1);
+		return;
+	}
 }
 
 void EmulatorReboot()
