@@ -373,7 +373,7 @@ void EmulatorOneTimeInitialization(HWND window)
 	g_RemoteControlMgr.setTrackOnlyEnabled(false);
 }
 
-UINT CalculateVolumeLevel(UINT nonVolatileVolume)
+UINT CalculateSpkrVolumeLevel(UINT nonVolatileVolume)
 {
 	// Max volume is 0, min volume is VOLUME_MAX
 	if (nonVolatileVolume == 0)
@@ -384,8 +384,21 @@ UINT CalculateVolumeLevel(UINT nonVolatileVolume)
 		return VOLUME_MAX * 30 / 100;
 	if (nonVolatileVolume == 3)
 		return VOLUME_MAX * 25 / 100;
-	if (nonVolatileVolume >= 4)
-		return 5;	// Almost max volume, but max volume is way too loud
+	return 5;	// Almost max volume, but max volume is way too loud
+}
+
+UINT CalculateMBVolumeLevel(UINT nonVolatileVolume)
+{
+	// Max volume is 0, min volume is VOLUME_MAX
+	if (nonVolatileVolume == 0)
+		return VOLUME_MAX;
+	if (nonVolatileVolume == 1)
+		return VOLUME_MAX * 35 / 100;
+	if (nonVolatileVolume == 2)
+		return VOLUME_MAX * 25 / 100;
+	if (nonVolatileVolume == 3)
+		return VOLUME_MAX * 15 / 100;
+	return 0;	// Max volume
 }
 
 void ApplyNonVolatileConfig()
@@ -394,8 +407,8 @@ void ApplyNonVolatileConfig()
 
 	// Volume is not linear and inverted. VOLUME_MAX is actually the low volume. The max volume is 0.
 	// Max volume is crazy high. Need to reduce it somehow.
-	SpkrSetVolume(CalculateVolumeLevel(g_nonVolatile.volumeSpeaker), VOLUME_MAX);
-	MB_SetVolume(CalculateVolumeLevel(g_nonVolatile.volumeMockingBoard), VOLUME_MAX);
+	SpkrSetVolume(CalculateSpkrVolumeLevel(g_nonVolatile.volumeSpeaker), VOLUME_MAX);
+	MB_SetVolume(CalculateMBVolumeLevel(g_nonVolatile.volumeMockingBoard), VOLUME_MAX);
 	//SpkrSetVolume(DWORD(VOLUME_MAX * (1 - (g_nonVolatile.volumeSpeaker / 4.f))), VOLUME_MAX);
 	//MB_SetVolume(DWORD(VOLUME_MAX * (1 - (g_nonVolatile.volumeMockingBoard / 4.f))), VOLUME_MAX);
 
@@ -449,6 +462,8 @@ void ApplyNonVolatileConfig()
 	VideoReinitialize(true);
 	SpkrReset();
 	MB_Reset();
+	Spkr_Demute();
+	MB_Demute();
 }
 
 // DO INITIALIZATION THAT MUST BE REPEATED FOR A RESTART

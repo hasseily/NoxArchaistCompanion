@@ -1585,6 +1585,7 @@ void MB_Reinitialize()
 {
 	AY8910_InitClock((int)g_fCurrentCLK6502);	// todo: account for g_PhasorClockScaleFactor?
 												// NB. Other calls to AY8910_InitClock() use the constant CLK_6502
+	MB_Demute();
 }
 
 //-----------------------------------------------------------------------------
