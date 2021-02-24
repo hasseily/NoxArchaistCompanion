@@ -319,10 +319,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 
 	case WM_ENTERSIZEMOVE:
+		MB_Mute();
+		Spkr_Mute();
 		s_in_sizemove = true;
 		break;
 
 	case WM_EXITSIZEMOVE:
+		MB_Demute();
+		Spkr_Demute();
 		s_in_sizemove = false;
 		break;
 
