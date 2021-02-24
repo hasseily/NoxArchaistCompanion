@@ -102,7 +102,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define A_PRINT_RIGHT		0x05		// A register's value for printing to right scroll area (where the conversations are)
 #define PC_INITIATE_COMBAT 0x159f		// when combat routine starts
 #define PC_END_COMBAT		0x15eb		// when combat routine ends (don't log during combat)
-static bool b_should_log = true;		// bool for tracking when we want (or don't want to) log
+static bool b_in_combat = false;			// bool for tracking when we're in combat to suppress logging
 #define LOG_IRQ_TAKEN_AND_RTI 0
 
 // 6502 Accumulator Bit Flags
@@ -150,6 +150,8 @@ static bool g_irqDefer1Opcode = false;
 
 static eCpuType g_MainCPU = CPU_65C02;
 static eCpuType g_ActiveCPU = CPU_65C02;
+
+static wchar_t strDebug[1000] = L"";
 
 eCpuType GetMainCpu(void)
 {
@@ -310,12 +312,12 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 
 	// This chunk of code extracts the conversation strings in Nox Archaist /////////////////////////////
 	if (PC == PC_INITIATE_COMBAT)
-		b_should_log = false;
+		b_in_combat = true;
 	if (PC == PC_END_COMBAT)
-		b_should_log = true;
+		b_in_combat = false;
 	if ((PC == PC_PRINTSTR) && (regs.a == A_PRINT_RIGHT))
 	{
-		if (b_should_log | g_nonVolatile.logCombat)	// override the no-logging if we allow log combat
+		if ((!b_in_combat) | g_nonVolatile.logCombat)	// override the no-logging if we allow log combat
 		{
 			UINT8 pStrLo = *(mem + 0xfc);	// or e4
 			UINT8 pStrHi = *(mem + 0xfd);	// or e5
@@ -336,6 +338,11 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 				{
 					logstr.append(1, (*(strHiAscii + i) - 0x80));
 				}
+			}
+			if (b_in_combat)
+			{
+				// wsprintf(strDebug, L"\n %d - %d\n", regs.x, regs.y);
+				// logstr.append(strDebug);
 			}
 			m_logWindow->AppendLog(logstr);
 		}
