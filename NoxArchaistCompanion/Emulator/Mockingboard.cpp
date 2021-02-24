@@ -163,8 +163,8 @@ const UINT kNumSyncEvents = NUM_MB * NUM_SY6522 * kNumTimersPer6522;
 static SyncEvent* g_syncEvent[kNumSyncEvents];
 
 // Timer vars
-static const UINT kTIMERDEVICE_INVALID = -1;
-static UINT g_nMBTimerDevice = kTIMERDEVICE_INVALID;	// SY6522 device# which is generating timer IRQ
+static const INT kTIMERDEVICE_INVALID = -1;
+static INT g_nMBTimerDevice = kTIMERDEVICE_INVALID;	// SY6522 device# which is generating timer IRQ
 static UINT64 g_uLastCumulativeCycles = 0;
 
 // SSI263 vars:
@@ -199,8 +199,8 @@ static const unsigned short g_nMB_NumChannels = 2;
 
 static const DWORD g_dwDSBufferSize = MAX_SAMPLES * sizeof(short) * g_nMB_NumChannels;
 
-static const SHORT nWaveDataMin = (SHORT)0x8000;
-static const SHORT nWaveDataMax = (SHORT)0x7FFF;
+static const SHORT nWaveDataMin = 0x8000;
+static const SHORT nWaveDataMax = 0x7FFF;
 
 static short g_nMixBuffer[g_dwDSBufferSize / sizeof(short)];
 
@@ -1445,7 +1445,7 @@ static bool MB_DSInit()
 
 	BOOL bRes2 = SetThreadPriority(g_hThread, THREAD_PRIORITY_TIME_CRITICAL);
 
-	return true;
+	return bRes2;
 
 #endif // NO_DIRECT_X
 }
@@ -1537,7 +1537,7 @@ void MB_Initialize()
 	{
 		memset(&g_MB,0,sizeof(g_MB));
 
-		int i;
+		BYTE i;
 		for(i=0; i<NUM_VOICES; i++)
 			ppAYVoiceBuffer[i] = new short [SAMPLE_RATE];	// Buffer can hold a max of 1 seconds worth of samples
 
