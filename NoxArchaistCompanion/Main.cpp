@@ -521,7 +521,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				{
 					Spkr_Mute();
 					MB_Mute();
-					if (MessageBox(HWND_TOP, TEXT("Are you sure you want to reboot?\nYou died again?"), TEXT("Reboot Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
+					if (MessageBox(HWND_TOP, TEXT("Dead again?\nAre you sure you want to reboot?"), TEXT("Reboot Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
 					{
 						// Uncheck the pause in all cases
 						CheckMenuItem(GetSubMenu(GetMenu(hWnd), 1), ID_EMULATOR_PAUSE, MF_BYCOMMAND | MF_UNCHECKED);
@@ -729,7 +729,7 @@ void ExitGame() noexcept
 	// Display exit confirmation
 	Spkr_Mute();
 	MB_Mute();
-	if (MessageBox(HWND_TOP, TEXT("Are you sure you want to quit?\nSave your game first!\nYou want to go back to your boring life?"), TEXT("Quit Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
+	if (MessageBox(HWND_TOP, TEXT("Are you sure you want to quit?\nSave your game first!\n"), TEXT("Quit Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
 	{
 		GameLink::Term();
 		PostQuitMessage(0);
