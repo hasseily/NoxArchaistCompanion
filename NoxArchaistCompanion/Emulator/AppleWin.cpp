@@ -447,6 +447,8 @@ void ApplyNonVolatileConfig()
 	RemoteControlManager::setRemoteControlEnabled(g_nonVolatile.useGameLink);
 	SetCurrentCLK6502();
 	VideoReinitialize(true);
+	SpkrReset();
+	MB_Reset();
 }
 
 // DO INITIALIZATION THAT MUST BE REPEATED FOR A RESTART
@@ -471,7 +473,6 @@ void EmulatorRepeatInitialization()
 		return;
 	}
 	MemInitialize();
-	// Now boot the HD!
 	SoundCore_TweakVolumes();
 	VideoRedrawScreen();
 }

@@ -506,11 +506,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case AppMode_e::MODE_PAUSED:
 				if (lParam == 0)
 				{
+					Spkr_Mute();
+					MB_Mute();
 					if (MessageBox(HWND_TOP, TEXT("Are you sure you want to reboot?\nYou died again?"), TEXT("Reboot Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
 					{
-						// Uncheck the pause
+						// Uncheck the pause in all cases
 						CheckMenuItem(GetSubMenu(GetMenu(hWnd), 1), ID_EMULATOR_PAUSE, MF_BYCOMMAND | MF_UNCHECKED);
+						Spkr_Demute();
+						MB_Demute();
 						EmulatorReboot();
+					}
+					else
+					{
+						Spkr_Demute();
+						MB_Demute();
 					}
 				}
 				else	// gamelink requests will pass 1 here, so no message box
@@ -695,9 +704,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 void ExitGame() noexcept
 {
 	// Display exit confirmation
+	Spkr_Mute();
+	MB_Mute();
 	if (MessageBox(HWND_TOP, TEXT("Are you sure you want to quit?\nSave your game first!\nYou want to go back to your boring life?"), TEXT("Quit Nox Archaist"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SYSTEMMODAL) == IDYES)
 	{
 		GameLink::Term();
 		PostQuitMessage(0);
+	}
+	else
+	{
+		// Only demute when the player doesn't quit, otherwise there's a lingering sound before the app quits
+		Spkr_Demute();
+		MB_Demute();
 	}
 }
