@@ -327,6 +327,8 @@ void LogWindow::AppendLog(std::wstring str)
 	if (m_prevLogString == str)	// Avoid duplicates
 		return;
 	m_prevLogString.assign(str);
+	if (str == L"key>")
+		str = L"key>\n\n";
     // the edit window uses ES_AUTOVSCROLL so it will automatically scroll the bottom text
     CHARRANGE selectionRange = { -1, -1 };
     SendMessage(hwndEdit, EM_EXSETSEL, 0, (LPARAM)&selectionRange);     // remove selection

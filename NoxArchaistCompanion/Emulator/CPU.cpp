@@ -326,7 +326,14 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 			{
 				break;
 			}
-			logstr.append(1, (*(strHiAscii + i) - 0x80));
+			else if ((*(strHiAscii + i) - 0x80) == '-')		// This is the sentence splitter
+			{
+				logstr.append(L"\n");
+			}
+			else
+			{
+				logstr.append(1, (*(strHiAscii + i) - 0x80));
+			}
 		}
 		m_logWindow->AppendLog(logstr);
 	}
