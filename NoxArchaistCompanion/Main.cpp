@@ -330,6 +330,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		s_in_sizemove = false;
 		break;
 
+	case WM_ENTERMENULOOP:
+		MB_Mute();
+		Spkr_Mute();
+		break;
+
+	case WM_EXITMENULOOP:
+		MB_Demute();
+		Spkr_Demute();
+		break;
+
 	case WM_GETMINMAXINFO:
 		if (lParam)
 		{
