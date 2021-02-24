@@ -95,14 +95,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "Video.h"
 #include "NTSC.h"
 #include "LogWindow.h"
+#include "NonVolatile.h"
 #include "Game.h"
 
 #define PC_PRINTSTR			0x7aa1		// program counter of PRINT.STR routine
 #define A_PRINT_RIGHT		0x05		// A register's value for printing to right scroll area (where the conversations are)
 #define PC_INITIATE_COMBAT 0x159f		// when combat routine starts
 #define PC_END_COMBAT		0x15eb		// when combat routine ends (don't log during combat)
-static bool b_print_suppress = false;	// bool for tracking when we're in combat and we want to suppress printing
-
+static bool b_should_log = true;		// bool for tracking when we want (or don't want to) log
 #define LOG_IRQ_TAKEN_AND_RTI 0
 
 // 6502 Accumulator Bit Flags
@@ -308,34 +308,37 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 	DebugHddEntrypoint(PC, iOpcode, uExecutedCycles);
 #endif
 
-	// This chunk of code extracts the conversation strings outside of combat in Nox Archaist /////////////////////////////
+	// This chunk of code extracts the conversation strings in Nox Archaist /////////////////////////////
 	if (PC == PC_INITIATE_COMBAT)
-		b_print_suppress = true;
+		b_should_log = false;
 	if (PC == PC_END_COMBAT)
-		b_print_suppress = false;
-	if ((PC == PC_PRINTSTR) && (regs.a == A_PRINT_RIGHT) && !b_print_suppress)
+		b_should_log = true;
+	if ((PC == PC_PRINTSTR) && (regs.a == A_PRINT_RIGHT))
 	{
-		UINT8 pStrLo = *(mem + 0xfc);	// or e4
-		UINT8 pStrHi = *(mem + 0xfd);	// or e5
-		UINT8* strHiAscii = (UINT8 *)(mem + ((UINT16)pStrHi << 8) + pStrLo);
-		std::wstring logstr;
-		// convert from High ASCII to regular ASCII
-		for (size_t i = 0; i < regs.x; i++)		// registry x has the string length
+		if (b_should_log | g_nonVolatile.logCombat)	// override the no-logging if we allow log combat
 		{
-			if (*(strHiAscii + i) == '\0')		// just in case
+			UINT8 pStrLo = *(mem + 0xfc);	// or e4
+			UINT8 pStrHi = *(mem + 0xfd);	// or e5
+			UINT8* strHiAscii = (UINT8*)(mem + ((UINT16)pStrHi << 8) + pStrLo);
+			std::wstring logstr;
+			// convert from High ASCII to regular ASCII
+			for (size_t i = 0; i < regs.x; i++)		// registry x has the string length
 			{
-				break;
+				if (*(strHiAscii + i) == '\0')		// just in case
+				{
+					break;
+				}
+				else if ((*(strHiAscii + i) - 0x80) == '-')		// This is the sentence splitter
+				{
+					logstr.append(L"\n");
+				}
+				else
+				{
+					logstr.append(1, (*(strHiAscii + i) - 0x80));
+				}
 			}
-			else if ((*(strHiAscii + i) - 0x80) == '-')		// This is the sentence splitter
-			{
-				logstr.append(L"\n");
-			}
-			else
-			{
-				logstr.append(1, (*(strHiAscii + i) - 0x80));
-			}
+			m_logWindow->AppendLog(logstr);
 		}
-		m_logWindow->AppendLog(logstr);
 	}
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	regs.pc++;

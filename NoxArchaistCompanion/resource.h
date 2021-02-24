@@ -65,6 +65,7 @@
 #define ID_VOLUMEMUSIC_50               32813
 #define ID_VOLUMEMUSIC_75               32814
 #define ID_VOLUMEMUSIC_100              32815
+#define ID_LOGWINDOW_ALSOLOGCOMBAT      32816
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -73,7 +74,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        142
-#define _APS_NEXT_COMMAND_VALUE         32816
+#define _APS_NEXT_COMMAND_VALUE         32817
 #define _APS_NEXT_CONTROL_VALUE         1001
 #define _APS_NEXT_SYMED_VALUE           110
 #endif

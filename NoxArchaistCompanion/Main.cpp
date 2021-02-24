@@ -111,6 +111,8 @@ void UpdateMenuBarStatus(HWND hwnd)
 		MF_BYCOMMAND | (g_nonVolatile.useGameLink ? MF_CHECKED : MF_UNCHECKED));
 	CheckMenuItem(videoMenu, ID_VIDEO_SCANLINES,
 		MF_BYCOMMAND | (g_nonVolatile.scanlines ? MF_CHECKED : MF_UNCHECKED));
+	CheckMenuItem(logMenu, ID_LOGWINDOW_ALSOLOGCOMBAT,
+		MF_BYCOMMAND | (g_nonVolatile.logCombat ? MF_CHECKED : MF_UNCHECKED));
 	
 	ApplyNonVolatileConfig();
 }
@@ -647,6 +649,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case ID_EMULATOR_GAMELINK:
 			g_nonVolatile.useGameLink = !g_nonVolatile.useGameLink;
+			g_nonVolatile.SaveToDisk();
+			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_LOGWINDOW_ALSOLOGCOMBAT:
+			g_nonVolatile.logCombat = !g_nonVolatile.logCombat;
 			g_nonVolatile.SaveToDisk();
 			UpdateMenuBarStatus(hWnd);
 			break;

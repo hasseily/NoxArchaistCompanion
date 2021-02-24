@@ -15,7 +15,8 @@ static nlohmann::json nv_json = R"(
 	"video":			  0,
     "volumeSpeaker":	  4,
     "volumeMockingBoard": 4,
-	"useGameLink":        false
+	"useGameLink":        false,
+	"logCombat":		  false
   }
 )"_json;
 
@@ -36,6 +37,7 @@ int NonVolatile::SaveToDisk()
 	nv_json["volumeSpeaker"]		= volumeSpeaker;
 	nv_json["volumeMockingBoard"]	= volumeMockingBoard;
 	nv_json["useGameLink"]			= useGameLink;
+	nv_json["logCombat"]			= logCombat;
 	std::ofstream out(configfilename);
 	out << std::setw(4) << nv_json << std::endl;
 	out.close();
@@ -64,6 +66,7 @@ int NonVolatile::LoadFromDisk()
 	volumeSpeaker = nv_json["volumeSpeaker"].get<int>();
 	volumeMockingBoard = nv_json["volumeMockingBoard"].get<int>();
 	useGameLink = nv_json["useGameLink"].get<bool>();
+	logCombat = nv_json["logCombat"].get<bool>();
 
 	return 0;
 }

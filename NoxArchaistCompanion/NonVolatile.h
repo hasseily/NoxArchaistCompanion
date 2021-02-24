@@ -10,6 +10,7 @@ public:
 	int volumeSpeaker = 1;
 	int volumeMockingBoard = 1;
 	bool useGameLink = false;
+	bool logCombat = false;
 
 	// I/O
 	int SaveToDisk();
