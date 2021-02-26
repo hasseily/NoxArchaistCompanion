@@ -54,9 +54,9 @@ void ExitGame() noexcept;
 static void ExceptionHandler(LPCSTR pError)
 {
 	// Need to convert char to wchar for MessageBox
-	const size_t cSize = strlen(pError) + 1;
-	wchar_t* wc = new wchar_t[cSize];
-	mbstowcs(wc, pError, cSize);
+	wchar_t wc[4000];
+	size_t ctConverted;
+	mbstowcs_s(&ctConverted, wc, (const char *)pError, 4000);
 	MessageBox(HWND_TOP,
 		wc,
 		TEXT("Runtime Exception"),
@@ -230,6 +230,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	catch (std::runtime_error exception)
 	{
 		ExceptionHandler(exception.what());
+		return 1;
 	}
 
 }
