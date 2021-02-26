@@ -16,7 +16,7 @@ std::wstring currentBuffer;			// buffer that is used until there's a newline and
 std::wstring m_prevLogString;
 
 // Register the window class.
-const wchar_t CLASS_NAME[] = L"WIndow Log Class";
+const wchar_t CLASS_NAME[] = L"Window Log Class";
 
 /*
 ///////////////// Utility methods ////////////////////////
@@ -37,6 +37,12 @@ HWND CreateRichEdit(HWND hwndOwner,        // Dialog box handle.
         x, y, width, height,
         hwndOwner, nullptr, hinst, nullptr);
 
+	CHARFORMAT cf = {};
+	cf.cbSize = sizeof(CHARFORMAT);
+	SendMessage(_hwndEdit, EM_GETCHARFORMAT, SCF_DEFAULT, (LPARAM)&cf);
+	wchar_t wcface[LF_FACESIZE] = L"Courier New\0";
+	memcpy_s(cf.szFaceName, LF_FACESIZE, wcface, LF_FACESIZE);
+	SendMessage(_hwndEdit, EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf);
     return _hwndEdit;
 }
 
@@ -338,7 +344,6 @@ void LogWindow::AppendLog(const wchar_t wchar, bool shouldPrint)
 	else if ((wchar == L'.') || (wchar == L'"') || (wchar == L'!'))
 	{
 		// First check for punctuation and flush the buffer
-		currentBuffer.append(L" ");
 		printIt = true;
 	}
 	else if (wchar == L'>')
