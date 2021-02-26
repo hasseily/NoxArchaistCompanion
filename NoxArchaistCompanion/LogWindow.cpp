@@ -8,9 +8,10 @@
 
 static HINSTANCE appInstance = nullptr;
 static HWND hwndMain = nullptr;				// handle to main window
-static HWND hwndEdit = nullptr;			// handle to rich edit window
 
-static bool isDisplayed = false;
+HWND hwndEdit = nullptr;			// handle to rich edit window
+bool isDisplayed = false;
+std::wstring currentBuffer;			// buffer that is used until there's a newline and then it prints and empties
 
 std::wstring m_prevLogString;
 
@@ -206,7 +207,7 @@ void LogWindow::LoadFromFile()
 							std::wstring line;
 							ClearLog();			// Clear the log at the last instant in case the open file was canceled
 							while (std::getline(hFile, line))
-								AppendLog(line + L'\n');
+								PrintLog(line + L'\n');
 						}
 					}
 					pItem->Release();
@@ -322,21 +323,49 @@ bool LogWindow::IsLogWindowDisplayed()
 
 void LogWindow::ClearLog()
 {
-	SendMessage(hwndEdit, EM_SETSEL, 0, -1);            // Select all
+	SendMessage(hwndEdit, EM_SETSEL, 0, -1);					// Select all
 	SendMessage(hwndEdit, EM_REPLACESEL, TRUE, (LPARAM)L"");    // Clear
 }
 
-void LogWindow::AppendLog(std::wstring str)
+void LogWindow::AppendLog(const wchar_t wchar, bool shouldPrint)
 {
-	if (m_prevLogString == str)	// Avoid duplicates
-		return;
-	m_prevLogString.assign(str);
-	if (str == L"key>")
-		str = L"key>\n\n";
+	bool printIt = false;
+	currentBuffer.append(1, wchar);
+	if (shouldPrint)
+	{
+		printIt = true;
+	}
+	else if ((wchar == L'.') || (wchar == L'"') || (wchar == L'!'))
+	{
+		// First check for punctuation and flush the buffer
+		currentBuffer.append(L" ");
+		printIt = true;
+	}
+	else if (wchar == L'>')
+	{
+		// Then if there's a "<Press a key>", flush with 2 LF
+		currentBuffer.append(L"\n\n");
+		printIt = true;
+	}
+
+	if (printIt)
+	{
+		PrintLog(currentBuffer);
+		currentBuffer.clear();
+	}
+}
+
+void LogWindow::PrintLog(std::wstring str)
+{
+	// if (m_prevLogString == str)	// Avoid duplicates
+	//	return;
+	// m_prevLogString.assign(str);
+	// if (str == L"key>")
+	//	str = L"key>\n\n";
     // the edit window uses ES_AUTOVSCROLL so it will automatically scroll the bottom text
     CHARRANGE selectionRange = { -1, -1 };
-    SendMessage(hwndEdit, EM_EXSETSEL, 0, (LPARAM)&selectionRange);     // remove selection
-    SendMessage(hwndEdit, EM_REPLACESEL, FALSE, (LPARAM)str.c_str());   // insert new string at end
-    SendMessage(hwndEdit, EM_REQUESTRESIZE, 0, 0);                      // resize for text wrapping
+    SendMessage(hwndEdit, EM_EXSETSEL, 0, (LPARAM)&selectionRange);			// remove selection
+    SendMessage(hwndEdit, EM_REPLACESEL, FALSE, (LPARAM)str.c_str());		// insert new string at end
+    SendMessage(hwndEdit, EM_REQUESTRESIZE, 0, 0);							// resize for text wrapping
 }
 

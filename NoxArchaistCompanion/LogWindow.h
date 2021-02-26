@@ -14,7 +14,8 @@ public:
 	void HideLogWindow();
 	bool IsLogWindowDisplayed();
 	void ClearLog();
-	void AppendLog(std::wstring str);
+	void AppendLog(wchar_t wchar, bool shouldPrint);		// Append a single char. Print and clear the buffer with shouldPrint
+	void PrintLog(std::wstring str);						// Print a string to the log
 
 	HWND hwndLog;				// handle to log window
 };

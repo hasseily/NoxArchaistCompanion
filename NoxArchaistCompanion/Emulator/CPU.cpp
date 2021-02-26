@@ -98,11 +98,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "NonVolatile.h"
 #include "Game.h"
 
-#define PC_PRINTSTR			0x7aa1		// program counter of PRINT.STR routine
-#define A_PRINT_RIGHT		0x05		// A register's value for printing to right scroll area (where the conversations are)
-#define PC_INITIATE_COMBAT 0x159f		// when combat routine starts
-#define PC_END_COMBAT		0x15eb		// when combat routine ends (don't log during combat)
-static bool b_in_combat = false;			// bool for tracking when we're in combat to suppress logging
+#define PC_PRINTSTR				0x7aa1		// program counter of PRINT.STR routine (can be overriden before screen output, especially in combat for variables)
+#define PC_CARRIAGE_RETURN1		0x7d5c		// program counter of a CARRIAGE.RETURN that breaks the lines down in specific lengths (16 chars max). Only use it in battle!
+#define PC_CARRIAGE_RETURN2		0x7db4		// program counter of a CARRIAGE.RETURN that finishes a line
+#define PC_COUT					0x7998		// program counter of COUT routine which is the lowest level and prints a single char at A
+#define A_PRINT_RIGHT			0x05		// A register's value for printing to right scroll area (where the conversations are)
+#define PC_INITIATE_COMBAT		0x159f		// when combat routine starts
+#define PC_END_COMBAT			0x15eb		// when combat routine ends (don't log during combat)
+static bool b_in_combat =		false;		// bool for tracking when we're in combat to suppress logging
+static bool b_in_printright =	false;		// bool for tracking when we're actually printing a string on the right scroll area
 #define LOG_IRQ_TAKEN_AND_RTI 0
 
 // 6502 Accumulator Bit Flags
@@ -300,52 +304,53 @@ static void DebugHddEntrypoint(const USHORT PC, BYTE& iOpcode, ULONG uExecutedCy
 
 static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 {
+	//wchar_t szDebug[100];
 	const USHORT PC = regs.pc;
 
 	iOpcode = ((PC & 0xF000) == 0xC000)
-	    ? IORead[(PC>>4) & 0xFF](PC,PC,0,0,uExecutedCycles)	// Fetch opcode from I/O memory, but params are still from mem[]
-		: *(mem+PC);
+		? IORead[(PC >> 4) & 0xFF](PC, PC, 0, 0, uExecutedCycles)	// Fetch opcode from I/O memory, but params are still from mem[]
+		: *(mem + PC);
 
 #if defined(_DEBUG) && defined(DBG_HDD_ENTRYPOINT)
 	DebugHddEntrypoint(PC, iOpcode, uExecutedCycles);
 #endif
 
 	// This chunk of code extracts the conversation strings in Nox Archaist /////////////////////////////
+	// First, verify that we're in the combat routine by setting the flag
 	if (PC == PC_INITIATE_COMBAT)
 		b_in_combat = true;
 	if (PC == PC_END_COMBAT)
 		b_in_combat = false;
-	if ((PC == PC_PRINTSTR) && (regs.a == A_PRINT_RIGHT))
+	// Second, see if we just got in the PRINTSTR routine
+	// Always default to not printing
+	if (PC == PC_PRINTSTR)
 	{
-		if ((!b_in_combat) | g_nonVolatile.logCombat)	// override the no-logging if we allow log combat
+		b_in_printright = false;		// reset to default not printing
+		// Third, make sure that we're printing to the right panel
+		if (regs.a == A_PRINT_RIGHT)
 		{
-			UINT8 pStrLo = *(mem + 0xfc);	// or e4
-			UINT8 pStrHi = *(mem + 0xfd);	// or e5
-			UINT8* strHiAscii = (UINT8*)(mem + ((UINT16)pStrHi << 8) + pStrLo);
-			std::wstring logstr;
-			// convert from High ASCII to regular ASCII
-			for (size_t i = 0; i < regs.x; i++)		// registry x has the string length
+			// And fourth only print if we're not in combat or we allow combat printing
+			if ((!b_in_combat) | g_nonVolatile.logCombat)
 			{
-				if (*(strHiAscii + i) == '\0')		// just in case
-				{
-					break;
-				}
-				else if ((*(strHiAscii + i) - 0x80) == '-')		// This is the sentence splitter
-				{
-					logstr.append(L"\n");
-				}
-				else
-				{
-					logstr.append(1, (*(strHiAscii + i) - 0x80));
-				}
+				b_in_printright = true;
+				//wsprintf(szDebug, L"Set printright to true: $%04X\n", PC);
+				//OutputDebugString(szDebug);
 			}
-			if (b_in_combat)
-			{
-				// wsprintf(strDebug, L"\n %d - %d\n", regs.x, regs.y);
-				// logstr.append(strDebug);
-			}
-			m_logWindow->AppendLog(logstr);
 		}
+	}
+	// So now we know we're in the print routine, we're printing to the right panel, and we're not in combat
+	// (or we are, and the player wants combat logging). Now if we're in the COUT routine, get the high-ascii
+	// character and send it out to the log
+	if ((PC == PC_COUT) && b_in_printright)
+	{
+		//wsprintf(szDebug, L"Printing char: %X\n", regs.a);
+		//OutputDebugString(szDebug);
+		wchar_t wchar = regs.a - 0x80;	// convert from High ASCII to regular ASCII
+		m_logWindow->AppendLog(wchar, false);
+	}
+	if (((PC == PC_CARRIAGE_RETURN1) || (PC == PC_CARRIAGE_RETURN2)) && b_in_combat && b_in_printright)
+	{
+		m_logWindow->AppendLog('\n', true);
 	}
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	regs.pc++;
