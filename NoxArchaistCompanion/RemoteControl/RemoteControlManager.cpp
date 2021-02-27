@@ -168,6 +168,7 @@ void RemoteControlManager::setLoadedHDInfo(ImageInfo* imageInfo)
 		g_infoHdv.VolumeName = "";
 		g_infoHdv.sig = 0;
 	}
+	updateRunningProgramInfo();
 }
 
 //===========================================================================
