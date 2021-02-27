@@ -11,8 +11,6 @@ Nox Archaist Companion's emulation layer is based on AppleWin, the great Apple 2
 This app requires DirectX 12 and Windows 10 x64, with working sound.
 Fork on github or contact me for other builds, but the DirectX 12 requirement is set in stone, sorry.
 
-## TODO: EVERYTHING BELOW NEEDS TO BE REWRITTEN
-
 ## Installation
 
 - Copy the Nox Companion folder anywhere you want, ideally in your Program Files directory.
