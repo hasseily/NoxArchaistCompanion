@@ -15,18 +15,15 @@ Fork on github or contact me for other builds, but the DirectX 12 requirement is
 
 ## Installation
 
-- Install `vc_redistx64.exe` which is included in the release zip.
 - Copy the Nox Companion folder anywhere you want, ideally in your Program Files directory.
-- Go inside the folder and copy your Nox Archaist .hdv file into it, renaming it to NOXARCHAIST.HDV. This file should be in the same directory as the file "Run Nox Archaist"
-- Double-click on "Run Nox Archaist"
+- Run the companion .exe. The first time you run it, it will ask you to select the Nox Archaist .HDV file you want to use. It will remember it for future sessions.
 
 ## Running the program
 
-The companion is made to be the primary window from which to run your game. When launching "Run Nox Archaist", it will automatically launch AppleWin minimized without video, load NOXARCHAIST.HDV and run it. It will also run the Companion app and both will link up, showing the video in the Companion app.
+The companion embeds a heavily modified version of AppleWin 1.29.16, and will automatically load Nox Archaist after you select the Nox .HDV file.
+You can optionally load the profile of your choice (they're located in the Profiles directory), and play the game.
 
-Load the profile of your choice (they're located in the Profiles directory), and play the game.
-
-If you want to set a specific video mode such as monochrome or RGB, go to the running AppleWin (which should be minimized) and press F8.
+Ther are a number of emulation options, all directly accessible from the main menu bar. Playing at max speed automatically disables sound, and it will generally play so fast that you won't see battle animations. This is highly discouraged unless you've become very adept at the game.
 
 ## Profiles
 
@@ -36,7 +33,8 @@ The documentation for profiles is sorely lacking, but I've included a number of 
 
 ## Logging
 
-The Companion automatically logs all conversations. You can show the log file from the menu. You can copy, paste, modify the text within the log window. You can also from the menu load and save the log.
+The Companion automatically logs all conversations, and optionally combat. When logging combat, you should probably activate the "combat math" by pressing SHIFT+8 while in combat (this is a Nox Archaist Feature).
+You can show the log file from the menu. You can copy, paste, or otherwise modify the text within the log window. You can (also from the menu) load and save the log.
 
 WARNING: Save or copy the log window content somewhere else before you quit the app or it is lost forever!
 
