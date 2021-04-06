@@ -53,11 +53,10 @@
   "sidebars": [
     {
       "type": "Right",
-      "width":  200,
       "blocks": [
         {
           "type": "Header",
-          "template": "Player 1: {}",
+          "template": "{} - Lvl {}",
           "color": [
             0.9,
             0.9,
@@ -69,22 +68,16 @@
               "memstart": "0x1164B",
               "length": 15,
               "type": "ascii_high"
-            }
-          ]
-        },
-        {
-          "type": "Empty"
-        },
-        {
-          "type": "Header",
-          "template": "Level {}",
-          "vars": [
+            },
             {
               "memstart": "0x11601",
               "length": 1,
               "type": "int_bigendian"
             }
           ]
+        },
+        {
+          "type": "Empty"
         },
         {
           "type": "Content",
@@ -176,17 +169,6 @@
           ]
         },
         {
-          "type": "Content",
-          "template": "Weight       : {}",
-          "vars": [
-            {
-              "memstart": "0x11646",
-              "length": 1,
-              "type": "int_bigendian"
-            }
-          ]
-        },
-        {
           "type": "Empty"
         },
         {
@@ -230,7 +212,7 @@
         },
         {
           "type": "Header",
-          "template": "Weapons",
+          "template": "Equipment",
           "vars": []
         },
         {
@@ -255,8 +237,65 @@
             }
           ]
         },
+		{
+          "type": "Content",
+          "template": "Damage LH: {} - RH: {}",
+          "vars": [
+            {
+              "memstart": "0x11609",
+              "length": 1,
+              "type": "int_bigendian"
+            },
+            {
+              "memstart": "0x1160A",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+		{
+          "type": "Content",
+          "template": "Weight       : {}",
+          "vars": [
+            {
+              "memstart": "0x11646",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
         {
-          "type": "Empty"
+          "type": "Content",
+          "template": "Armor Rating : {}",
+          "vars": [
+            {
+              "memstart": "0x11607",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "Resist Magic : {}",
+          "vars": [
+            {
+              "memstart": "0x1160B",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+		{
+          "type": "Content",
+          "template": "To Hit       : {}%",
+          "vars": [
+            {
+              "memstart": "0x11608",
+              "length": 1,
+              "type": "int_bigendian_literal"
+            }
+          ]
         }
       ]
     },
@@ -279,7 +318,7 @@
           "template": "1: {}",
           "vars": [
             {
-              "memstart": "0x7033",
+              "memstart": "0x7044",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -291,7 +330,7 @@
           "template": "2: {}",
           "vars": [
             {
-              "memstart": "0x7034",
+              "memstart": "0x7045",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -303,7 +342,7 @@
           "template": "3: {}",
           "vars": [
             {
-              "memstart": "0x7035",
+              "memstart": "0x7046",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -315,7 +354,7 @@
           "template": "4: {}",
           "vars": [
             {
-              "memstart": "0x7036",
+              "memstart": "0x7047",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -327,7 +366,7 @@
           "template": "5: {}",
           "vars": [
             {
-              "memstart": "0x7037",
+              "memstart": "0x7048",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -339,7 +378,7 @@
           "template": "6: {}",
           "vars": [
             {
-              "memstart": "0x7038",
+              "memstart": "0x7049",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -351,7 +390,7 @@
           "template": "7: {}",
           "vars": [
             {
-              "memstart": "0x7039",
+              "memstart": "0x704a",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -363,7 +402,7 @@
           "template": "8: {}",
           "vars": [
             {
-              "memstart": "0x703a",
+              "memstart": "0x704b",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -375,7 +414,7 @@
           "template": "9: {}",
           "vars": [
             {
-              "memstart": "0x703b",
+              "memstart": "0x704c",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -387,7 +426,7 @@
           "template": "0: {}",
           "vars": [
             {
-              "memstart": "0x7032",
+              "memstart": "0x7043",
               "length": 1,
               "type": "lookup",
               "lookup": "/tables/spells"
@@ -397,9 +436,21 @@
         {
           "type": "Empty"
         },
+		{
+          "type": "Empty"
+        },
+		{
+          "type": "Empty"
+        },
         {
           "type": "Header",
           "template": "Tools of the Trade",
+		  "color": [
+            0.9,
+            0.2,
+            0.9,
+            1.0
+          ],
           "vars": []
         },
         {
