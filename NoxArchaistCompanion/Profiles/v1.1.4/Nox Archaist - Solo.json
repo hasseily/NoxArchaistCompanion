@@ -1,0 +1,502 @@
+{
+  "meta": {
+    "name": "Nox Archaist - Solo Run",
+    "author": "Rikkles",
+    "revision": 1,
+    "date": "2021.01.25",
+    "api_version": 2
+  },
+  "tables": {
+    "spells": {
+      "0x00": "Magic Missile",
+      "0x01": "Fire Arrow",
+      "0x02": "Fireball",
+      "0x03": "Fireball+1",
+      "0x04": "Fireball+2",
+      "0x05": "Infernal blast",
+      "0x06": "Lightning Blast",
+      "0x07": "Lightning Blast+1",
+      "0x08": "Lightning Blast+2",
+      "0x09": "Chain Lightning",
+      "0x0a": "Chain Lightning+1",
+      "0x0b": "Nox Necrosis",
+      "0x0c": "Nox Vortex",
+      "0x0d": "Shock Enemy",
+      "0x0e": "Summon Lsr Undead",
+      "0x0f": "Blade Smite",
+      "0x10": "Summon Minor Demon",
+      "0x11": "Summon Elemental",
+      "0x12": "Cowmageddon",
+      "0x13": "Summon Demon Lord",
+      "0x14": "Summon Nox Ffred",
+      "0x15": "Blade Storm",
+      "0x17": "Ed's Axe of Anguish",
+      "0x18": "Boulder Smite",
+      "0x19": "Boulder Storm",
+      "0x1b": "Shock Storm",
+      "0x1c": "Shock Storm +1",
+      "0x1d": "Shock Storm +2",
+      "0x20": "Mage Armor",
+      "0x30": "Engage Enemy",
+      "0x31": "Resurrect",
+      "0x32": "Lesser Heal",
+      "0x33": "Greater Heal",
+      "0x34": "Divine Heal",
+      "0x39": "Illuminate",
+      "0x3a": "Greater Illuminate",
+      "0x3b": "Magical Reckoning",
+      "0x3c": "Quick Exit",
+      "0x3f": "Sally Forth",
+      "0xff": ""
+    }
+  },
+  "sidebars": [
+    {
+      "type": "Right",
+      "width":  180,
+      "blocks": [
+        {
+          "type": "Header",
+          "template": "Player 1: {}",
+          "color": [
+            0.9,
+            0.9,
+            0.2,
+            1.0
+          ],
+          "vars": [
+            {
+              "memstart": "0x1164B",
+              "length": 15,
+              "type": "ascii_high"
+            }
+          ]
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Header",
+          "template": "Level {}",
+          "vars": [
+            {
+              "memstart": "0x11601",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "HP: {} / {}",
+          "vars": [
+            {
+              "memstart": "0x11602",
+              "length": 1,
+              "type": "int_bigendian"
+            },
+            {
+              "memstart": "0x11648",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "XP: {} / {}",
+          "vars": [
+            {
+              "memstart": "0x11605",
+              "length": 2,
+              "type": "int_bigendian"
+            },
+            {
+              "memstart": "0x11643",
+              "length": 2,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "MP: {} / {}",
+          "vars": [
+            {
+              "memstart": "0x11604",
+              "length": 1,
+              "type": "int_bigendian"
+            },
+            {
+              "memstart": "0x11612",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Header",
+          "template": "Attributes",
+          "vars": []
+        },
+        {
+          "type": "Content",
+          "template": "Strength     : {}",
+          "vars": [
+            {
+              "memstart": "0x11610",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "Dexterity    : {}",
+          "vars": [
+            {
+              "memstart": "0x11611",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "Intelligence : {}",
+          "vars": [
+            {
+              "memstart": "0x11612",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "Weight       : {}",
+          "vars": [
+            {
+              "memstart": "0x11646",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Header",
+          "template": "Skills",
+          "vars": []
+        },
+        {
+          "type": "Content",
+          "template": "M{} R{} C{} D{} L{}",
+          "vars": [
+            {
+              "memstart": "0x11619",
+              "length": 1,
+              "type": "int_bigendian"
+            },
+            {
+              "memstart": "0x1161c",
+              "length": 1,
+              "type": "int_bigendian"
+            },
+            {
+              "memstart": "0x11622",
+              "length": 1,
+              "type": "int_bigendian"
+            },
+            {
+              "memstart": "0x1161f",
+              "length": 1,
+              "type": "int_bigendian"
+            },
+            {
+              "memstart": "0x11625",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Header",
+          "template": "Weapons",
+          "vars": []
+        },
+        {
+          "type": "Content",
+          "template": "LH: {}",
+          "vars": [
+            {
+              "memstart": "0x1165A",
+              "length": 16,
+              "type": "ascii_high"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "RH: {}",
+          "vars": [
+            {
+              "memstart": "0x1166D",
+              "length": 16,
+              "type": "ascii_high"
+            }
+          ]
+        },
+        {
+          "type": "Empty"
+        }
+      ]
+    },
+    {
+      "type": "Right",
+      "blocks": [
+        {
+          "type": "Header",
+          "template": "Readied Spells",
+          "color": [
+            0.9,
+            0.2,
+            0.9,
+            1.0
+          ],
+          "vars": []
+        },
+        {
+          "type": "Content",
+          "template": "1: {}",
+          "vars": [
+            {
+              "memstart": "0x7033",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "2: {}",
+          "vars": [
+            {
+              "memstart": "0x7034",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "3: {}",
+          "vars": [
+            {
+              "memstart": "0x7035",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "4: {}",
+          "vars": [
+            {
+              "memstart": "0x7036",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "5: {}",
+          "vars": [
+            {
+              "memstart": "0x7037",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "6: {}",
+          "vars": [
+            {
+              "memstart": "0x7038",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "7: {}",
+          "vars": [
+            {
+              "memstart": "0x7039",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "8: {}",
+          "vars": [
+            {
+              "memstart": "0x703a",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "9: {}",
+          "vars": [
+            {
+              "memstart": "0x703b",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "0: {}",
+          "vars": [
+            {
+              "memstart": "0x7032",
+              "length": 1,
+              "type": "lookup",
+              "lookup": "/tables/spells"
+            }
+          ]
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Header",
+          "template": "Tools of the Trade",
+          "vars": []
+        },
+        {
+          "type": "Content",
+          "template": "Torches:   {}",
+          "vars": [
+            {
+              "memstart": "0x420",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "Lockpicks: {}",
+          "vars": [
+            {
+              "memstart": "0x421",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Empty"
+        }
+      ]
+    },
+    {
+      "type": "Bottom",
+      "blocks": [
+        {
+          "type": "Content",
+          "template": "Location:            {}",
+          "vars": [
+            {
+              "memstart": "0x7DF",
+              "length": 16,
+              "type": "ascii_high"
+            }
+          ]
+        },
+        {
+          "type": "Content",
+          "template": "Sextant Coordinates: {}, {}",
+          "vars": [
+            {
+              "memstart": "0x6CF6",
+              "length": 1,
+              "type": "int_bigendian"
+            },
+            {
+              "memstart": "0x6CF7",
+              "length": 1,
+              "type": "int_bigendian"
+            }
+          ]
+        },
+        {
+          "type": "Empty"
+        },
+        {
+          "type": "Header",
+          "template": "Download Nox Archaist Companion on Github",
+          "color": [
+            0.9,
+            0.2,
+            0.9,
+            1.0
+          ],
+          "vars": []
+        },
+        {
+          "type": "Header",
+          "template": "Comments and suggestions on GitHub or Twitter @RikRetro",
+          "color": [
+            0.9,
+            0.9,
+            0.9,
+            1.0
+          ],
+          "vars": []
+        }
+      ]
+    }
+  ]
+}
