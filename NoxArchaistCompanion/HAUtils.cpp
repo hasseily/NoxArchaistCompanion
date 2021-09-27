@@ -85,6 +85,22 @@ namespace HA
 		return numConverted;
 	}
 
+	/* convert string to upper ascii Apple 2 */
+	void ConvertStrToUpperAscii(std::string& str)
+	{
+		for (std::string::iterator i = str.begin(); i != str.end(); i++) {
+			*i = *i + 0x80;   /* shift to upper ascii */
+		}
+	}
+
+	/* convert upper ascii Apple 2 to str */
+	void ConvertUpperAsciiToStr(std::string& str)
+	{
+		for (std::string::iterator i = str.begin(); i != str.end(); i++) {
+			*i = *i - 0x80;   /* shift from upper ascii */
+		}
+	}
+
 	//Returns the last Win32 error, in string format. Returns an empty string if there is no error.
 	std::wstring GetLastErrorAsString()
 	{

@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<gamelink>
+
+	<card
+		title="NOX ARCHAIST COMPANION"
+		short="NOX ARCHAIST COMPANION"
+		titlelo="Nox Archaist Companion"
+		beta="false"
+		rev="1190"
+	/>
+
+	<author><![CDATA[Rikkles]]></author>
+
+	<dsub>
+
+		<!-- Nox Archaist Companion running Nox Archaist HDV version 1.1.9 -->
+		<detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010109" ph1="0" ph0="0">
+			<!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
+			<peek bytes="2af9 0000 267d 6cec 6ced" />
+		</detect>
+
+	</dsub>
+
+	<regions>
+		<region id="256" name="Wynmar" ground_floor="true" start_floor="G" auto_create="true" >
+			<grid width="16" height="16" tilex="16" tiley="16" repeating="false" origin_tl="true" />
+		</region>
+		<region id="1" name="Depths of Vacous" ground_floor="true" start_floor="B1" auto_create="false" >
+			<grid width="16" height="16" tilex="16" tiley="16" repeating="false" origin_tl="true" />
+		</region>
+		<region id="2" name="Suurtheld" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="64" height="80" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="3" name="Nourtheld" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="64" height="80" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="4" name="Shrine" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="48" height="48" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="5" name="Shipwreck" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="11" name="Ezel'dyv" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="12" name="Knomewaer" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="13" name="Freebooter's Cove" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="14" name="Ghrodwir" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="15" name="Bayport" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="80" height="80" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="16" name="Maldac" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="17" name="Swanmouth" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="18" name="Everton" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="19" name="Alef's Knoll" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="20" name="Knaerwood" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="21" name="Calbreath" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="51" name="Nystul's Maze" ground_floor="true" start_floor="B1" auto_create="false" >
+			<grid width="128" height="128" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="52" name="Ruination" ground_floor="true" start_floor="B2" auto_create="false" >
+			<grid width="32" height="64" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="101" name="Grymvi's Keep" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="102" name="Er-Thuath Keep" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="103" name="Praevoc Keep" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="104" name="Uharad Keep" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="105" name="Foolery" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="106" name="Veylan Keep" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+		<region id="666" name="Shadow Plane" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="16" height="16" tilex="5" tiley="5" origin_tl="true" />
+		</region>
+	</regions>
+
+	<views>
+		<class name="Standard">
+			<xpos offset="3" length="1" min="0" max="ff" />
+			<ypos offset="4" length="1" min="0" max="ff" />
+		</class>
+		
+		
+		<!-- Wynmar (Overworld - Vali Region) -->
+		<packetview extends="Standard" region="256">
+			<check offset="0" length="1" value="0" />
+			<const_floor>G</const_floor>
+		</packetview>
+		
+		<!-- Depths of Vacous -->
+		<packetview extends="Standard" region="1">
+			<check offset="0" length="1" value="61" op="GTE" />
+			<check offset="0" length="1" value="65" op="LTE" />
+ 			<floor offset="0" length="1" min="61" max="65" dir="down" adjust="96" />
+		</packetview>
+		
+		<!-- Suurtheld -->
+		<!-- The basement map contains 4 mage tower levels.
+			We'll split them into an F2 -->
+		<!-- First 3 Mage tower mezzanine levels (from basement map) -->
+		<packetview region="2">
+			<check offset="0" length="1" value="0e"/>
+			<xpos offset="3" length="1" min="00" max="17" />
+			<ypos offset="4" length="1" min="01" max="08" />
+			<move x="0" y="-2" />
+			<const_floor>F2</const_floor>
+		</packetview>
+		<!-- 4th Mage tower mezzanine levels (from basement map) -->
+		<packetview region="2">
+			<check offset="0" length="1" value="0e"/>
+			<xpos offset="3" length="1" min="08" max="0f" />
+			<ypos offset="4" length="1" min="09" max="11" />
+			<move x="0" y="-2" />
+			<const_floor>F2</const_floor>
+		</packetview>
+		<!-- South parts of each main level -->
+		<packetview extends="Standard" region="2">
+			<check offset="0" length="1" value="0b"/>
+ 			<const_floor>G</const_floor>
+			<move y="-29" />
+		</packetview>
+		<packetview extends="Standard" region="2">
+			<check offset="0" length="1" value="0c"/>
+ 			<const_floor>F1</const_floor>
+			<move y="-29" />
+		</packetview>
+		<packetview extends="Standard" region="2">
+			<check offset="0" length="1" value="0d"/>
+ 			<const_floor>F3</const_floor>
+			<move y="-29" />
+		</packetview>
+		<!-- North parts of each main level -->
+		<packetview extends="Standard" region="2">
+			<check offset="0" length="1" value="0f"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="2">
+			<check offset="0" length="1" value="10"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="2">
+			<check offset="0" length="1" value="11"/>
+ 			<const_floor>F3</const_floor>
+		</packetview>
+		<!-- Basement (only South) -->
+		<packetview extends="Standard" region="2">
+			<check offset="0" length="1" value="0e"/>
+ 			<const_floor>B1</const_floor>
+			<move y="-29" />
+		</packetview>
+
+		<!-- Nourtheld -->
+		<!-- Basement levels are a mess of a mix of floors and basements -->
+		<!-- There's also a library floor on the F3 top floor -->
+		<!-- Relocate to F2 Library floor 2 that's in the F3 top floor map -->
+		<packetview region="3">
+			<check offset="0" length="1" value="3c"/>
+			<xpos offset="3" length="1" min="0A" max="12" />
+			<ypos offset="4" length="1" min="0A" max="19" />
+			<const_floor>F2</const_floor>
+		</packetview>
+		<!-- Relocate to F2 Library floors 3 & 4 that are in the B1 map -->
+		<packetview region="3">
+			<check offset="0" length="1" value="39"/>
+			<xpos offset="3" length="1" min="0" max="8" />
+			<ypos offset="4" length="1" min="8" max="18" />
+			<const_floor>F2</const_floor>
+			<move x="20" y="-2" />
+		</packetview>
+		<packetview region="3">
+			<check offset="0" length="1" value="39"/>
+			<xpos offset="3" length="1" min="28" max="30" />
+			<ypos offset="4" length="1" min="8" max="18" />
+			<const_floor>F2</const_floor>
+			<move x="-10" y="-2" />
+		</packetview>
+		<!-- Relocate to F2 all 7 Mage Tower mezzanine floors that are in the B1 map -->
+		<!-- The floors 4 to 7 can be moved in one shot as they're contiguous -->
+		<packetview region="3">
+			<check offset="0" length="1" value="4e"/>
+			<xpos offset="3" length="1" min="28" max="2c" />
+			<ypos offset="4" length="1" min="00" max="07" />
+			<const_floor>F2</const_floor>
+			<move x="-30" y="-34" />
+		</packetview>
+		<packetview region="3">
+			<check offset="0" length="1" value="39"/>
+			<xpos offset="3" length="1" min="00" max="07" />
+			<ypos offset="4" length="1" min="18" max="20" />
+			<const_floor>F2</const_floor>
+			<move x="19" y="-10" />
+		</packetview>
+		<packetview region="3">
+			<check offset="0" length="1" value="39"/>
+			<xpos offset="3" length="1" min="28" max="2e" />
+			<ypos offset="4" length="1" min="18" max="20" />
+			<const_floor>F2</const_floor>
+			<move x="-12" y="-10" />
+		</packetview>
+		<packetview region="3">
+			<check offset="0" length="1" value="39"/>
+			<xpos offset="3" length="1" min="08" max="27" />
+			<ypos offset="4" length="1" min="26" max="2e" />
+			<const_floor>F2</const_floor>
+			<move x="2" y="-7" />
+		</packetview>
+		<!-- Relocate to F3 Nox Valess Tower that's in the B1 map -->
+		<packetview region="3">
+			<check offset="0" length="1" value="4e"/>
+			<xpos offset="3" length="1" min="21" max="28" />
+			<ypos offset="4" length="1" min="1e" max="27" />
+			<const_floor>F3</const_floor>
+			<move y="-40" />
+		</packetview>
+		<!-- Relocate to F3 staircases to Nox Valess Tower from the B1 map -->
+		<packetview region="3">
+			<check offset="0" length="1" value="4e"/>
+			<xpos offset="3" length="1" min="0a" max="22" />
+			<ypos offset="4" length="1" min="00" max="04" />
+			<const_floor>F3</const_floor>
+			<move x="-5" y="-71" />
+		</packetview>
+		<!-- South parts of each main level -->
+		<packetview extends="Standard" region="3">
+			<check offset="0" length="1" value="36"/>
+ 			<const_floor>G</const_floor>
+			<move y="-29" />
+		</packetview>
+		<packetview extends="Standard" region="3">
+			<check offset="0" length="1" value="37"/>
+ 			<const_floor>F1</const_floor>
+			<move y="-29" />
+		</packetview>
+		<packetview extends="Standard" region="3">
+			<check offset="0" length="1" value="38"/>
+ 			<const_floor>F3</const_floor>
+			<move y="-29" />
+		</packetview>
+		<packetview extends="Standard" region="3">
+			<check offset="0" length="1" value="4e"/>
+ 			<const_floor>B1</const_floor>
+			<move y="-41" />
+		</packetview>
+		<!-- North parts of each main level -->
+		<packetview extends="Standard" region="3">
+			<check offset="0" length="1" value="3a"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="3">
+			<check offset="0" length="1" value="3b"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="3">
+			<check offset="0" length="1" value="3c"/>
+ 			<const_floor>F3</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="3">
+			<check offset="0" length="1" value="39"/>
+ 			<const_floor>B1</const_floor>
+		</packetview>
+
+
+		<!-- Shrine -->
+		<packetview extends="Standard" region="4">
+			<check offset="0" length="1" value="41"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="4">
+			<!-- This is part of Praevoc Keep -->
+			<check offset="0" length="1" value="45"/>
+			<check offset="4" length="1" value="26" op="GTE"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		
+		<!-- Shipwreck -->
+		<packetview extends="Standard" region="5">
+			<check offset="0" length="1" value="07"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		
+		<!-- Ezel'dyv -->
+		<!-- There are 3 mage tower floors in F1. We move all 3 to an F2 map -->
+		<!-- 	L1 is 11<=X<1B, 13<=Y<1c
+				L2 is 1F<=X<28, 07<=Y<10
+				L3 is 08<=X<10, 07<=Y<11 -->
+		<packetview region="11">
+			<check offset="0" length="1" value="2d"/>
+			<xpos offset="3" length="1" min="11" max="1b" />
+			<ypos offset="4" length="1" min="13" max="1c" />
+			<move x="-11" y="11" />
+			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview region="11">
+			<check offset="0" length="1" value="2d"/>
+			<xpos offset="3" length="1" min="1f" max="28" />
+			<ypos offset="4" length="1" min="07" max="10" />
+			<move x="-13" y="-1" />
+			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview region="11">
+			<check offset="0" length="1" value="2d"/>
+			<xpos offset="3" length="1" min="08" max="10" />
+			<ypos offset="4" length="1" min="7" max="11" />
+			<move x="21" y="-1" />
+			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="11">
+			<check offset="0" length="1" value="2c"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="11">
+			<check offset="0" length="1" value="2d"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		
+
+		<!-- Knomewaer -->
+		<packetview extends="Standard" region="12">
+			<check offset="0" length="1" value="4c"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="12">
+			<check offset="0" length="1" value="4d"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		
+		<!-- Freebooter's Cove -->
+		<packetview extends="Standard" region="13">
+			<check offset="0" length="1" value="29" />
+ 			<const_floor>G</const_floor>
+		</packetview>
+		
+		<!-- Ghrodwir -->
+		<packetview extends="Standard" region="14">
+			<check offset="0" length="1" value="26" />
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="14">
+			<check offset="0" length="1" value="27" />
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		
+		<!-- Bayport -->
+		<!-- Bayport has 4 quadrants, 2 of them with 2 levels -->
+		<!-- Bottom Right -->
+		<packetview extends="Standard" region="15">
+			<check offset="0" length="1" value="31" />
+ 			<const_floor>G</const_floor>
+			<move x="29" y="-29" />
+		</packetview>
+		<packetview extends="Standard" region="15">
+			<check offset="0" length="1" value="35" />
+ 			<const_floor>F1</const_floor>
+			<move x="29" y="-29" />
+		</packetview>
+		<!-- Top Right -->
+		<packetview extends="Standard" region="15">
+			<check offset="0" length="1" value="2f" />
+ 			<const_floor>G</const_floor>
+			<move x="29" />
+		</packetview>
+		<!-- Bottom Left -->
+		<packetview extends="Standard" region="15">
+			<check offset="0" length="1" value="30" />
+ 			<const_floor>G</const_floor>
+			<move y="-29" />
+		</packetview>
+		<packetview extends="Standard" region="15">
+			<check offset="0" length="1" value="34" />
+ 			<const_floor>F1</const_floor>
+			<move y="-29" />
+		</packetview>
+		<!-- Top Left -->
+		<packetview extends="Standard" region="15">
+			<check offset="0" length="1" value="2e" />
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<!-- Thieves Guild L2 -->
+		<packetview extends="Standard" region="15">
+			<check offset="0" length="1" value="32" />
+ 			<const_floor>F2</const_floor>
+			<move y="-29" />
+		</packetview>
+		
+		<!-- Maldac -->
+		<packetview extends="Standard" region="16">
+			<check offset="0" length="1" value="23" />
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="16">
+			<check offset="0" length="1" value="24" />
+ 			<const_floor>F1</const_floor>
+		</packetview>
+
+		<!-- Swanmouth -->
+		<packetview extends="Standard" region="17">
+			<check offset="0" length="1" value="4a" />
+ 			<const_floor>G</const_floor>
+		</packetview>
+
+		<!-- Everton -->
+		<packetview extends="Standard" region="18">
+			<check offset="0" length="1" value="09" />
+ 			<const_floor>G</const_floor>
+		</packetview>
+
+		<!-- Alef's Knoll -->
+		<packetview extends="Standard" region="19">
+			<check offset="0" length="1" value="12" />
+ 			<const_floor>G</const_floor>
+		</packetview>
+
+		<!-- Knaerwood -->
+		<packetview extends="Standard" region="20">
+			<check offset="0" length="1" value="1c" />
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="20">
+			<check offset="0" length="1" value="1d" />
+ 			<const_floor>F1</const_floor>
+		</packetview>
+	
+		<!-- Calbreath -->
+		<packetview extends="Standard" region="21">
+			<check offset="0" length="1" value="4b" />
+ 			<const_floor>G</const_floor>
+		</packetview>
+
+		<!-- Nystul's Maze -->
+		<packetview extends="Standard" region="51">
+			<check offset="0" length="1" value="68" />
+			<check offset="4" length="1" value="b0" op="LT" />
+ 			<const_floor>B1</const_floor>
+			<move x="-50" y="-25" />
+		</packetview>
+
+		<!-- Ruination B2 -->
+		<!-- It uses Nystul's Maze but is far to the bottom right -->
+		<!-- Developer needed free map area -->
+		<packetview extends="Standard" region="52">
+			<check offset="0" length="1" value="68" />
+			<check offset="4" length="1" value="b0" op="GTE" />
+ 			<const_floor>B2</const_floor>
+			<move x="-126" y="174" />
+		</packetview>
+		
+		<!-- Grymvi -->
+		<packetview extends="Standard" region="101">
+			<check offset="0" length="1" value="3e"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="101">
+			<check offset="0" length="1" value="3f"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="101">
+			<check offset="0" length="1" value="40"/>
+ 			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="101">
+			<check offset="0" length="1" value="3d"/>
+ 			<const_floor>B1</const_floor>
+		</packetview>
+		
+		<!-- Er-Thuath -->
+		<packetview extends="Standard" region="102">
+			<check offset="0" length="1" value="1e"/>
+ 			<const_floor>B1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="102">
+			<check offset="0" length="1" value="1f"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="102">
+			<check offset="0" length="1" value="20"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="102">
+			<check offset="0" length="1" value="21"/>
+ 			<const_floor>F2</const_floor>
+		</packetview>
+
+		<!-- Praevoc -->
+		<packetview extends="Standard" region="103">
+			<check offset="0" length="1" value="43"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="103">
+			<check offset="0" length="1" value="44"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="103">
+			<!-- dev team area is at bottom of this map -->
+			<check offset="0" length="1" value="45"/>
+			<check offset="4" length="1" value="26" op="LT"/>
+ 			<const_floor>F2</const_floor>
+		</packetview>
+
+		<!-- Uharad -->
+		<!-- There's a mage tower whose levels are in the basement.
+			We put all 3 upper levels of it in an F2 map -->
+		<!-- 	L1 is 00<=X<07, 0E<=Y<16
+				L2 is 09<=X<10, 00<=Y<08
+				L3 is 10<=X<17, 07<=Y<0f -->
+		<packetview region="104">
+			<check offset="0" length="1" value="17"/>
+			<xpos offset="3" length="1" min="00" max="07" />
+			<ypos offset="4" length="1" min="0e" max="16" />
+			<move x="0" y="12" />
+			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview region="104">
+			<check offset="0" length="1" value="17"/>
+			<xpos offset="3" length="1" min="09" max="10" />
+			<ypos offset="4" length="1" min="00" max="08" />
+			<move x="-0" y="-2" />
+			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview region="104">
+			<check offset="0" length="1" value="17"/>
+			<xpos offset="3" length="1" min="10" max="17" />
+			<ypos offset="4" length="1" min="07" max="0f" />
+			<move x="2" y="5" />
+			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="104">
+			<check offset="0" length="1" value="17"/>
+ 			<const_floor>B1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="104">
+			<check offset="0" length="1" value="18"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="104">
+			<check offset="0" length="1" value="19"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="104">
+			<check offset="0" length="1" value="1a"/>
+ 			<const_floor>F3</const_floor>
+		</packetview>
+
+		
+		<!-- Foolery -->
+		<packetview extends="Standard" region="105">
+			<check offset="0" length="1" value="47"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="105">
+			<check offset="0" length="1" value="48"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="105">
+			<check offset="0" length="1" value="49"/>
+ 			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="105">
+			<check offset="0" length="1" value="46"/>
+ 			<const_floor>B1</const_floor>
+		</packetview>
+		
+		<!-- Veylan -->
+		<packetview extends="Standard" region="106">
+			<check offset="0" length="1" value="14"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="106">
+			<check offset="0" length="1" value="15"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="106">
+			<check offset="0" length="1" value="16"/>
+ 			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="106">
+			<check offset="0" length="1" value="13"/>
+ 			<const_floor>B1</const_floor>
+		</packetview>
+
+		<!-- Shadow Plane -->
+		<packetview extends="Standard" region="666">
+			<check offset="0" length="1" value="08"/>
+ 			<const_floor>G</const_floor>
+			<move x="-78" y="115" />
+		</packetview>
+	</views>
+
+</gamelink>

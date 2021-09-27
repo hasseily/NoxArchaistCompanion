@@ -286,6 +286,9 @@
     <None Include="Emulator\Resources\Parallel.rom">
       <Filter>Emulator\Resources</Filter>
     </None>
+    <None Include="Assets\Versions.json">
+      <Filter>Assets</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Profiles">
@@ -321,10 +324,21 @@
     <Filter Include="Remote Control">
       <UniqueIdentifier>{98874c3e-7d86-4875-b771-9ab6a7f9e3e6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Profiles\Grid Cartographer Profiles">
+      <UniqueIdentifier>{b84bfe9f-2303-480a-b334-9bc7c665aee7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="settings.manifest">
       <Filter>Assets</Filter>
     </Manifest>
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion v1.1.4.xml">
+      <Filter>Profiles\Grid Cartographer Profiles</Filter>
+    </Xml>
+    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion v1.1.9.xml">
+      <Filter>Profiles\Grid Cartographer Profiles</Filter>
+    </Xml>
   </ItemGroup>
 </Project>

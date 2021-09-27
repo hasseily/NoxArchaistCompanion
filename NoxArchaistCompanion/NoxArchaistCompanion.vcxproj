@@ -215,6 +215,7 @@
     <None Include="Assets\a2-italic-12pt.spritefont">
       <DeploymentContent>true</DeploymentContent>
     </None>
+    <None Include="Assets\Versions.json" />
     <None Include="Emulator\CPU\cpu_general.inl" />
     <None Include="Emulator\CPU\cpu_heatmap.inl" />
     <None Include="Emulator\CPU\cpu_instructions.inl" />
@@ -253,6 +254,10 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion v1.1.4.xml" />
+    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion v1.1.9.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

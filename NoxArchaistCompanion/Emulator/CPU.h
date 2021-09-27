@@ -2,6 +2,19 @@
 
 #include "Common.h"
 
+
+struct noxcpuconstants
+{
+	USHORT PC_PRINTSTR;			// program counter of PRINT.STR routine (can be overriden before screen output, especially in combat for variables)
+	USHORT PC_CARRIAGE_RETURN1;	// program counter of a CARRIAGE.RETURN that breaks the lines down in specific lengths (16 chars max). Only use it in battle!
+	USHORT PC_CARRIAGE_RETURN2;	// program counter of a CARRIAGE.RETURN that finishes a line
+	USHORT PC_COUT;				// program counter of COUT routine which is the lowest level and prints a single char at A
+	USHORT A_PRINT_RIGHT;		// A register's value for printing to right scroll area (where the conversations are)
+	USHORT PC_INITIATE_COMBAT;	// when combat routine starts
+	USHORT PC_END_COMBAT;		// when combat routine ends (don't log during combat)
+};
+extern noxcpuconstants cpuconstants;
+
 struct regsrec
 {
   BYTE a;   // accumulator
@@ -12,8 +25,8 @@ struct regsrec
   WORD sp;  // stack pointer
   BYTE bJammed; // CPU has crashed (NMOS 6502 only)
 };
-
 extern regsrec    regs;
+
 extern unsigned __int64 g_nCumulativeCycles;
 
 void    CpuDestroy ();

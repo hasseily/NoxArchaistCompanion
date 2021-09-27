@@ -98,13 +98,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "NonVolatile.h"
 #include "Game.h"
 
-#define PC_PRINTSTR				0x7aa1		// program counter of PRINT.STR routine (can be overriden before screen output, especially in combat for variables)
-#define PC_CARRIAGE_RETURN1		0x7d5c		// program counter of a CARRIAGE.RETURN that breaks the lines down in specific lengths (16 chars max). Only use it in battle!
-#define PC_CARRIAGE_RETURN2		0x7db4		// program counter of a CARRIAGE.RETURN that finishes a line
-#define PC_COUT					0x7998		// program counter of COUT routine which is the lowest level and prints a single char at A
-#define A_PRINT_RIGHT			0x05		// A register's value for printing to right scroll area (where the conversations are)
-#define PC_INITIATE_COMBAT		0x159f		// when combat routine starts
-#define PC_END_COMBAT			0x15eb		// when combat routine ends (don't log during combat)
 static bool b_in_combat =		false;		// bool for tracking when we're in combat to suppress logging
 static bool b_in_printright =	false;		// bool for tracking when we're actually printing a string on the right scroll area
 #define LOG_IRQ_TAKEN_AND_RTI 0
@@ -131,6 +124,7 @@ static BYTE benchopcode[BENCHOPCODES] = {
 	0xDD,0xED,0xEE
 };
 
+noxcpuconstants cpuconstants;
 regsrec regs;
 unsigned __int64 g_nCumulativeCycles = 0;
 
@@ -317,17 +311,17 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 
 	// This chunk of code extracts the conversation strings in Nox Archaist /////////////////////////////
 	// First, verify that we're in the combat routine by setting the flag
-	if (PC == PC_INITIATE_COMBAT)
+	if (PC == cpuconstants.PC_INITIATE_COMBAT)
 		b_in_combat = true;
-	if (PC == PC_END_COMBAT)
+	if (PC == cpuconstants.PC_END_COMBAT)
 		b_in_combat = false;
 	// Second, see if we just got in the PRINTSTR routine
 	// Always default to not printing
-	if (PC == PC_PRINTSTR)
+	if (PC == cpuconstants.PC_PRINTSTR)
 	{
 		b_in_printright = false;		// reset to default not printing
 		// Third, make sure that we're printing to the right panel
-		if (regs.a == A_PRINT_RIGHT)
+		if (regs.a == cpuconstants.A_PRINT_RIGHT)
 		{
 			// And fourth only print if we're not in combat or we allow combat printing
 			if ((!b_in_combat) | g_nonVolatile.logCombat)
@@ -341,14 +335,14 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 	// So now we know we're in the print routine, we're printing to the right panel, and we're not in combat
 	// (or we are, and the player wants combat logging). Now if we're in the COUT routine, get the high-ascii
 	// character and send it out to the log
-	if ((PC == PC_COUT) && b_in_printright)
+	if ((PC == cpuconstants.PC_COUT) && b_in_printright)
 	{
 		//wsprintf(szDebug, L"Printing char: %X\n", regs.a);
 		//OutputDebugString(szDebug);
 		wchar_t wchar = regs.a - 0x80;	// convert from High ASCII to regular ASCII
 		m_logWindow->AppendLog(wchar, false);
 	}
-	if (((PC == PC_CARRIAGE_RETURN1) || (PC == PC_CARRIAGE_RETURN2)) && b_in_combat && b_in_printright)
+	if (((PC == cpuconstants.PC_CARRIAGE_RETURN1) || (PC == cpuconstants.PC_CARRIAGE_RETURN2)) && b_in_combat && b_in_printright)
 	{
 		m_logWindow->AppendLog('\n', true);
 	}

@@ -34,7 +34,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "RemoteControl/RemoteControlManager.h"
 #include "Emulator/Applewin.h"
 #include <Windows.h>		// to inject the incoming Gamelink inputs into Applewin
-#include "Memory.h"
+#include "Emulator/Memory.h"
+#include "Emulator/CPU.h"
 #include "Emulator/Video.h"
 #include "Emulator/CardManager.h"	// for Gamelink in and out
 #include "Emulator/Speaker.h"		// for Gamelink::In()
@@ -43,9 +44,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "Gamelink.h"
 #include "HAUtils.h"
 #include <unordered_set>
+#include <filesystem>
+#include "nlohmann/json.hpp"
 
+using namespace std;
+namespace fs = std::filesystem;
 
 #define UNKNOWN_VOLUME_NAME "Unknown Volume"
+#define UNKNOWN_VERSION		"0.0.0"
+#define VERSION_STRING_FILE_OFFSET 0x37CA
+#define VERSION_STRING_LENGTH	5
 
  // The GameLink I/O structure
 struct Gamelink_Block {
@@ -60,9 +68,10 @@ Gamelink_Block g_gamelink;
 
 struct Info_HDV {
 	std::string VolumeName;
+	std::string sVersion;
 	UINT32 sig;
 };
-Info_HDV g_infoHdv = { std::string(UNKNOWN_VOLUME_NAME), 0 };
+Info_HDV g_infoHdv = { std::string(UNKNOWN_VOLUME_NAME), std::string(UNKNOWN_VERSION), 0 };
 
 UINT64 iCurrentTicks;						// Used to check the repeat interval
 UINT8 iOldVolumeLevel;
@@ -162,24 +171,83 @@ void RemoteControlManager::setLoadedHDInfo(ImageInfo* imageInfo)
 		std::wstring wsTitle(szTitle);
 		HA::ConvertWStrToStr(&wsTitle, &g_infoHdv.VolumeName);
 		g_infoHdv.sig = 0x58c37f8c;		// Nox Archaist
+
+		// Now find the version string that is at offset 0x37CA of the HDV file
+		BYTE blockWithVersion[HD_BLOCK_SIZE];
+		imageInfo->pImageType->Read(imageInfo, VERSION_STRING_FILE_OFFSET / HD_BLOCK_SIZE, blockWithVersion);
+		g_infoHdv.sVersion = std::string(
+			std::begin(blockWithVersion) + (VERSION_STRING_FILE_OFFSET % HD_BLOCK_SIZE),
+			std::begin(blockWithVersion) + (VERSION_STRING_FILE_OFFSET % HD_BLOCK_SIZE) + VERSION_STRING_LENGTH);
+		HA::ConvertUpperAsciiToStr(g_infoHdv.sVersion);
 	}
 	else {
 		bHardDiskIsLoaded = false;
-		g_infoHdv.VolumeName = "";
+		g_infoHdv.VolumeName = std::string(UNKNOWN_VOLUME_NAME);
+		g_infoHdv.sVersion = std::string(UNKNOWN_VERSION);
 		g_infoHdv.sig = 0;
 	}
+	setVersionCPUConstants();
 	updateRunningProgramInfo();
 }
 
+//===========================================================================
+
+void RemoteControlManager::setVersionCPUConstants()
+{
+	fs::path constantsPath = fs::current_path();
+	constantsPath += "\\Assets\\Versions.json";
+	try
+	{
+		std::ifstream i(constantsPath);
+		nlohmann::json j;
+		i >> j;
+		const char* version = g_infoHdv.sVersion.c_str();
+		nlohmann::json ccv = j[version];
+		if (ccv.empty())
+			return;
+		cpuconstants.A_PRINT_RIGHT			= static_cast<USHORT>(std::stoi(ccv["A_PRINT_RIGHT"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_CARRIAGE_RETURN1	= static_cast<USHORT>(std::stoi(ccv["PC_CARRIAGE_RETURN1"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_CARRIAGE_RETURN2	= static_cast<USHORT>(std::stoi(ccv["PC_CARRIAGE_RETURN2"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_COUT				= static_cast<USHORT>(std::stoi(ccv["PC_COUT"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_END_COMBAT			= static_cast<USHORT>(std::stoi(ccv["PC_END_COMBAT"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_INITIATE_COMBAT		= static_cast<USHORT>(std::stoi(ccv["PC_INITIATE_COMBAT"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_PRINTSTR			= static_cast<USHORT>(std::stoi(ccv["PC_PRINTSTR"].get<std::string>(), nullptr, 0));
+	}
+	catch (nlohmann::detail::parse_error err) {
+		char buf[sizeof(err.what()) + 500];
+		snprintf(buf, 500, "Error parsing version CPU constants: %s\n", err.what());
+		OutputDebugStringA(buf);
+	}
+
+}
 //===========================================================================
 
 void RemoteControlManager::updateRunningProgramInfo()
 {
 	// Updates which program is running
 	// Should only be called on re/boot
+
+	// first, generate a version hash of the version string
+	// 1.1.9 becomes 0x00010109
+	// 1004  becomes 0x01000004
+	UINT32 versionHash = 0;
+	int ix = 0;
+	for (std::string::reverse_iterator i = g_infoHdv.sVersion.rbegin(); i != g_infoHdv.sVersion.rend(); ++i) {
+		if ((*i >= '0') && (*i <= '9'))		// digit between 0 and 9
+		{
+			versionHash += (*i - '0') << 8*ix;	// put each digit as one UINT8 of the UINT
+			ix++;
+		}
+		if (ix == sizeof(versionHash))
+			break;
+	}
+	//wchar_t szDbg[200];
+	//wsprintf(szDbg, L"version: 0x%08x\n", versionHash);
+	//OutputDebugString(szDbg);
+
 	if (bHardDiskIsLoaded)
 	{
-		GameLink::SetProgramInfo(g_infoHdv.VolumeName, 0, 0, 0, g_infoHdv.sig);
+		GameLink::SetProgramInfo(g_infoHdv.VolumeName, 0, 0, versionHash, g_infoHdv.sig);
 	}
 	else
 	{
