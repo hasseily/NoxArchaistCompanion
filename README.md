@@ -21,7 +21,7 @@ Fork on github or contact me for other builds, but the DirectX 12 requirement is
 The companion embeds a heavily modified version of AppleWin 1.29.16, and will automatically load Nox Archaist after you select the Nox .HDV file.
 You can optionally load the profile of your choice (they're located in the Profiles directory), and play the game.
 
-Ther are a number of emulation options, all directly accessible from the main menu bar. Playing at max speed automatically disables sound, and it will generally play so fast that you won't see battle animations. This is highly discouraged unless you've become very adept at the game.
+There are a number of emulation options, all directly accessible from the main menu bar. Playing at max speed automatically disables sound, and it will generally play so fast that you won't see battle animations. This is highly discouraged unless you've become very adept at the game.
 
 ## Profiles
 
@@ -43,4 +43,4 @@ Rikkles, Lebanon, 2021.
 
 
 @rikretro on twitter
-https://github.com/hasseily/AppleWin-Companion
+https://github.com/hasseily/NoxArchaistCompanion
