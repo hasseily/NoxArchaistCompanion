@@ -1349,12 +1349,12 @@
           "template": "Sextant Coordinates: {}, {}",
           "vars": [
             {
-              "memstart": "0x6CF6",
+              "memstart": "0x6CEC",
               "length": 1,
               "type": "int_bigendian"
             },
             {
-              "memstart": "0x6CF7",
+              "memstart": "0x6CED",
               "length": 1,
               "type": "int_bigendian"
             }
