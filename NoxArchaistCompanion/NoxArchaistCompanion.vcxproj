@@ -233,7 +233,6 @@
     <None Include="Profiles\v1.1.9\Nox Archaist - Duo.json" />
     <None Include="Profiles\v1.1.9\Nox Archaist - Extended.json" />
     <None Include="Profiles\v1.1.9\Nox Archaist - Full.json" />
-    <None Include="Profiles\v1.1.9\Nox Archaist - Solo Stream.json" />
     <None Include="Profiles\v1.1.9\Nox Archaist - Solo.json" />
     <None Include="Profiles\v1.1.9\Nox Archaist.json" />
   </ItemGroup>

@@ -283,9 +283,6 @@
     <None Include="Profiles\v1.1.9\Nox Archaist - Full.json">
       <Filter>Profiles\1.1.9</Filter>
     </None>
-    <None Include="Profiles\v1.1.9\Nox Archaist - Solo Stream.json">
-      <Filter>Profiles\1.1.9</Filter>
-    </None>
     <None Include="Profiles\v1.1.9\Nox Archaist - Solo.json">
       <Filter>Profiles\1.1.9</Filter>
     </None>
