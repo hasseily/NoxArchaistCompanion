@@ -229,24 +229,6 @@
   <ItemGroup>
     <None Include="..\README.md" />
     <None Include="packages.config" />
-    <None Include="Profiles\_Empty.json">
-      <Filter>Profiles</Filter>
-    </None>
-    <None Include="Profiles\_Profiles_Schema.json">
-      <Filter>Profiles</Filter>
-    </None>
-    <None Include="Profiles\Nox Archaist - Duo.json">
-      <Filter>Profiles</Filter>
-    </None>
-    <None Include="Profiles\Nox Archaist - Extended.json">
-      <Filter>Profiles</Filter>
-    </None>
-    <None Include="Profiles\Nox Archaist - Solo.json">
-      <Filter>Profiles</Filter>
-    </None>
-    <None Include="Profiles\Nox Archaist.json">
-      <Filter>Profiles</Filter>
-    </None>
     <None Include="Assets\a2-12pt.spritefont">
       <Filter>Assets</Filter>
     </None>
@@ -289,6 +271,36 @@
     <None Include="Assets\Versions.json">
       <Filter>Assets</Filter>
     </None>
+    <None Include="Profiles\v1.1.9\Nox Archaist.json">
+      <Filter>Profiles\1.1.9</Filter>
+    </None>
+    <None Include="Profiles\v1.1.9\Nox Archaist - Duo.json">
+      <Filter>Profiles\1.1.9</Filter>
+    </None>
+    <None Include="Profiles\v1.1.9\Nox Archaist - Extended.json">
+      <Filter>Profiles\1.1.9</Filter>
+    </None>
+    <None Include="Profiles\v1.1.9\Nox Archaist - Full.json">
+      <Filter>Profiles\1.1.9</Filter>
+    </None>
+    <None Include="Profiles\v1.1.9\Nox Archaist - Solo Stream.json">
+      <Filter>Profiles\1.1.9</Filter>
+    </None>
+    <None Include="Profiles\v1.1.9\Nox Archaist - Solo.json">
+      <Filter>Profiles\1.1.9</Filter>
+    </None>
+    <None Include="Profiles\v1.1.4\Nox Archaist.json">
+      <Filter>Profiles\1.1.4</Filter>
+    </None>
+    <None Include="Profiles\v1.1.4\Nox Archaist - Duo.json">
+      <Filter>Profiles\1.1.4</Filter>
+    </None>
+    <None Include="Profiles\v1.1.4\Nox Archaist - Extended.json">
+      <Filter>Profiles\1.1.4</Filter>
+    </None>
+    <None Include="Profiles\v1.1.4\Nox Archaist - Solo.json">
+      <Filter>Profiles\1.1.4</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Profiles">
@@ -326,6 +338,12 @@
     </Filter>
     <Filter Include="Profiles\Grid Cartographer Profiles">
       <UniqueIdentifier>{b84bfe9f-2303-480a-b334-9bc7c665aee7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Profiles\1.1.4">
+      <UniqueIdentifier>{8b014f5d-867d-45a2-9138-22a55a09f448}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Profiles\1.1.9">
+      <UniqueIdentifier>{dd60f26b-8c5e-45fb-ad4c-c2a8e04291cc}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

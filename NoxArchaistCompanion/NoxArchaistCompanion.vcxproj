@@ -226,24 +226,16 @@
     <None Include="Emulator\Resources\Parallel.rom" />
     <None Include="Emulator\Resources\TKClock.rom" />
     <None Include="packages.config" />
-    <None Include="Profiles\Nox Archaist - Duo.json">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Profiles\Nox Archaist - Extended.json">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Profiles\Nox Archaist - Solo.json">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Profiles\Nox Archaist.json">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Profiles\_Empty.json">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Profiles\_Profiles_Schema.json">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
+    <None Include="Profiles\v1.1.4\Nox Archaist - Duo.json" />
+    <None Include="Profiles\v1.1.4\Nox Archaist - Extended.json" />
+    <None Include="Profiles\v1.1.4\Nox Archaist - Solo.json" />
+    <None Include="Profiles\v1.1.4\Nox Archaist.json" />
+    <None Include="Profiles\v1.1.9\Nox Archaist - Duo.json" />
+    <None Include="Profiles\v1.1.9\Nox Archaist - Extended.json" />
+    <None Include="Profiles\v1.1.9\Nox Archaist - Full.json" />
+    <None Include="Profiles\v1.1.9\Nox Archaist - Solo Stream.json" />
+    <None Include="Profiles\v1.1.9\Nox Archaist - Solo.json" />
+    <None Include="Profiles\v1.1.9\Nox Archaist.json" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Assets\PixelShader.hlsl">
@@ -273,7 +265,7 @@
   </Target>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties Profiles_4_3Profiles_3Schema_1json__JsonSchema="" Profiles_4Nox_x0020_Archaist_x0020_-_x0020_Extended_1json__JsonSchema="_Profiles_Schema.json" />
+      <UserProperties />
     </VisualStudio>
   </ProjectExtensions>
 </Project>
