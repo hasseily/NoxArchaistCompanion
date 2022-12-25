@@ -75,6 +75,8 @@ bool		g_bDisableDirectSound = false;
 bool		g_bDisableDirectSoundMockingboard = false;
 int			g_nMemoryClearType = MIP_FF_FF_00_00; // Note: -1 = random MIP in Memory.cpp MemReset()
 
+const UINT g_nExecutionPeriodUsec = 1000;		// 1ms
+
 SynchronousEventManager g_SynchronousEventMgr;
 
 //---------------------------------------------------------------------------
@@ -141,8 +143,7 @@ void ContinueExecution(void)
 	_ASSERT(g_nAppMode == AppMode_e::MODE_RUNNING);
 
 	const double fUsecPerSec = 1.e6;
-	const UINT nExecutionPeriodUsec = 1000;		// 1ms
-	const double fExecutionPeriodClks = g_fCurrentCLK6502 * ((double)nExecutionPeriodUsec / fUsecPerSec);
+	const double fExecutionPeriodClks = g_fCurrentCLK6502 * ((double)g_nExecutionPeriodUsec / fUsecPerSec);
 
 	const bool bWasFullSpeed = g_bFullSpeed;
 	g_bFullSpeed = (g_dwSpeed == SPEED_MAX);
@@ -172,7 +173,7 @@ void ContinueExecution(void)
 			// Don't call Spkr_Demute()
 			Spkr_Demute();
 			MB_Demute();
-			SysClk_StartTimerUsec(nExecutionPeriodUsec);
+			SysClk_StartTimerUsec(g_nExecutionPeriodUsec);
 
 			// Switch to higher priority, eg. for audio (BUG #015394)
 			SetPriorityAboveNormal();
@@ -192,7 +193,7 @@ void ContinueExecution(void)
 	const DWORD uActualCyclesExecuted = CpuExecute(uCyclesToExecute, bVideoUpdate);
 	g_dwCyclesThisFrame += uActualCyclesExecuted;
 
-	JoyUpdateButtonLatch(nExecutionPeriodUsec);	// Button latch time is independent of CPU clock frequency
+	JoyUpdateButtonLatch(g_nExecutionPeriodUsec);	// Button latch time is independent of CPU clock frequency
 	MB_PeriodicUpdate(uActualCyclesExecuted);
 
 	//
@@ -372,6 +373,9 @@ void EmulatorOneTimeInitialization(HWND window)
 	MB_Reset();
 	g_RemoteControlMgr.setRemoteControlEnabled(true);	// turn it on by default, so we don't have to reboot to switch it on or off
 	g_RemoteControlMgr.setTrackOnlyEnabled(false);
+
+	SysClk_StartTimerUsec(g_nExecutionPeriodUsec);
+	SetPriorityAboveNormal();
 }
 
 UINT CalculateSpkrVolumeLevel(UINT nonVolatileVolume)

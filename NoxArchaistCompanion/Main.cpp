@@ -564,7 +564,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			UpdateMenuBarStatus(hWnd);
 			break;
 		case ID_SPEED_3:
-			SetCurrentCLK6502();
 			g_nonVolatile.speed = 3;
 			g_nonVolatile.SaveToDisk();
 			UpdateMenuBarStatus(hWnd);
