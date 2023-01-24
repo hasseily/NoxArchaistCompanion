@@ -23,6 +23,7 @@ enum class EmulatorLayout
 
 extern NonVolatile g_nonVolatile;
 static std::shared_ptr<LogWindow>m_logWindow;
+extern int g_debugLogInstructions;  // Tapping "End" key logs the next g_debugLogInstructions instructions
 
 // A basic game implementation that creates a D3D12 device and
 // provides a game loop.

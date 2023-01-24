@@ -33,6 +33,7 @@ static std::vector<std::unique_ptr<SpriteFont>> m_spriteFonts;
 static std::unique_ptr<PrimitiveBatch<VertexPositionColor>> m_primitiveBatch;
 std::unique_ptr<BasicEffect> m_lineEffect;
 AppMode_e m_previousAppMode = AppMode_e::MODE_UNKNOWN;
+Keyboard::KeyboardStateTracker kbTracker;
 
 static std::wstring last_logged_line;
 static UINT64 tickOfLastRender = 0;
@@ -44,6 +45,7 @@ static RECT m_cachedClientRect;
 UINT64	g_debug_video_field = 0;
 UINT64	g_debug_video_data = 0;
 NonVolatile g_nonVolatile;
+int g_debugLogInstructions = 0;    // Tapping "End" key logs the next 100,000 instructions
 
 Game::Game() noexcept(false)
 {
@@ -208,11 +210,19 @@ void Game::Update(DX::StepTimer const& timer)
         }
     }
     auto kb = m_keyboard->GetState();
+    kbTracker.Update(kb);
     // TODO: Should we pass the keystrokes back to AppleWin here?
     if (kb.Escape)
     {
         // Do something when escape or other keys pressed
     }
+
+	// Poor man's 6502 instructions history
+    // Press the END key to log the next 100000 instructions
+	if (kbTracker.pressed.End)
+	{
+		g_debugLogInstructions = 100000;
+	}
 
     PIXEndEvent();
 }
@@ -398,11 +408,13 @@ void Game::OnDeactivated()
 void Game::OnSuspending()
 {
     shouldRender = false;
+	kbTracker.Reset();
 }
 
 void Game::OnResuming()
 {
     m_timer.ResetElapsedTime();
+	kbTracker.Reset();
     shouldRender = true;
 }
 
