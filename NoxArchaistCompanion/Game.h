@@ -65,6 +65,8 @@ public:
     void MenuShowLogWindow();
 	void MenuToggleLogWindow();
 
+	void SaveLogLine(const char* logLine, bool flush = false);	// adds a line to a scrolling log on screen
+
     // Other methods
     D3D12_RESOURCE_DESC ChooseTexture();
     void SetVideoLayout(EmulatorLayout layout);

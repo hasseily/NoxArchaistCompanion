@@ -43,11 +43,8 @@ int m_initialWindowWidth = 0;
 int m_initialWindowHeight = 0;
 
 
-namespace
-{
-	std::unique_ptr<Game> g_game;
-	std::shared_ptr<LogWindow> g_logW;
-}
+std::unique_ptr<Game> g_game;
+std::shared_ptr<LogWindow> g_logW;
 
 void ExitGame() noexcept;
 
