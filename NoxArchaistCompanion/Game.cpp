@@ -230,7 +230,7 @@ void Game::Update(DX::StepTimer const& timer)
     }
     if (kbTracker.pressed.Enter && g_shouldDebugLog)
     {
-		g_debugLogInstructions = 1000000;
+		g_debugLogInstructions = 500000;
         g_shouldDebugLog = false;
 	}
 

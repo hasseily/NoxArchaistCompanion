@@ -30,7 +30,7 @@ extern std::unique_ptr<Game> g_game;
 
 static DWORD Cpu65C02(DWORD uTotalCycles, const bool bVideoUpdate)
 {
-	WORD addr;
+	WORD addr = 0;
 	BOOL flagc; // must always be 0 or 1, no other values allowed
 	BOOL flagn; // must always be 0 or 0x80.
 	BOOL flagv; // any value allowed
@@ -47,11 +47,17 @@ static DWORD Cpu65C02(DWORD uTotalCycles, const bool bVideoUpdate)
 		UINT uExtraCycles = 0;
 		BYTE iOpcode;
 
+		auto _origPC = regs.pc;
+		auto _origSP = regs.sp;
+		auto _origA = regs.a;
+		auto _origX = regs.x;
+		auto _origY = regs.y;
+		int valsp = *(mem + _origSP + 1);	// stack pointer value before the instruction
+
 		// NTSC_BEGIN
 		ULONG uPreviousCycles = uExecutedCycles;
 		// NTSC_END
 
-		WORD _origPC = regs.pc;
 		HEATMAP_X(regs.pc);
 		Fetch(iOpcode, uExecutedCycles);
 
@@ -580,20 +586,41 @@ static DWORD Cpu65C02(DWORD uTotalCycles, const bool bVideoUpdate)
 			case 0xFF: _opStr = "NOP"; break;
 			}
 
-			char _buf[300];
-			int val4pre = 0;
-			int val4post = 0;
+			char _buf[500];
 			int val2 = *(mem + addr);
-			if (addr > 0)
-				val4pre = val2 * 0x100 + *(mem + addr - 1);
+			int val4pre = val2;		// default when underflow
+			int val4post = val2;	// default when overflow
+			int valval4post = val4post;	// the dereferenced value from val4post
+			int valval4post2 = 0;		// the 2 byte value of dereferenced value from val4post
+
+			if ((addr & 0xF000) == 0xC000)	// IOREAD or IOWRITE
+			{
+				sprintf_s(_buf, 500, "%04X: %s %04X - A:%02X X:%02X Y:%02X - SP:%03X - h%02X (%03d) - I/O OPERATION",
+					_origPC, _opStr.c_str(),
+					addr, _origA, _origX, _origY, _origSP, valsp, valsp);
+			}
 			else
-				val4pre = val2;
-			val4post = *(mem + addr + 1) * 0x100 + val2;	// TODO could overflow...
-			sprintf_s(_buf, 300, "%04X: %s %02X %02X %02X - %04X - h%02X (%03d) PRE: h%04X (%05d) POST: h%04X (%05d)", _origPC, _opStr.c_str(),
-				regs.a, regs.x, regs.y, addr, val2, val2, val4pre, val4pre, val4post, val4post);
+			{
+				if (addr > 0)	// no underflow
+					val4pre = val2 * 0x100 + *(mem + addr - 1);
+				if (addr < 0xffff)
+				{
+					val4post = *(mem + addr + 1) * 0x100 + val2;
+					valval4post = *(mem + val4post);
+					valval4post2 = *(mem + val4post + 1) * 0x100 + valval4post;
+				}
+				sprintf_s(_buf, 500, "%04X: %s %02X%02X - A:%02X X:%02X Y:%02X - SP:%03X - h%02X (%03d) - ADDR:%04X - h%02X (%03d) PRE: h%04X (%05d) POST: h%04X (%05d) -> h%02X (%03d) h%04X (%05d)",
+					_origPC, _opStr.c_str(),
+					*(mem + _origPC + 1), *(mem + _origPC + 2),
+					_origA, _origX, _origY, _origSP, valsp, valsp, addr, val2, val2, val4pre, val4pre, val4post, val4post, valval4post, valval4post, valval4post2, valval4post2);
+			}
 
 			g_game->SaveLogLine(_buf);
 			// OutputDebugStringA(_buf);
+			if (g_debugLogInstructions == 0)
+			{
+				int useless = 0;
+			}
 		}
 
 		CheckSynchronousInterruptSources(uExecutedCycles - uPreviousCycles, uExecutedCycles);
