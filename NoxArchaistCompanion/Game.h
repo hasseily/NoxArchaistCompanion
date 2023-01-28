@@ -25,6 +25,9 @@ extern NonVolatile g_nonVolatile;
 static std::shared_ptr<LogWindow>m_logWindow;
 extern int g_debugLogInstructions;  // Tapping "End" key logs the next g_debugLogInstructions instructions
 
+static bool b_in_combat = false;		// bool for tracking when we're in combat to suppress logging
+static bool b_in_printright = false;		// bool for tracking when we're actually printing a string on the right scroll area
+
 // A basic game implementation that creates a D3D12 device and
 // provides a game loop.
 class Game final : public DX::IDeviceNotify
