@@ -16,15 +16,41 @@
 		"A_PRINT_RIGHT": "0x05",
 		"PC_INITIATE_COMBAT": "0x159f",
 		"PC_END_COMBAT": "0x15f1"
+	},
+	"1.3.1": {
+		"PC_PRINTSTR": "0x7b0c",
+		"PC_CARRIAGE_RETURN1": "0x7dcd",
+		"PC_CARRIAGE_RETURN2": "0x7e25",
+		"PC_COUT": "0x7a03",
+		"A_PRINT_RIGHT": "0x05",
+		"PC_INITIATE_COMBAT": "0x159c",
+		"PC_END_COMBAT": "0x15ee"
 	}
 }
 
 /*
-#define PC_PRINTSTR						0x7aa1		// program counter of PRINT.STR routine (can be overriden before screen output, especially in combat for variables)
-#define PC_CARRIAGE_RETURN1		0x7d5c		// program counter of a CARRIAGE.RETURN that breaks the lines down in specific lengths (16 chars max). Only use it in battle!
-#define PC_CARRIAGE_RETURN2		0x7db4		// program counter of a CARRIAGE.RETURN that finishes a line
-#define PC_COUT								0x7998		// program counter of COUT routine which is the lowest level and prints a single char at A
+Comment should be always above the slated line
+	File routines_text.asm
+		Line 741 (0x7a03)  NOXCOMPANION.PC_COUT
+		Line 1454 (0x7b0c) NOXCOMPANION.PC_PRINTSTR
+		Line 2853 (0x7dcd) NOXCOMPANION.PC_CARRIAGE_RETURN1
+		Line 2949 (0x7e25) NOXCOMPANION.PC_CARRIAGE_RETURN2
+	File general_subroutines.asm
+		Line 830 (0x159c)  NOXCOMPANION.PC_INITIATE_COMBAT
+		Line 977 (0x15ee)  NOXCOMPANION.PC_END_COMBAT
+
+
+#define PC_PRINTSTR						0x7aa1		// .PRINT.STR - program counter of PRINT.STR routine (can be overriden before screen output, especially in combat for variables)
+	// "PRINT.STR ;======OUTPUT ASCII STRING TO VIDEO DISPLAY, NO CARRIAGE RETURN====="
+#define PC_CARRIAGE_RETURN1		0x7d5c		// .NEXT_LINE - program counter of a CARRIAGE.RETURN that breaks the lines down in specific lengths (16 chars max). Only use it in battle!
+	// ";RESET CURSOR TO START OF NEXT LINE"
+#define PC_CARRIAGE_RETURN2		0x7db4		// .PROCESS.CARRIAGE.RETURN - program counter of a CARRIAGE.RETURN that finishes a line
+	// ";ADVANCE TO NEXT LINE, RESET X-AXIS (VTAB)"
+#define PC_COUT								0x7998		// COUT - program counter of COUT routine which is the lowest level and prints a single char at A
+	// "COUT ;========OUTPUT 1 CHARACTER TO DEFAULT OUTPUT DEVICE====="
 #define A_PRINT_RIGHT					0x05			// A register's value for printing to right scroll area (where the conversations are)
-#define PC_INITIATE_COMBAT		0x159f		// when combat routine starts
-#define PC_END_COMBAT					0x15eb		// when combat routine ends (don't log during combat)
+#define PC_INITIATE_COMBAT		0x159f		// INITIATE.COMBAT - when combat routine starts
+	// ";LOAD COMBAT FILE INTO THE MAIN MEMORY SWAP SPACE"
+#define PC_END_COMBAT					0x15eb		// when combat routine ends (don't log during combat). After JSR COMBAT.EXIT
+	// It is the instruction after ";CALL COMBAT EXIT"
 */
