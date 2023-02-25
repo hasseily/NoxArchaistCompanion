@@ -356,7 +356,4 @@
       <Filter>Profiles\Grid Cartographer Profiles</Filter>
     </Xml>
   </ItemGroup>
-  <ItemGroup>
-    <Library Include="..\..\..\DirectXTK12-jun2022\Bin\Desktop_2019_Win10\x64\Release\DirectXTK12.lib" />
-  </ItemGroup>
 </Project>
