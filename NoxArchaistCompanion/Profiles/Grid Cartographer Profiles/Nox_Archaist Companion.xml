@@ -6,19 +6,33 @@
 		short="NOX ARCHAIST COMPANION"
 		titlelo="Nox Archaist Companion"
 		beta="false"
-		rev="1140"
+		rev="1300"
 	/>
 
 	<author><![CDATA[Rikkles]]></author>
 
 	<dsub>
-
     <!-- Nox Archaist Companion running Nox Archaist HDV version 1.1.4 -->
     <detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010104" ph1="0" ph0="0">
+      <!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
+      <peek bytes="2af9 0000 267d 6cf6 6cf7" />
+    </detect>
+    <!-- Nox Archaist Companion running Nox Archaist HDV version 1.1.9 -->
+    <detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010109" ph1="0" ph0="0">
+      <!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
+      <peek bytes="2af9 0000 267d 6cec 6ced" />
+    </detect>
+		<!-- Nox Archaist Companion running Nox Archaist HDV version 1.3.0 -->
+		<detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010300" ph1="0" ph0="0">
 			<!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
-			<peek bytes="2af9 0000 267d 6cf6 6cf7" />
+			<peek bytes="2af9 0000 267d 6ceb 6cec" />
 		</detect>
-
+    <!-- Nox Archaist Companion running Nox Archaist HDV version 1.3.1 -->
+    <detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010301" ph1="0" ph0="0">
+      <!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
+      <peek bytes="2af9 0000 267d 6ceb 6cec" />
+    </detect>
+    
 	</dsub>
 
 	<regions>
@@ -79,6 +93,9 @@
 		<region id="52" name="Ruination" ground_floor="true" start_floor="B2" auto_create="false" >
 			<grid width="32" height="64" tilex="1" tiley="1" origin_tl="true" />
 		</region>
+    <region id="53" name="Caverns" ground_floor="true" start_floor="B1" auto_create="false" >
+      <grid width="16" height="16" tilex="16" tiley="16" repeating="false" origin_tl="true" />
+    </region>
 		<region id="101" name="Grymvi's Keep" ground_floor="true" start_floor="G" auto_create="false" >
 			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
 		</region>
@@ -95,6 +112,9 @@
 			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
 		</region>
 		<region id="106" name="Veylan Keep" ground_floor="true" start_floor="G" auto_create="false" >
+			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
+		</region>
+    <region id="107" name="Thunderbolt Keep" ground_floor="true" start_floor="G" auto_create="false" >
 			<grid width="42" height="42" tilex="1" tiley="1" origin_tl="true" />
 		</region>
 		<region id="666" name="Shadow Plane" ground_floor="true" start_floor="G" auto_create="false" >
@@ -472,6 +492,12 @@
 			<move x="-126" y="174" />
 		</packetview>
 		
+    <!-- Caverns -->
+		<packetview extends="Standard" region="53">
+			<check offset="0" length="1" value="69" />
+ 			<const_floor>B1</const_floor>
+		</packetview>
+        
 		<!-- Grymvi -->
 		<packetview extends="Standard" region="101">
 			<check offset="0" length="1" value="3e"/>
@@ -602,6 +628,24 @@
 		</packetview>
 		<packetview extends="Standard" region="106">
 			<check offset="0" length="1" value="13"/>
+ 			<const_floor>B1</const_floor>
+		</packetview>
+
+    		<!-- Thunderbolt -->
+		<packetview extends="Standard" region="107">
+			<check offset="0" length="1" value="50"/>
+ 			<const_floor>G</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="107">
+			<check offset="0" length="1" value="51"/>
+ 			<const_floor>F1</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="107">
+			<check offset="0" length="1" value="52"/>
+ 			<const_floor>F2</const_floor>
+		</packetview>
+		<packetview extends="Standard" region="107">
+			<check offset="0" length="1" value="4f"/>
  			<const_floor>B1</const_floor>
 		</packetview>
 
