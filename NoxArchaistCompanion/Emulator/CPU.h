@@ -5,13 +5,14 @@
 
 struct noxcpuconstants
 {
-	USHORT PC_PRINTSTR;			// program counter of PRINT.STR routine (can be overriden before screen output, especially in combat for variables)
-	USHORT PC_CARRIAGE_RETURN1;	// program counter of a CARRIAGE.RETURN that breaks the lines down in specific lengths (16 chars max). Only use it in battle!
-	USHORT PC_CARRIAGE_RETURN2;	// program counter of a CARRIAGE.RETURN that finishes a line
-	USHORT PC_COUT;				// program counter of COUT routine which is the lowest level and prints a single char at A
-	USHORT A_PRINT_RIGHT;		// A register's value for printing to right scroll area (where the conversations are)
-	USHORT PC_INITIATE_COMBAT;	// when combat routine starts
-	USHORT PC_END_COMBAT;		// when combat routine ends (don't log during combat)
+	UINT MEM_PARTY;			// memory area where party data starts
+	UINT PC_PRINTSTR;			// program counter of PRINT.STR routine (can be overriden before screen output, especially in combat for variables)
+	UINT PC_CARRIAGE_RETURN1;	// program counter of a CARRIAGE.RETURN that breaks the lines down in specific lengths (16 chars max). Only use it in battle!
+	UINT PC_CARRIAGE_RETURN2;	// program counter of a CARRIAGE.RETURN that finishes a line
+	UINT PC_COUT;				// program counter of COUT routine which is the lowest level and prints a single char at A
+	UINT A_PRINT_RIGHT;		// A register's value for printing to right scroll area (where the conversations are)
+	UINT PC_INITIATE_COMBAT;	// when combat routine starts
+	UINT PC_END_COMBAT;		// when combat routine ends (don't log during combat)
 };
 extern noxcpuconstants cpuconstants;
 

@@ -188,7 +188,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			haccel = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATOR1));
 
 			// create the log and hack windows at the start
-			// g_hackW = std::make_unique<HackWindow>(g_hInstance, hwnd);
+			g_hackW = std::make_unique<HackWindow>(g_hInstance, hwnd);
 			g_logW = std::make_unique<LogWindow>(g_hInstance, hwnd);
 
 			SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(g_game.get()));
@@ -201,6 +201,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 
 			g_game->Initialize(hwnd, wi.rcClient.right - wi.rcClient.left, wi.rcClient.bottom - wi.rcClient.top);
+			SetForegroundWindow(hwnd);
 
 			// Game has now loaded the saved/default settings
 			// Update the menu bar with the settings
@@ -213,18 +214,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		{
 			if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 			{
-				if (!g_hackW)
-				{
-					if (haccel && !TranslateAccelerator(
-						hwnd,		// handle to receiving window 
-						haccel,    // handle to active accelerator table 
-						&msg))         // message data 
-					{
-						TranslateMessage(&msg);
-						DispatchMessage(&msg);
-					}
-				}
-				else {
 				if (!g_hackW->IsHackWindowDisplayed() || !IsDialogMessage(g_hackW->hwndHack, &msg))
 				{
 					if (haccel && !TranslateAccelerator(
@@ -236,8 +225,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 						DispatchMessage(&msg);
 					}
 				}
-				}
-
 			}
 			else
 			{
@@ -702,8 +689,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			if (game)
 			{
-				if (!g_hackW)
-					g_hackW = std::make_unique<HackWindow>(g_hInstance, hWnd);
 				game->MenuToggleHackWindow();
 			}
 			break;

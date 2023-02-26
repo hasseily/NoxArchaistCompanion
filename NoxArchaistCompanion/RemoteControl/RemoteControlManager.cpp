@@ -205,13 +205,14 @@ void RemoteControlManager::setVersionCPUConstants()
 		nlohmann::json ccv = j[version];
 		if (ccv.empty())
 			return;
-		cpuconstants.A_PRINT_RIGHT			= static_cast<USHORT>(std::stoi(ccv["A_PRINT_RIGHT"].get<std::string>(), nullptr, 0));
-		cpuconstants.PC_CARRIAGE_RETURN1	= static_cast<USHORT>(std::stoi(ccv["PC_CARRIAGE_RETURN1"].get<std::string>(), nullptr, 0));
-		cpuconstants.PC_CARRIAGE_RETURN2	= static_cast<USHORT>(std::stoi(ccv["PC_CARRIAGE_RETURN2"].get<std::string>(), nullptr, 0));
-		cpuconstants.PC_COUT				= static_cast<USHORT>(std::stoi(ccv["PC_COUT"].get<std::string>(), nullptr, 0));
-		cpuconstants.PC_END_COMBAT			= static_cast<USHORT>(std::stoi(ccv["PC_END_COMBAT"].get<std::string>(), nullptr, 0));
-		cpuconstants.PC_INITIATE_COMBAT		= static_cast<USHORT>(std::stoi(ccv["PC_INITIATE_COMBAT"].get<std::string>(), nullptr, 0));
-		cpuconstants.PC_PRINTSTR			= static_cast<USHORT>(std::stoi(ccv["PC_PRINTSTR"].get<std::string>(), nullptr, 0));
+		cpuconstants.MEM_PARTY				= static_cast<UINT>(std::stoi(ccv["MEM_PARTY"].get<std::string>(), nullptr, 0));
+		cpuconstants.A_PRINT_RIGHT			= static_cast<UINT>(std::stoi(ccv["A_PRINT_RIGHT"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_CARRIAGE_RETURN1	= static_cast<UINT>(std::stoi(ccv["PC_CARRIAGE_RETURN1"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_CARRIAGE_RETURN2	= static_cast<UINT>(std::stoi(ccv["PC_CARRIAGE_RETURN2"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_COUT				= static_cast<UINT>(std::stoi(ccv["PC_COUT"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_END_COMBAT			= static_cast<UINT>(std::stoi(ccv["PC_END_COMBAT"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_INITIATE_COMBAT		= static_cast<UINT>(std::stoi(ccv["PC_INITIATE_COMBAT"].get<std::string>(), nullptr, 0));
+		cpuconstants.PC_PRINTSTR			= static_cast<UINT>(std::stoi(ccv["PC_PRINTSTR"].get<std::string>(), nullptr, 0));
 	}
 	catch (nlohmann::detail::parse_error err) {
 		char buf[sizeof(err.what()) + 500];

@@ -24,19 +24,28 @@
 #define IDB_CHARSET8M                   141
 #define IDC_LOGSTATIC                   1000
 #define IDC_HACK_STATIC_WARN            1001
-#define IDC_COMBO1                      1003
-#define IDC_EDIT1                       1005
-#define IDC_COMBO2                      1006
-#define IDC_EDIT2                       1007
-#define IDC_EDIT3                       1008
-#define IDC_EDIT4                       1009
-#define IDC_EDIT5                       1010
-#define IDC_EDIT6                       1011
+#define IDC_COMBOMEMBER                 1003
+#define IDC_EXP                         1005
+#define IDC_LEVEL                       1006
+#define IDC_MELEE                       1007
+#define IDC_RANGED                      1008
+#define IDC_CRIT                        1009
+#define IDC_DODGE                       1010
+#define IDC_LOCKPICK                    1011
 #define IDC_EDIT7                       1012
+#define IDC_MEMLOC                      1012
 #define IDC_EDIT8                       1013
-#define IDC_BUTTON1                     1014
+#define IDC_MEMNEWVAL                   1013
+#define IDC_BUTTONSETMEM                1014
 #define IDC_EDIT9                       1015
+#define IDC_PICKS                       1015
 #define IDC_EDIT10                      1016
+#define IDC_TORCHES                     1016
+#define IDC_CHECKHEX                    1017
+#define IDC_MEMVAL                      1018
+#define IDC_MEMCURRENTVAL               1018
+#define IDC_BUTTONSETTOOLS              1019
+#define IDC_BUTTONSETMEMBER             1020
 #define ID_FILE_ACTIVATEPROFILE         32771
 #define ID_EMULATOR_PAUSE               32772
 #define ID_EMULATOR_RESET               32773
@@ -94,7 +103,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        143
 #define _APS_NEXT_COMMAND_VALUE         32823
-#define _APS_NEXT_CONTROL_VALUE         1016
+#define _APS_NEXT_CONTROL_VALUE         1020
 #define _APS_NEXT_SYMED_VALUE           111
 #endif
 #endif
