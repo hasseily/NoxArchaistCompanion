@@ -44,12 +44,9 @@ int m_initialWindowWidth = 0;
 int m_initialWindowHeight = 0;
 
 
-namespace
-{
-	std::unique_ptr<Game> g_game;
-	std::shared_ptr<LogWindow> g_logW;
-	std::shared_ptr<HackWindow> g_hackW;
-}
+std::unique_ptr<Game> g_game;
+std::shared_ptr<LogWindow> g_logW;
+std::shared_ptr<HackWindow> g_hackW;
 
 void ExitGame() noexcept;
 
@@ -443,14 +440,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		KeybQueueKeypress(wParam, ASCII);
 		break;
 	case WM_KEYDOWN:	// Send to the applewin emulator
+		Keyboard::ProcessMessage(message, wParam, lParam);
 		KeybQueueKeypress(wParam, NOT_ASCII);
 		break;
 	case WM_KEYUP:
+		Keyboard::ProcessMessage(message, wParam, lParam);
 		break;
 	case WM_SYSKEYUP:
 		Keyboard::ProcessMessage(message, wParam, lParam);
 		break;
 	case WM_SYSKEYDOWN:
+		Keyboard::ProcessMessage(message, wParam, lParam);
 		if (wParam == VK_RETURN && (lParam & 0x60000000) == 0x20000000)
 		{
 			// Implements the classic ALT+ENTER fullscreen toggle

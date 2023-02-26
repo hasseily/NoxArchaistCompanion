@@ -510,4 +510,7 @@ void EmulatorReboot()
 	SpkrReset();
 	SetActiveCpu(GetMainCpu());
 	SoundCore_SetFade(FADE_NONE);
+
+	b_in_combat = false;
+	b_in_printright = false;
 }

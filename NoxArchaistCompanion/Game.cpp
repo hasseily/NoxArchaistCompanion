@@ -34,6 +34,7 @@ static std::vector<std::unique_ptr<SpriteFont>> m_spriteFonts;
 static std::unique_ptr<PrimitiveBatch<VertexPositionColor>> m_primitiveBatch;
 std::unique_ptr<BasicEffect> m_lineEffect;
 AppMode_e m_previousAppMode = AppMode_e::MODE_UNKNOWN;
+Keyboard::KeyboardStateTracker kbTracker;
 
 static std::wstring last_logged_line;
 static UINT64 tickOfLastRender = 0;
@@ -45,6 +46,10 @@ static RECT m_cachedClientRect;
 UINT64	g_debug_video_field = 0;
 UINT64	g_debug_video_data = 0;
 NonVolatile g_nonVolatile;
+int g_debugLogInstructions = 0;    // Tapping "End" and then "Enter" keys logs the next 1,000,000 instructions
+
+static std::vector<std::pair<UINT64, std::string>> m_debugLogList;
+static bool g_shouldDebugLog = false;
 
 Game::Game() noexcept(false)
 {
@@ -72,6 +77,8 @@ Game::~Game()
         m_deviceResources->WaitForGpu();
     }
     GameLink::Term();
+    auto _endText = "\n";
+    SaveLogLine(_endText);
 }
 
 // Initialize the Direct3D resources required to run.
@@ -209,11 +216,28 @@ void Game::Update(DX::StepTimer const& timer)
         }
     }
     auto kb = m_keyboard->GetState();
+    kbTracker.Update(kb);
     // TODO: Should we pass the keystrokes back to AppleWin here?
     if (kb.Escape)
     {
         // Do something when escape or other keys pressed
     }
+
+	// Poor man's 6502 instructions history
+    // Press the END key and then Enter key to log the next 100000 instructions
+    if (kbTracker.pressed.End)
+    {
+        g_shouldDebugLog = true;
+    }
+    if (kbTracker.pressed.Escape && g_shouldDebugLog)   // cancel with ESC
+    {
+		g_shouldDebugLog = false;
+    }
+    if (kbTracker.pressed.Enter && g_shouldDebugLog)
+    {
+		g_debugLogInstructions = 500000;
+        g_shouldDebugLog = false;
+	}
 
     PIXEndEvent();
 }
@@ -256,92 +280,102 @@ void Game::Render()
         tickOfLastRender = m_timer.GetTotalTicks();
 
         // First update the sidebar, it doesn't need to be updated until right before the render
-		m_sbC.UpdateAllSidebarText(&m_sbM);
+        m_sbC.UpdateAllSidebarText(&m_sbM);
 
-		// Prepare the command list to render a new frame.
-		m_deviceResources->Prepare();
-		Clear();
+        // Prepare the command list to render a new frame.
+        m_deviceResources->Prepare();
+        Clear();
 
-		auto commandList = m_deviceResources->GetCommandList();
-		PIXBeginEvent(commandList, PIX_COLOR_DEFAULT, L"Render");
+        auto commandList = m_deviceResources->GetCommandList();
+        PIXBeginEvent(commandList, PIX_COLOR_DEFAULT, L"Render");
 
-		// Drawing video texture
-		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-		commandList->ResourceBarrier(1, &barrier);
-		UpdateSubresources(commandList, m_texture.Get(), g_textureUploadHeap.Get(), 0, 0, 1, &g_textureData);
-		barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		commandList->ResourceBarrier(1, &barrier);
+        // Drawing video texture
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+        commandList->ResourceBarrier(1, &barrier);
+        UpdateSubresources(commandList, m_texture.Get(), g_textureUploadHeap.Get(), 0, 0, 1, &g_textureData);
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        commandList->ResourceBarrier(1, &barrier);
 
-		commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-		commandList->SetPipelineState(m_pipelineState.Get());
+        commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+        commandList->SetPipelineState(m_pipelineState.Get());
 
-		auto heap = m_srvHeap.Get();
-		commandList->SetDescriptorHeaps(1, &heap);
+        auto heap = m_srvHeap.Get();
+        commandList->SetDescriptorHeaps(1, &heap);
 
-		commandList->SetGraphicsRootDescriptorTable(0, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
+        commandList->SetGraphicsRootDescriptorTable(0, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
 
-		// Set necessary state.
-		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-		commandList->IASetIndexBuffer(&m_indexBufferView);
+        // Set necessary state.
+        commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+        commandList->IASetIndexBuffer(&m_indexBufferView);
 
-		// Draw quad.
-		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
-		// End drawing video texture
+        // Draw quad.
+        commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+        // End drawing video texture
 
-		// Drawing text
-		ID3D12DescriptorHeap* heaps[] = { m_resourceDescriptors->Heap() };
-		commandList->SetDescriptorHeaps(static_cast<UINT>(std::size(heaps)), heaps);
+        // Drawing text
+        ID3D12DescriptorHeap* heaps[] = { m_resourceDescriptors->Heap() };
+        commandList->SetDescriptorHeaps(static_cast<UINT>(std::size(heaps)), heaps);
 
-		m_spriteBatch->Begin(commandList);
+        m_spriteBatch->Begin(commandList);
 
-		m_lineEffect->Apply(commandList);
-		m_primitiveBatch->Begin(commandList);
-		for each (auto sb in m_sbM.sidebars)
-		{
-			// Draw each block's text
-			for each (auto b in sb.blocks)
-			{
-				m_spriteFonts.at((int)b->fontId)->DrawString(m_spriteBatch.get(), b->text.c_str(),
-					b->position * m_clientFrameScale, b->color, 0.f, m_vector2ero, m_clientFrameScale);
-			}
+        m_lineEffect->Apply(commandList);
+        m_primitiveBatch->Begin(commandList);
+        for each (auto sb in m_sbM.sidebars)
+        {
+            // Draw each block's text
+            for each (auto b in sb.blocks)
+            {
+                m_spriteFonts.at((int)b->fontId)->DrawString(m_spriteBatch.get(), b->text.c_str(),
+                    b->position * m_clientFrameScale, b->color, 0.f, m_vector2ero, m_clientFrameScale);
+            }
 
-			// Now draw a delimiter line for the block
-			// if the block is not the first block of its type
-			// (having the gamelink video boxed in by lines is not pretty)
-			XMFLOAT3 lstart = XMFLOAT3(sb.position.x, sb.position.y, 0);
-			XMFLOAT3 lend = XMFLOAT3(sb.position.x, sb.position.y, 0);
-			switch (sb.type)
-			{
-			case SidebarTypes::Right:
-				lend.y += GetFrameBufferHeight();
-				break;
-			case SidebarTypes::Bottom:
-				lend.x += GetFrameBufferWidth();
-				break;
-			default:
-				break;
-			}
-			m_primitiveBatch->DrawLine(
-				VertexPositionColor(lstart * m_clientFrameScale, static_cast<XMFLOAT4>(Colors::DimGray)),
-				VertexPositionColor(lend * m_clientFrameScale, static_cast<XMFLOAT4>(Colors::Black))
-			);
-		}
-		m_primitiveBatch->End();
+            // Now draw a delimiter line for the block
+            // if the block is not the first block of its type
+            // (having the gamelink video boxed in by lines is not pretty)
+            XMFLOAT3 lstart = XMFLOAT3(sb.position.x, sb.position.y, 0);
+            XMFLOAT3 lend = XMFLOAT3(sb.position.x, sb.position.y, 0);
+            switch (sb.type)
+            {
+            case SidebarTypes::Right:
+                lend.y += GetFrameBufferHeight();
+                break;
+            case SidebarTypes::Bottom:
+                lend.x += GetFrameBufferWidth();
+                break;
+            default:
+                break;
+            }
+            m_primitiveBatch->DrawLine(
+                VertexPositionColor(lstart * m_clientFrameScale, static_cast<XMFLOAT4>(Colors::DimGray)),
+                VertexPositionColor(lend * m_clientFrameScale, static_cast<XMFLOAT4>(Colors::Black))
+            );
+        }
+        m_primitiveBatch->End();
 
 #ifdef DEBUG
-    // TEMPORARY
-    // TODO: REMOVE
-    char pcbuf[4000];
-//    snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %I64x : %I64x", g_debug_video_field, g_debug_video_data);
-	snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %.f usec/frame - Time: %.3f", 1000000.f / m_timer.GetFramesPerSecond(), m_timer.GetTotalSeconds());
-	m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
-		{ 11.f, 11.f }, Colors::DimGray, 0.f, m_vector2ero, m_clientFrameScale);
-    m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
-        { 10.f, 10.f }, Colors::OrangeRed, 0.f, m_vector2ero, m_clientFrameScale);
-
+        // TEMPORARY
+        // TODO: REMOVE
+        {
+            char pcbuf[4000];
+            //    snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %I64x : %I64x", g_debug_video_field, g_debug_video_data);
+            snprintf(pcbuf, sizeof(pcbuf), "DEBUG: %.f usec/frame - Time: %.3f", 1000000.f / m_timer.GetFramesPerSecond(), m_timer.GetTotalSeconds());
+            m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
+                { 11.f, 11.f }, Colors::DimGray, 0.f, m_vector2ero, m_clientFrameScale);
+            m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
+                { 10.f, 10.f }, Colors::OrangeRed, 0.f, m_vector2ero, m_clientFrameScale);
+        }
 #endif // _DEBUG
 
+        if (g_shouldDebugLog)
+        {
+			char pcbuf[4000];
+			snprintf(pcbuf, sizeof(pcbuf), "Press ENTER to log lines to output.asm\nPress ESC to cancel");
+			m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
+				{ 11.f, 26.f }, Colors::DimGray, 0.f, m_vector2ero, m_clientFrameScale);
+			m_spriteFonts.at(0)->DrawString(m_spriteBatch.get(), pcbuf,
+				{ 10.f, 25.f }, Colors::AliceBlue, 0.f, m_vector2ero, m_clientFrameScale);
+        }
 		m_spriteBatch->End();
 		// End drawing text
 
@@ -399,11 +433,13 @@ void Game::OnDeactivated()
 void Game::OnSuspending()
 {
     shouldRender = false;
+	kbTracker.Reset();
 }
 
 void Game::OnResuming()
 {
     m_timer.ResetElapsedTime();
+	kbTracker.Reset();
     shouldRender = true;
 }
 
@@ -896,5 +932,35 @@ void Game::OnDeviceRestored()
     CreateDeviceDependentResources();
 
     CreateWindowSizeDependentResources();
+}
+#pragma endregion
+
+#pragma region Others
+void Game::SaveLogLine(const char* logLine, bool flush)
+{
+    if (g_debugLogInstructions == 0)
+        return;
+	using std::cout; using std::ofstream;
+	using std::endl; using std::string;
+	using std::fstream;
+
+    m_debugLogList.push_back(std::pair(m_timer.GetTotalTicks(), std::string(logLine)));
+
+    if (flush || (m_debugLogList.size() % 1000 == 0))
+    {
+		string filename("output.asm");
+		fstream file_out;
+		file_out.open(filename, std::ios_base::app);
+		if (!file_out.is_open()) {
+			cout << "failed to open " << filename << '\n';
+            return;
+		}
+        for each (auto line in m_debugLogList)
+        {
+            file_out << line.second << endl;
+        }
+        m_debugLogList.clear();
+    }
+
 }
 #pragma endregion

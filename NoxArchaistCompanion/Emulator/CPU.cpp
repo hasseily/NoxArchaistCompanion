@@ -98,8 +98,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "NonVolatile.h"
 #include "Game.h"
 
-static bool b_in_combat =		false;		// bool for tracking when we're in combat to suppress logging
-static bool b_in_printright =	false;		// bool for tracking when we're actually printing a string on the right scroll area
 #define LOG_IRQ_TAKEN_AND_RTI 0
 
 // 6502 Accumulator Bit Flags

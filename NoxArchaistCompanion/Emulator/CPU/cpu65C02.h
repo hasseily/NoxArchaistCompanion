@@ -23,9 +23,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 //===========================================================================
 
+#include <iostream>
+#include <fstream>
+#include "Game.h"
+extern std::unique_ptr<Game> g_game;
+
 static DWORD Cpu65C02(DWORD uTotalCycles, const bool bVideoUpdate)
 {
-	WORD addr;
+	WORD addr = 0;
 	BOOL flagc; // must always be 0 or 1, no other values allowed
 	BOOL flagn; // must always be 0 or 0x80.
 	BOOL flagv; // any value allowed
@@ -42,10 +47,16 @@ static DWORD Cpu65C02(DWORD uTotalCycles, const bool bVideoUpdate)
 		UINT uExtraCycles = 0;
 		BYTE iOpcode;
 
+		auto _origPC = regs.pc;
+		auto _origSP = regs.sp;
+		auto _origA = regs.a;
+		auto _origX = regs.x;
+		auto _origY = regs.y;
+		int valsp = *(mem + _origSP + 1);	// stack pointer value before the instruction
+
 		// NTSC_BEGIN
 		ULONG uPreviousCycles = uExecutedCycles;
 		// NTSC_END
-
 
 		HEATMAP_X(regs.pc);
 		Fetch(iOpcode, uExecutedCycles);
@@ -311,6 +322,306 @@ static DWORD Cpu65C02(DWORD uTotalCycles, const bool bVideoUpdate)
 		case 0xFF:            NOP  CYC(1)  break;	// invalid
 		}
 
+		if (g_debugLogInstructions > 0)
+		{
+			--g_debugLogInstructions;
+			std::string _opStr;
+			switch (iOpcode)
+			{
+			case 0x00: _opStr = "BRK"; break;
+			case 0x01: _opStr = "ORA"; break;
+			case 0x02: _opStr = "NOP"; break;
+			case 0x03: _opStr = "NOP"; break;
+			case 0x04: _opStr = "TSB"; break;
+			case 0x05: _opStr = "ORA"; break;
+			case 0x06: _opStr = "ASL"; break;
+			case 0x07: _opStr = "NOP"; break;
+			case 0x08: _opStr = "PHP"; break;
+			case 0x09: _opStr = "ORA"; break;
+			case 0x0A: _opStr = "asl"; break;
+			case 0x0B: _opStr = "NOP"; break;
+			case 0x0C: _opStr = "TSB"; break;
+			case 0x0D: _opStr = "ORA"; break;
+			case 0x0E: _opStr = "ASL"; break;
+			case 0x0F: _opStr = "NOP"; break;
+			case 0x10: _opStr = "BPL"; break;
+			case 0x11: _opStr = "ORA"; break;
+			case 0x12: _opStr = "ORA"; break;
+			case 0x13: _opStr = "NOP"; break;
+			case 0x14: _opStr = "TRB"; break;
+			case 0x15: _opStr = "ORA"; break;
+			case 0x16: _opStr = "ASL"; break;
+			case 0x17: _opStr = "NOP"; break;
+			case 0x18: _opStr = "CLC"; break;
+			case 0x19: _opStr = "ORA"; break;
+			case 0x1A: _opStr = "INA"; break;
+			case 0x1B: _opStr = "NOP"; break;
+			case 0x1C: _opStr = "TRB"; break;
+			case 0x1D: _opStr = "ORA"; break;
+			case 0x1E: _opStr = "ASL"; break;
+			case 0x1F: _opStr = "NOP"; break;
+			case 0x20: _opStr = "JSR"; break;
+			case 0x21: _opStr = "AND"; break;
+			case 0x22: _opStr = "NOP"; break;
+			case 0x23: _opStr = "NOP"; break;
+			case 0x24: _opStr = "BIT"; break;
+			case 0x25: _opStr = "AND"; break;
+			case 0x26: _opStr = "ROL"; break;
+			case 0x27: _opStr = "NOP"; break;
+			case 0x28: _opStr = "PLP"; break;
+			case 0x29: _opStr = "AND"; break;
+			case 0x2A: _opStr = "rol"; break;
+			case 0x2B: _opStr = "NOP"; break;
+			case 0x2C: _opStr = "BIT"; break;
+			case 0x2D: _opStr = "AND"; break;
+			case 0x2E: _opStr = "ROL"; break;
+			case 0x2F: _opStr = "NOP"; break;
+			case 0x30: _opStr = "BMI"; break;
+			case 0x31: _opStr = "AND"; break;
+			case 0x32: _opStr = "AND"; break;
+			case 0x33: _opStr = "NOP"; break;
+			case 0x34: _opStr = "BIT"; break;
+			case 0x35: _opStr = "AND"; break;
+			case 0x36: _opStr = "ROL"; break;
+			case 0x37: _opStr = "NOP"; break;
+			case 0x38: _opStr = "SEC"; break;
+			case 0x39: _opStr = "AND"; break;
+			case 0x3A: _opStr = "DEA"; break;
+			case 0x3B: _opStr = "NOP"; break;
+			case 0x3C: _opStr = "BIT"; break;
+			case 0x3D: _opStr = "AND"; break;
+			case 0x3E: _opStr = "ROL"; break;
+			case 0x3F: _opStr = "NOP"; break;
+			case 0x40: _opStr = "RTI"; break;
+			case 0x41: _opStr = "EOR"; break;
+			case 0x42: _opStr = "NOP"; break;
+			case 0x43: _opStr = "NOP"; break;
+			case 0x44: _opStr = "NOP"; break;
+			case 0x45: _opStr = "EOR"; break;
+			case 0x46: _opStr = "LSR"; break;
+			case 0x47: _opStr = "NOP"; break;
+			case 0x48: _opStr = "PHA"; break;
+			case 0x49: _opStr = "EOR"; break;
+			case 0x4A: _opStr = "lsr"; break;
+			case 0x4B: _opStr = "NOP"; break;
+			case 0x4C: _opStr = "JMP"; break;
+			case 0x4D: _opStr = "EOR"; break;
+			case 0x4E: _opStr = "LSR"; break;
+			case 0x4F: _opStr = "NOP"; break;
+			case 0x50: _opStr = "BVC"; break;
+			case 0x51: _opStr = "EOR"; break;
+			case 0x52: _opStr = "EOR"; break;
+			case 0x53: _opStr = "NOP"; break;
+			case 0x54: _opStr = "NOP"; break;
+			case 0x55: _opStr = "EOR"; break;
+			case 0x56: _opStr = "LSR"; break;
+			case 0x57: _opStr = "NOP"; break;
+			case 0x58: _opStr = "CLI"; break;
+			case 0x59: _opStr = "EOR"; break;
+			case 0x5A: _opStr = "PHY"; break;
+			case 0x5B: _opStr = "NOP"; break;
+			case 0x5C: _opStr = "NOP"; break;
+			case 0x5D: _opStr = "EOR"; break;
+			case 0x5E: _opStr = "LSR"; break;
+			case 0x5F: _opStr = "NOP"; break;
+			case 0x60: _opStr = "RTS"; break;
+			case 0x61: _opStr = "ADC"; break;
+			case 0x62: _opStr = "NOP"; break;
+			case 0x63: _opStr = "NOP"; break;
+			case 0x64: _opStr = "STZ"; break;
+			case 0x65: _opStr = "ADC"; break;
+			case 0x66: _opStr = "ROR"; break;
+			case 0x67: _opStr = "NOP"; break;
+			case 0x68: _opStr = "PLA"; break;
+			case 0x69: _opStr = "ADC"; break;
+			case 0x6A: _opStr = "ror"; break;
+			case 0x6B: _opStr = "NOP"; break;
+			case 0x6C: _opStr = "JMP"; break;
+			case 0x6D: _opStr = "ADC"; break;
+			case 0x6E: _opStr = "ROR"; break;
+			case 0x6F: _opStr = "NOP"; break;
+			case 0x70: _opStr = "BVS"; break;
+			case 0x71: _opStr = "ADC"; break;
+			case 0x72: _opStr = "ADC"; break;
+			case 0x73: _opStr = "NOP"; break;
+			case 0x74: _opStr = "STZ"; break;
+			case 0x75: _opStr = "ADC"; break;
+			case 0x76: _opStr = "ROR"; break;
+			case 0x77: _opStr = "NOP"; break;
+			case 0x78: _opStr = "SEI"; break;
+			case 0x79: _opStr = "ADC"; break;
+			case 0x7A: _opStr = "PLY"; break;
+			case 0x7B: _opStr = "NOP"; break;
+			case 0x7C: _opStr = "JMP"; break;
+			case 0x7D: _opStr = "ADC"; break;
+			case 0x7E: _opStr = "ROR"; break;
+			case 0x7F: _opStr = "NOP"; break;
+			case 0x80: _opStr = "BRA"; break;
+			case 0x81: _opStr = "STA"; break;
+			case 0x82: _opStr = "NOP"; break;
+			case 0x83: _opStr = "NOP"; break;
+			case 0x84: _opStr = "STY"; break;
+			case 0x85: _opStr = "STA"; break;
+			case 0x86: _opStr = "STX"; break;
+			case 0x87: _opStr = "NOP"; break;
+			case 0x88: _opStr = "DEY"; break;
+			case 0x89: _opStr = "BIT"; break;
+			case 0x8A: _opStr = "TXA"; break;
+			case 0x8B: _opStr = "NOP"; break;
+			case 0x8C: _opStr = "STY"; break;
+			case 0x8D: _opStr = "STA"; break;
+			case 0x8E: _opStr = "STX"; break;
+			case 0x8F: _opStr = "NOP"; break;
+			case 0x90: _opStr = "BCC"; break;
+			case 0x91: _opStr = "STA"; break;
+			case 0x92: _opStr = "STA"; break;
+			case 0x93: _opStr = "NOP"; break;
+			case 0x94: _opStr = "STY"; break;
+			case 0x95: _opStr = "STA"; break;
+			case 0x96: _opStr = "STX"; break;
+			case 0x97: _opStr = "NOP"; break;
+			case 0x98: _opStr = "TYA"; break;
+			case 0x99: _opStr = "STA"; break;
+			case 0x9A: _opStr = "TXS"; break;
+			case 0x9B: _opStr = "NOP"; break;
+			case 0x9C: _opStr = "STZ"; break;
+			case 0x9D: _opStr = "STA"; break;
+			case 0x9E: _opStr = "STZ"; break;
+			case 0x9F: _opStr = "NOP"; break;
+			case 0xA0: _opStr = "LDY"; break;
+			case 0xA1: _opStr = "LDA"; break;
+			case 0xA2: _opStr = "LDX"; break;
+			case 0xA3: _opStr = "NOP"; break;
+			case 0xA4: _opStr = "LDY"; break;
+			case 0xA5: _opStr = "LDA"; break;
+			case 0xA6: _opStr = "LDX"; break;
+			case 0xA7: _opStr = "NOP"; break;
+			case 0xA8: _opStr = "TAY"; break;
+			case 0xA9: _opStr = "LDA"; break;
+			case 0xAA: _opStr = "TAX"; break;
+			case 0xAB: _opStr = "NOP"; break;
+			case 0xAC: _opStr = "LDY"; break;
+			case 0xAD: _opStr = "LDA"; break;
+			case 0xAE: _opStr = "LDX"; break;
+			case 0xAF: _opStr = "NOP"; break;
+			case 0xB0: _opStr = "BCS"; break;
+			case 0xB1: _opStr = "LDA"; break;
+			case 0xB2: _opStr = "LDA"; break;
+			case 0xB3: _opStr = "NOP"; break;
+			case 0xB4: _opStr = "LDY"; break;
+			case 0xB5: _opStr = "LDA"; break;
+			case 0xB6: _opStr = "LDX"; break;
+			case 0xB7: _opStr = "NOP"; break;
+			case 0xB8: _opStr = "CLV"; break;
+			case 0xB9: _opStr = "LDA"; break;
+			case 0xBA: _opStr = "TSX"; break;
+			case 0xBB: _opStr = "NOP"; break;
+			case 0xBC: _opStr = "LDY"; break;
+			case 0xBD: _opStr = "LDA"; break;
+			case 0xBE: _opStr = "LDX"; break;
+			case 0xBF: _opStr = "NOP"; break;
+			case 0xC0: _opStr = "CPY"; break;
+			case 0xC1: _opStr = "CMP"; break;
+			case 0xC2: _opStr = "NOP"; break;
+			case 0xC3: _opStr = "NOP"; break;
+			case 0xC4: _opStr = "CPY"; break;
+			case 0xC5: _opStr = "CMP"; break;
+			case 0xC6: _opStr = "DEC"; break;
+			case 0xC7: _opStr = "NOP"; break;
+			case 0xC8: _opStr = "INY"; break;
+			case 0xC9: _opStr = "CMP"; break;
+			case 0xCA: _opStr = "DEX"; break;
+			case 0xCB: _opStr = "NOP"; break;
+			case 0xCC: _opStr = "CPY"; break;
+			case 0xCD: _opStr = "CMP"; break;
+			case 0xCE: _opStr = "DEC"; break;
+			case 0xCF: _opStr = "NOP"; break;
+			case 0xD0: _opStr = "BNE"; break;
+			case 0xD1: _opStr = "CMP"; break;
+			case 0xD2: _opStr = "CMP"; break;
+			case 0xD3: _opStr = "NOP"; break;
+			case 0xD4: _opStr = "NOP"; break;
+			case 0xD5: _opStr = "CMP"; break;
+			case 0xD6: _opStr = "DEC"; break;
+			case 0xD7: _opStr = "NOP"; break;
+			case 0xD8: _opStr = "CLD"; break;
+			case 0xD9: _opStr = "CMP"; break;
+			case 0xDA: _opStr = "PHX"; break;
+			case 0xDB: _opStr = "NOP"; break;
+			case 0xDC: _opStr = "LDD"; break;
+			case 0xDD: _opStr = "CMP"; break;
+			case 0xDE: _opStr = "DEC"; break;
+			case 0xDF: _opStr = "NOP"; break;
+			case 0xE0: _opStr = "CPX"; break;
+			case 0xE1: _opStr = "SBC"; break;
+			case 0xE2: _opStr = "NOP"; break;
+			case 0xE3: _opStr = "NOP"; break;
+			case 0xE4: _opStr = "CPX"; break;
+			case 0xE5: _opStr = "SBC"; break;
+			case 0xE6: _opStr = "INC"; break;
+			case 0xE7: _opStr = "NOP"; break;
+			case 0xE8: _opStr = "INX"; break;
+			case 0xE9: _opStr = "SBC"; break;
+			case 0xEA: _opStr = "NOP"; break;
+			case 0xEB: _opStr = "NOP"; break;
+			case 0xEC: _opStr = "CPX"; break;
+			case 0xED: _opStr = "SBC"; break;
+			case 0xEE: _opStr = "INC"; break;
+			case 0xEF: _opStr = "NOP"; break;
+			case 0xF0: _opStr = "BEQ"; break;
+			case 0xF1: _opStr = "SBC"; break;
+			case 0xF2: _opStr = "SBC"; break;
+			case 0xF3: _opStr = "NOP"; break;
+			case 0xF4: _opStr = "NOP"; break;
+			case 0xF5: _opStr = "SBC"; break;
+			case 0xF6: _opStr = "INC"; break;
+			case 0xF7: _opStr = "NOP"; break;
+			case 0xF8: _opStr = "SED"; break;
+			case 0xF9: _opStr = "SBC"; break;
+			case 0xFA: _opStr = "PLX"; break;
+			case 0xFB: _opStr = "NOP"; break;
+			case 0xFC: _opStr = "LDD"; break;
+			case 0xFD: _opStr = "SBC"; break;
+			case 0xFE: _opStr = "INC"; break;
+			case 0xFF: _opStr = "NOP"; break;
+			}
+
+			char _buf[500];
+			int val2 = *(mem + addr);
+			int val4pre = val2;		// default when underflow
+			int val4post = val2;	// default when overflow
+			int valval4post = val4post;	// the dereferenced value from val4post
+			int valval4post2 = 0;		// the 2 byte value of dereferenced value from val4post
+
+			if ((addr & 0xF000) == 0xC000)	// IOREAD or IOWRITE
+			{
+				sprintf_s(_buf, 500, "%04X: %s %04X - A:%02X X:%02X Y:%02X - SP:%03X - h%02X (%03d) - I/O OPERATION",
+					_origPC, _opStr.c_str(),
+					addr, _origA, _origX, _origY, _origSP, valsp, valsp);
+			}
+			else
+			{
+				if (addr > 0)	// no underflow
+					val4pre = val2 * 0x100 + *(mem + addr - 1);
+				if (addr < 0xffff)
+				{
+					val4post = *(mem + addr + 1) * 0x100 + val2;
+					valval4post = *(mem + val4post);
+					valval4post2 = *(mem + val4post + 1) * 0x100 + valval4post;
+				}
+				sprintf_s(_buf, 500, "%04X: %s %02X%02X - A:%02X X:%02X Y:%02X - SP:%03X - h%02X (%03d) - ADDR:%04X - h%02X (%03d) PRE: h%04X (%05d) POST: h%04X (%05d) -> h%02X (%03d) h%04X (%05d)",
+					_origPC, _opStr.c_str(),
+					*(mem + _origPC + 1), *(mem + _origPC + 2),
+					_origA, _origX, _origY, _origSP, valsp, valsp, addr, val2, val2, val4pre, val4pre, val4post, val4post, valval4post, valval4post, valval4post2, valval4post2);
+			}
+
+			g_game->SaveLogLine(_buf);
+			// OutputDebugStringA(_buf);
+			if (g_debugLogInstructions == 0)
+			{
+				int useless = 0;
+			}
+		}
 
 		CheckSynchronousInterruptSources(uExecutedCycles - uPreviousCycles, uExecutedCycles);
 		NMI(uExecutedCycles, flagc, flagn, flagv, flagz);

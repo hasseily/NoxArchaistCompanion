@@ -25,6 +25,10 @@ enum class EmulatorLayout
 extern NonVolatile g_nonVolatile;
 static std::shared_ptr<HackWindow>m_hackWindow;
 static std::shared_ptr<LogWindow>m_logWindow;
+extern int g_debugLogInstructions;  // Tapping "End" key logs the next g_debugLogInstructions instructions
+
+static bool b_in_combat = false;		// bool for tracking when we're in combat to suppress logging
+static bool b_in_printright = false;		// bool for tracking when we're actually printing a string on the right scroll area
 
 // A basic game implementation that creates a D3D12 device and
 // provides a game loop.
@@ -67,6 +71,8 @@ public:
 	void MenuToggleHackWindow();
     void MenuShowLogWindow();
 	void MenuToggleLogWindow();
+
+	void SaveLogLine(const char* logLine, bool flush = false);	// adds a line to a scrolling log on screen
 
     // Other methods
     D3D12_RESOURCE_DESC ChooseTexture();

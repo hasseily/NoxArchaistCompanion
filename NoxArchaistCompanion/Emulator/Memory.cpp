@@ -44,10 +44,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "NoSlotClock.h"
 #include "Speaker.h"
 #include "RGBMonitor.h"
+#include "Game.h"
 
 #include "resource.h"
 #include <map>
 #include "RemoteControl/RemoteControlManager.h"	// RIK -- For shared memory
+extern std::unique_ptr<Game> g_game;
 
 constexpr unsigned int _6502_MEM_END = 0xFFFF;
 constexpr unsigned int _6502_MEM_LEN = _6502_MEM_END + 1;
@@ -935,7 +937,7 @@ DWORD GetMemMode(void)
 
 void SetMemMode(DWORD uNewMemMode)
 {
-#if defined(_DEBUG) && 0
+// #if defined(_DEBUG) && 0
 	static DWORD dwOldDiff = 0;
 	DWORD dwDiff = memmode ^ uNewMemMode;
 	dwDiff &= ~(MF_SLOTC3ROM | MF_INTCXROM);
@@ -956,10 +958,12 @@ void SetMemMode(DWORD uNewMemMode)
 		psz += sprintf(psz, "C3=%d "   , SW_SLOTC3ROM ? 1 : 0);
 		psz += sprintf(psz, "CX=%d "   , SW_INTCXROM  ? 1 : 0);
 		psz += sprintf(psz, "WRAM=%d " , SW_WRITERAM  ? 1 : 0);
-		psz += sprintf(psz, "\n");
-		OutputDebugString(szStr);
+		g_game->SaveLogLine(szStr);
+
+		// psz += sprintf(psz, "\n");
+		// OutputDebugStringA(szStr);
 	}
-#endif
+// #endif
 	memmode = uNewMemMode;
 }
 
