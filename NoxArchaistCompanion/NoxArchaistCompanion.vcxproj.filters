@@ -87,6 +87,7 @@
     <ClCompile Include="Emulator\Joystick.cpp">
       <Filter>Emulator\Input</Filter>
     </ClCompile>
+    <ClCompile Include="HackWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h" />
@@ -201,6 +202,7 @@
     <ClInclude Include="Emulator\Joystick.h">
       <Filter>Emulator\Input</Filter>
     </ClInclude>
+    <ClInclude Include="HackWindow.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />

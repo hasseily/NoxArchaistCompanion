@@ -8,6 +8,7 @@
 #include "SidebarContent.h"
 #include "Sidebar.h"
 #include "RemoteControl/Gamelink.h"
+#include "HackWindow.h"
 #include "LogWindow.h"
 #include "Keyboard.h"
 #include "HAUtils.h"
@@ -468,19 +469,34 @@ void Game::MenuDeactivateProfile()
     SetWindowSizeOnChangedProfile();
 }
 
+void Game::MenuShowHackWindow()
+{
+	m_hackWindow = GetHackWindow();
+    m_hackWindow->ShowHackWindow();
+}
+
+void Game::MenuToggleHackWindow()
+{
+    m_hackWindow = GetHackWindow();
+	if (m_hackWindow->IsHackWindowDisplayed())
+        m_hackWindow->HideHackWindow();
+	else
+        m_hackWindow->ShowHackWindow();
+}
+
 void Game::MenuShowLogWindow()
 {
-    m_logWindow = GetLogWindow();
-    m_logWindow->ShowLogWindow();
+	m_logWindow = GetLogWindow();
+	m_logWindow->ShowLogWindow();
 }
 
 void Game::MenuToggleLogWindow()
 {
 	m_logWindow = GetLogWindow();
-    if (m_logWindow->IsLogWindowDisplayed())
-        m_logWindow->HideLogWindow();
-    else
-        m_logWindow->ShowLogWindow();
+	if (m_logWindow->IsLogWindowDisplayed())
+		m_logWindow->HideLogWindow();
+	else
+		m_logWindow->ShowLogWindow();
 }
 
 #pragma endregion

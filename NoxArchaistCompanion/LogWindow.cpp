@@ -10,7 +10,6 @@ static HINSTANCE appInstance = nullptr;
 static HWND hwndMain = nullptr;				// handle to main window
 
 HWND hwndEdit = nullptr;			// handle to rich edit window
-bool isDisplayed = false;
 std::wstring currentBuffer;			// buffer that is used until there's a newline and then it prints and empties
 
 std::wstring m_prevLogString;

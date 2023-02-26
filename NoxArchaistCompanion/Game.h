@@ -6,6 +6,7 @@
 
 #include "DeviceResources.h"
 #include "StepTimer.h"
+#include "HackWindow.h"
 #include "LogWindow.h"
 #include "HAUtils.h"
 #include "NonVolatile.h"
@@ -22,6 +23,7 @@ enum class EmulatorLayout
 };
 
 extern NonVolatile g_nonVolatile;
+static std::shared_ptr<HackWindow>m_hackWindow;
 static std::shared_ptr<LogWindow>m_logWindow;
 
 // A basic game implementation that creates a D3D12 device and
@@ -61,6 +63,8 @@ public:
     // Menu commands
     void MenuActivateProfile();
     void MenuDeactivateProfile();
+	void MenuShowHackWindow();
+	void MenuToggleHackWindow();
     void MenuShowLogWindow();
 	void MenuToggleLogWindow();
 

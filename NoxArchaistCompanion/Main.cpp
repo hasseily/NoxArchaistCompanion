@@ -10,6 +10,7 @@
 #include "SidebarContent.h"
 #include "RemoteControl/GameLink.h"
 #include "Keyboard.h"
+#include "HackWindow.h"
 #include "LogWindow.h"
 #include "Emulator/AppleWin.h"
 #include "Emulator/SoundCore.h"
@@ -47,6 +48,7 @@ namespace
 {
 	std::unique_ptr<Game> g_game;
 	std::shared_ptr<LogWindow> g_logW;
+	std::shared_ptr<HackWindow> g_hackW;
 }
 
 void ExitGame() noexcept;
@@ -61,6 +63,11 @@ static void ExceptionHandler(LPCSTR pError)
 		wc,
 		TEXT("Runtime Exception"),
 		MB_ICONEXCLAMATION | MB_SETFOREGROUND);
+}
+
+std::shared_ptr<HackWindow> GetHackWindow()
+{
+	return g_hackW;
 }
 
 std::shared_ptr<LogWindow> GetLogWindow()
@@ -149,7 +156,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			wcex.hInstance = hInstance;
 			wcex.hIcon = LoadIconW(hInstance, L"IDI_ICON");
 			wcex.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-			wcex.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+			wcex.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
 			wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_NOXARCHAISTCOMPANION);
 			wcex.lpszClassName = L"NoxArchaistCompanionWindowClass";
 			wcex.hIconSm = LoadIconW(wcex.hInstance, L"IDI_ICON");
@@ -164,11 +171,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			RECT rc = { 0, 0, static_cast<LONG>(w), static_cast<LONG>(h) };
 
-			AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
+			AdjustWindowRect(&rc, WS_OVERLAPPED | WS_SYSMENU, TRUE);
 			m_initialWindowWidth = rc.right - rc.left;
 			m_initialWindowHeight = rc.bottom - rc.top;
 
-			hwnd = CreateWindowExW(0, L"NoxArchaistCompanionWindowClass", L"Nox Archaist Companion", WS_OVERLAPPEDWINDOW,
+			hwnd = CreateWindowExW(0, L"NoxArchaistCompanionWindowClass", L"Nox Archaist Companion", WS_OVERLAPPED | WS_SYSMENU,
 				CW_USEDEFAULT, CW_USEDEFAULT, m_initialWindowWidth, m_initialWindowHeight, nullptr, nullptr, hInstance,
 				nullptr);
 			// TODO: Change to CreateWindowExW(WS_EX_TOPMOST, L"NoxArchaistCompanionWindowClass", L"NoxArchaistCompanion", WS_POPUP,
@@ -183,7 +190,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			// Set up the accelerators
 			haccel = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATOR1));
 
-			// create the log window at the start
+			// create the log and hack windows at the start
+			// g_hackW = std::make_unique<HackWindow>(g_hInstance, hwnd);
 			g_logW = std::make_unique<LogWindow>(g_hInstance, hwnd);
 
 			SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(g_game.get()));
@@ -208,14 +216,31 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		{
 			if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 			{
-				if (haccel && !TranslateAccelerator(
-					hwnd,		// handle to receiving window 
-					haccel,    // handle to active accelerator table 
-					&msg))         // message data 
+				if (!g_hackW)
 				{
-					TranslateMessage(&msg);
-					DispatchMessage(&msg);
+					if (haccel && !TranslateAccelerator(
+						hwnd,		// handle to receiving window 
+						haccel,    // handle to active accelerator table 
+						&msg))         // message data 
+					{
+						TranslateMessage(&msg);
+						DispatchMessage(&msg);
+					}
 				}
+				else {
+				if (!g_hackW->IsHackWindowDisplayed() || !IsDialogMessage(g_hackW->hwndHack, &msg))
+				{
+					if (haccel && !TranslateAccelerator(
+						hwnd,		// handle to receiving window 
+						haccel,    // handle to active accelerator table 
+						&msg))         // message data 
+					{
+						TranslateMessage(&msg);
+						DispatchMessage(&msg);
+					}
+				}
+				}
+
 			}
 			else
 			{
@@ -673,6 +698,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_nonVolatile.SaveToDisk();
 			UpdateMenuBarStatus(hWnd);
 			break;
+		case ID_HACKWINDOW_SHOW:
+		{
+			if (game)
+			{
+				if (!g_hackW)
+					g_hackW = std::make_unique<HackWindow>(g_hInstance, hWnd);
+				game->MenuToggleHackWindow();
+			}
+			break;
+		}
 		case ID_LOGWINDOW_SHOW:
 		{
 			if (game)

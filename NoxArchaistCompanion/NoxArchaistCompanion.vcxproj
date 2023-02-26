@@ -46,7 +46,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)$(ProjectDir)/;../DirectXTK12/Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);..\DirectXTK12-feb2023\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <WarningLevel>Level4</WarningLevel>
@@ -55,7 +55,7 @@
       <FloatingPointModel>Precise</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -134,6 +134,7 @@
     <ClInclude Include="Emulator\Video.h" />
     <ClInclude Include="FindMedia.h" />
     <ClInclude Include="Game.h" />
+    <ClInclude Include="HackWindow.h" />
     <ClInclude Include="HAUtils.h" />
     <ClInclude Include="LogWindow.h" />
     <ClInclude Include="NonVolatile.h" />
@@ -171,6 +172,7 @@
     <ClCompile Include="Emulator\SynchronousEventManager.cpp" />
     <ClCompile Include="Emulator\Video.cpp" />
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="HackWindow.cpp" />
     <ClCompile Include="HAUtils.cpp" />
     <ClCompile Include="LogWindow.cpp" />
     <ClCompile Include="Main.cpp" />

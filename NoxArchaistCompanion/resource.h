@@ -9,11 +9,12 @@
 #define IDD_NOXARCHAISTCOMPANION_DIALOG 102
 #define IDD_ABOUTBOX                    103
 #define IDM_ABOUT                       104
+#define IDD_HACKVIEW                    104
 #define IDM_EXIT                        105
 #define IDI_NOXARCHAISTCOMPANION        107
 #define IDI_SMALL                       108
 #define IDC_NOXARCHAISTCOMPANION        109
-#define IDR_ACCELERATOR1				110
+#define IDR_ACCELERATOR1                110
 #define IDR_HDDRVR_FW                   128
 #define IDR_MOCKINGBOARD_D_FW           129
 #define IDR_APPLE2E_ENHANCED_ROM        130
@@ -22,6 +23,20 @@
 #define IDB_CHARSET8C                   140
 #define IDB_CHARSET8M                   141
 #define IDC_LOGSTATIC                   1000
+#define IDC_HACK_STATIC_WARN            1001
+#define IDC_COMBO1                      1003
+#define IDC_EDIT1                       1005
+#define IDC_COMBO2                      1006
+#define IDC_EDIT2                       1007
+#define IDC_EDIT3                       1008
+#define IDC_EDIT4                       1009
+#define IDC_EDIT5                       1010
+#define IDC_EDIT6                       1011
+#define IDC_EDIT7                       1012
+#define IDC_EDIT8                       1013
+#define IDC_BUTTON1                     1014
+#define IDC_EDIT9                       1015
+#define IDC_EDIT10                      1016
 #define ID_FILE_ACTIVATEPROFILE         32771
 #define ID_EMULATOR_PAUSE               32772
 #define ID_EMULATOR_RESET               32773
@@ -67,7 +82,9 @@
 #define ID_VOLUMEMUSIC_75               32814
 #define ID_VOLUMEMUSIC_100              32815
 #define ID_LOGWINDOW_ALSOLOGCOMBAT      32816
-#define ID_VIDEO_INCREMENT				32817
+#define ID_VIDEO_INCREMENT              32817
+#define ID_Menu32821                    32821
+#define ID_HACKWINDOW_SHOW              32822
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -76,8 +93,8 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        143
-#define _APS_NEXT_COMMAND_VALUE         32821
-#define _APS_NEXT_CONTROL_VALUE         1001
+#define _APS_NEXT_COMMAND_VALUE         32823
+#define _APS_NEXT_CONTROL_VALUE         1016
 #define _APS_NEXT_SYMED_VALUE           111
 #endif
 #endif
