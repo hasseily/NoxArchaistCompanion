@@ -50,6 +50,8 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 		if (wasHandled)
 			return true;
 
+		//////////////////////////////////////////////////////////////////////////
+		// Manage specific unique UI controls
 		switch (LOWORD(wParam))
 		{
 		case IDC_MEMLOC:
@@ -147,7 +149,23 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 			EnableWindow(b, true);
 			return true;
 		}
-		break;
+
+		//////////////////////////////////////////////////////////////////////////
+		// One of the save buttons was clicked
+		if (HIWORD(wParam) == BN_CLICKED)
+		{
+			if ((HWND)LOWORD(wParam) == GetDlgItem(hwndDlg, IDC_BUTTONSETMEMBER))
+			{
+
+			}
+			else if ((HWND)LOWORD(wParam) == GetDlgItem(hwndDlg, IDC_BUTTONSETTOOLS))
+			{
+			}
+			else if ((HWND)LOWORD(wParam) == GetDlgItem(hwndDlg, IDC_BUTTONSETMEM))
+			{
+			}
+		}
+		break;	// WM_COMMAND
 	}
 	default:
 		break;
@@ -249,6 +267,8 @@ void HackWindow::Update()
 	SetWindowText(GetDlgItem(hwndHack, IDC_DODGE), cMemVal);
 	_itow_s(charPtr[0x25], cMemVal, baseRadix);
 	SetWindowText(GetDlgItem(hwndHack, IDC_LOCKPICK), cMemVal);
+	_itow_s(charPtr[0x1], cMemVal, baseRadix);
+	SetWindowText(GetDlgItem(hwndHack, IDC_LEVEL), cMemVal);
 	_itow_s(charPtr[0x05] + (charPtr[0x06] * 0x100), cMemVal, baseRadix);
 	SetWindowText(GetDlgItem(hwndHack, IDC_EXP), cMemVal);
 	_itow_s(*(MemGetBankPtr(0) + 0x420), cMemVal, baseRadix);
