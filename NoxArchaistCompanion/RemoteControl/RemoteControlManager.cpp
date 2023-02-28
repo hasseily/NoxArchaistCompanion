@@ -186,7 +186,6 @@ void RemoteControlManager::setLoadedHDInfo(ImageInfo* imageInfo)
 		g_infoHdv.sVersion = std::string(UNKNOWN_VERSION);
 		g_infoHdv.sig = 0;
 	}
-	setVersionCPUConstants();
 	updateRunningProgramInfo();
 }
 
@@ -254,6 +253,7 @@ void RemoteControlManager::updateRunningProgramInfo()
 
 	if (bHardDiskIsLoaded)
 	{
+		setVersionCPUConstants();
 		GameLink::SetProgramInfo(g_infoHdv.VolumeName, 0, 0, versionHash, g_infoHdv.sig);
 	}
 	else
