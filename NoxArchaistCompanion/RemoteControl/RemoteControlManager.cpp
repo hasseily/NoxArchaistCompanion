@@ -204,7 +204,13 @@ void RemoteControlManager::setVersionCPUConstants()
 		const char* version = g_infoHdv.sVersion.c_str();
 		nlohmann::json ccv = j[version];
 		if (ccv.empty())
+		{
+			MessageBox(g_hFrameWindow, 
+				L"You are running an unsupported version of Nox Archaist. Use at your own risk!",
+				L"Unknown Version",
+				MB_ICONASTERISK | MB_OK);
 			return;
+		}
 		cpuconstants.MEM_PARTY				= static_cast<UINT>(std::stoi(ccv["MEM_PARTY"].get<std::string>(), nullptr, 0));
 		cpuconstants.A_PRINT_RIGHT			= static_cast<UINT>(std::stoi(ccv["A_PRINT_RIGHT"].get<std::string>(), nullptr, 0));
 		cpuconstants.PC_CARRIAGE_RETURN1	= static_cast<UINT>(std::stoi(ccv["PC_CARRIAGE_RETURN1"].get<std::string>(), nullptr, 0));

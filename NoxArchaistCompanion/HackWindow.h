@@ -11,16 +11,18 @@ public:
 	void HideHackWindow();
 	bool IsHackWindowDisplayed();
 	void Update();
-	void UpdateCustomMemLocValue();
+	void RefreshCustomLocValue();
+	UINT8 GetFieldVal(HWND valField);
+	void SetMem(int loc, UINT8 val);
 
 	HWND hwndHack = NULL;				// handle to hack window
 	bool isHex = false;					// display in hex
 	UINT8 baseRadix = 10;				// base 10 or base 16 (hex)
+	UINT8* GetMemPtrPartyStart();
+	UINT8* GetMemPtrCharacter();		// Characters 0-5
 private:
 	bool isDisplayed = false;
 
-	UINT8* GetMemPtrPartyStart();
-	UINT8* GetMemPtrCharacter();	// Characters 0-5
 };
 
 // defined in Main.cpp

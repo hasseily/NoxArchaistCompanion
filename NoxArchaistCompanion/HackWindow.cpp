@@ -60,7 +60,7 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 		{
 			if (HIWORD(wParam) == EN_CHANGE)
 			{
-				haw->UpdateCustomMemLocValue();
+				haw->RefreshCustomLocValue();
 			}
 			wasHandled = true;
 			break;
@@ -156,10 +156,36 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 		{
 			if (LOWORD(wParam) == IDC_BUTTONSETMEMBER)
 			{
-
+				int iNewVal = 0;
+				HWND hField;
+				UINT8* charPtr = haw->GetMemPtrCharacter();
+				charPtr[0x19] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_MELEE));
+				charPtr[0x1c] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_RANGED));
+				charPtr[0x22] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_CRIT));
+				charPtr[0x1f] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_DODGE));
+				charPtr[0x25] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_LOCKPICK));
+				charPtr[0x1] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_LEVEL));
+				try {
+					// exp is 2 bytes, set each one independently
+					hField = GetDlgItem(hwndDlg, IDC_EXP);
+					GetWindowTextW(hField, cExp, 6);
+					iConvertedVal = std::stoi(cExp, nullptr, haw->baseRadix);
+					charPtr[0x05] = iConvertedVal % 0x100;
+					charPtr[0x06] = iConvertedVal / 0x100;
+				}
+				catch (std::invalid_argument& e) {
+					haw->Update();
+					return false;
+				}
+				haw->Update();
+				return true;
 			}
 			else if (LOWORD(wParam) == IDC_BUTTONSETTOOLS)
 			{
+				MemGetBankPtr(0)[0x420] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_TORCHES));
+				MemGetBankPtr(0)[0x421] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_PICKS));
+				haw->Update();
+				return true;
 			}
 			else if (LOWORD(wParam) == IDC_BUTTONSETMEM)
 			{
@@ -177,27 +203,7 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 					break;
 				}
 
-				// Get what value we want it to change to
-				wchar_t cNewVal[3] = L"00";
-				GetWindowTextW(hdlMemValNew, cNewVal, 3);
-				int iNewVal = 0;
-				try {
-					iNewVal = std::stoi(cNewVal, nullptr, haw->baseRadix);
-					_itow_s(iNewVal, cNewVal, haw->baseRadix);
-					SetWindowText(hdlMemValNew, cNewVal);
-				}
-				catch (std::invalid_argument& e) {
-					// std::cout << e.what();
-					SetWindowText(hdlMemValNew, L"");
-					break;
-				}
-
-				// affect the change
-				if (iMemLoc > 0xFFFF)
-					MemGetBankPtr(1)[iMemLoc - 0x10000] = iNewVal;
-				else
-					MemGetBankPtr(0)[iMemLoc] = iNewVal;
-				// and trigger an update to IDC_MEMCURRENTVAL
+				haw->SetMem(iMemLoc, haw->GetFieldVal(hdlMemValNew));
 				haw->Update();
 				return true;
 			}
@@ -237,6 +243,9 @@ void HackWindow::ShowHackWindow()
 	HMENU hm = GetMenu(hwndMain);
 	CheckMenuItem(hm, ID_HACKWINDOW_SHOW, MF_BYCOMMAND | MF_CHECKED);
 	isDisplayed = true;
+
+	// Show warning if we don't know the version of the game
+	ShowWindow(GetDlgItem(hwndHack, IDC_HACK_STATIC_WARN), (cpuconstants.MEM_PARTY == 0));
 
 	UINT8* memPtr = GetMemPtrPartyStart();
 
@@ -313,7 +322,7 @@ void HackWindow::Update()
 	_itow_s(*(MemGetBankPtr(0) + 0x421), cMemVal, baseRadix);
 	SetWindowText(GetDlgItem(hwndHack, IDC_PICKS), cMemVal);
 
-	UpdateCustomMemLocValue();
+	RefreshCustomLocValue();
 
 	EnableWindow(GetDlgItem(hwndHack, IDC_BUTTONSETMEMBER), false);
 	EnableWindow(GetDlgItem(hwndHack, IDC_BUTTONSETTOOLS), false);
@@ -339,7 +348,7 @@ UINT8* HackWindow::GetMemPtrCharacter()
 	return (memPtr + ((long)pos) * 0x80);
 }
 
-void HackWindow::UpdateCustomMemLocValue()
+void HackWindow::RefreshCustomLocValue()
 {
 	HWND hdlMemLoc = GetDlgItem(hwndHack, IDC_MEMLOC);
 	HWND hdlMemVal = GetDlgItem(hwndHack, IDC_MEMCURRENTVAL);
@@ -360,5 +369,28 @@ void HackWindow::UpdateCustomMemLocValue()
 	else
 		_itow_s(*(MemGetBankPtr(0) + iMemLoc), cMemVal, baseRadix);
 	SetWindowText(hdlMemVal, cMemVal);
+	return;
+}
+
+UINT8 HackWindow::GetFieldVal(HWND valField)
+{
+	wchar_t cMemVal[4] = L"000";
+	GetWindowTextW(valField, cMemVal, 4);
+	UINT8 iMemVal = 0;
+	try {
+		iMemVal = std::stoi(cMemVal, nullptr, baseRadix);
+	}
+	catch (std::invalid_argument& e) {
+		return 0;
+	}
+	return iMemVal;
+}
+
+void HackWindow::SetMem(int loc, UINT8 val)
+{
+	if (loc > 0xFFFF)
+		MemGetBankPtr(1)[loc - 0x10000] = val;
+	else
+		MemGetBankPtr(0)[loc] = val;
 	return;
 }
