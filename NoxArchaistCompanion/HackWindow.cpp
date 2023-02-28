@@ -154,15 +154,52 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 		// One of the save buttons was clicked
 		if (HIWORD(wParam) == BN_CLICKED)
 		{
-			if ((HWND)LOWORD(wParam) == GetDlgItem(hwndDlg, IDC_BUTTONSETMEMBER))
+			if (LOWORD(wParam) == IDC_BUTTONSETMEMBER)
 			{
 
 			}
-			else if ((HWND)LOWORD(wParam) == GetDlgItem(hwndDlg, IDC_BUTTONSETTOOLS))
+			else if (LOWORD(wParam) == IDC_BUTTONSETTOOLS)
 			{
 			}
-			else if ((HWND)LOWORD(wParam) == GetDlgItem(hwndDlg, IDC_BUTTONSETMEM))
+			else if (LOWORD(wParam) == IDC_BUTTONSETMEM)
 			{
+				HWND hdlMemLoc = GetDlgItem(hwndDlg, IDC_MEMLOC);
+				HWND hdlMemValNew = GetDlgItem(hwndDlg, IDC_MEMNEWVAL);
+				// Get the memory byte to change
+				GetWindowTextW(hdlMemLoc, cExp, 6);
+				int iMemLoc = 0;
+				try {
+					iMemLoc = std::stoi(cExp, nullptr, 16);
+				}
+				catch (std::invalid_argument& e) {
+					// std::cout << e.what();
+					SetWindowText(hdlMemValNew, L"");
+					break;
+				}
+
+				// Get what value we want it to change to
+				wchar_t cNewVal[3] = L"00";
+				GetWindowTextW(hdlMemValNew, cNewVal, 3);
+				int iNewVal = 0;
+				try {
+					iNewVal = std::stoi(cNewVal, nullptr, haw->baseRadix);
+					_itow_s(iNewVal, cNewVal, haw->baseRadix);
+					SetWindowText(hdlMemValNew, cNewVal);
+				}
+				catch (std::invalid_argument& e) {
+					// std::cout << e.what();
+					SetWindowText(hdlMemValNew, L"");
+					break;
+				}
+
+				// affect the change
+				if (iMemLoc > 0xFFFF)
+					MemGetBankPtr(1)[iMemLoc - 0x10000] = iNewVal;
+				else
+					MemGetBankPtr(0)[iMemLoc] = iNewVal;
+				// and trigger an update to IDC_MEMCURRENTVAL
+				haw->Update();
+				return true;
 			}
 		}
 		break;	// WM_COMMAND
