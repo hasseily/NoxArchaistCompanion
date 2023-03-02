@@ -44,7 +44,7 @@ bool  g_bAltKey = false;
 
 static bool  g_bTK3KModeKey = false; //TK3000 //e |Mode| key
 
-static bool  g_bCapsLock = true; //Caps lock key for Apple2 and Lat/Cyr lock for Pravets8
+static bool  g_bCapsLock = false; //Caps lock key for Apple2 and Lat/Cyr lock for Pravets8
 static bool  g_bP8CapsLock = true; //Caps lock key of Pravets 8A/C
 static BYTE  keycode = 0;	// Current Apple keycode
 static BOOL  keywaiting = 0;
