@@ -71,6 +71,7 @@ public:
 	void MenuToggleHackWindow();
     void MenuShowLogWindow();
 	void MenuToggleLogWindow();
+	void MenuResetMainWindow();
 
 	void SaveLogLine(const char* logLine, bool flush = false);	// adds a line to a scrolling log on screen
 

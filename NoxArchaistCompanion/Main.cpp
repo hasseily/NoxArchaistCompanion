@@ -38,10 +38,13 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 // necessary to properly scale using the right aspect ratio
 int m_extraWindowWidth = 0;
 int m_extraWindowHeight = 0;
-// Initial window width and height, so we can't reduce the size further, and
-// user can always go back to "original" size
+// Initial window width and height
 int m_initialWindowWidth = 0;
 int m_initialWindowHeight = 0;
+// Divisor of original size beyond which you can't reduce the window size
+// For example, a value of 2 means you can reduce the window size up to 50% of original
+// A value of 1 ensures the window can never be resized smaller than original size
+int m_minWindowDivisor = 2;
 
 
 std::unique_ptr<Game> g_game;
@@ -317,23 +320,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		GetWindowInfo(hWnd, &wi);
 		m_extraWindowWidth = (wi.rcWindow.right - wi.rcClient.right) + (wi.rcClient.left - wi.rcWindow.left);
 		m_extraWindowHeight = (wi.rcWindow.bottom - wi.rcClient.bottom) + (wi.rcClient.top - wi.rcWindow.top);
-		auto* pWR = (RECT*)lParam;  // Wanted Rect
-
-		if (wi.rcClient.right == pWR->right)
-		{
-			pWR->right = static_cast<ULONG>(SidebarManager::GetAspectRatio() * (wi.rcClient.bottom - wi.rcClient.top)) + pWR->left + m_extraWindowWidth;
-		}
-		else
-		{
-			pWR->bottom = static_cast<ULONG>((wi.rcClient.right - wi.rcClient.left) / SidebarManager::GetAspectRatio()) + pWR->top + m_extraWindowHeight;
-		}
 		int bw, bh;
 		game->GetBaseSize(bw, bh);
-		if (((pWR->right - pWR->left) < bw + m_extraWindowWidth) ||
-			((pWR->bottom - pWR->top) < bh + m_extraWindowHeight))
+
+		auto* pWR = (RECT*)lParam;  // Wanted Rect
+		auto totalRequestedWidth = pWR->right - pWR->left;
+		auto totalRequestedHeight = pWR->bottom - pWR->top;
+		if (totalRequestedWidth == wi.rcWindow.right - wi.rcWindow.left)	// Width unchanged, user is dragging height
+			pWR->right = static_cast<ULONG>((pWR->bottom - pWR->top - m_extraWindowHeight) * SidebarManager::GetAspectRatio()) + pWR->left + m_extraWindowWidth;
+		else
+			pWR->bottom = static_cast<ULONG>((pWR->right - pWR->left - m_extraWindowWidth) / SidebarManager::GetAspectRatio()) + pWR->top + m_extraWindowHeight;
+
+		// Now check minimum size
+		if ((totalRequestedWidth < (bw / m_minWindowDivisor) + m_extraWindowWidth) ||
+			(totalRequestedHeight < (bh / m_minWindowDivisor) + m_extraWindowHeight))
 		{
-			pWR->right = pWR->left + bw + m_extraWindowWidth;
-			pWR->bottom = pWR->top + bh + m_extraWindowHeight;
+			pWR->right = pWR->left + (bw / m_minWindowDivisor) + m_extraWindowWidth;
+			pWR->bottom = pWR->top + (bh / m_minWindowDivisor) + m_extraWindowHeight;
 		}
 		// char buf[500];
 		// sprintf_s(buf, "In Main WM_SIZING Left %d, Top %d\n", pWR->left, pWR->top);
@@ -367,8 +370,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (lParam)
 		{
 			auto info = reinterpret_cast<MINMAXINFO*>(lParam);
-			info->ptMinTrackSize.x = m_initialWindowWidth;
-			info->ptMinTrackSize.y = m_initialWindowHeight;
+			info->ptMinTrackSize.x = m_initialWindowWidth / m_minWindowDivisor;
+			info->ptMinTrackSize.y = m_initialWindowHeight / m_minWindowDivisor;
 		}
 		break;
 
@@ -684,6 +687,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_nonVolatile.logCombat = !g_nonVolatile.logCombat;
 			g_nonVolatile.SaveToDisk();
 			UpdateMenuBarStatus(hWnd);
+			break;
+		case ID_WINDOW_RESET:
+			game->MenuResetMainWindow();
 			break;
 		case ID_HACKWINDOW_SHOW:
 		{

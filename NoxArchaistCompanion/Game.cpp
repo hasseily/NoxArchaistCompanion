@@ -535,6 +535,11 @@ void Game::MenuToggleLogWindow()
 		m_logWindow->ShowLogWindow();
 }
 
+void Game::MenuResetMainWindow()
+{
+    SetWindowSizeOnChangedProfile();
+}
+
 #pragma endregion
 
 #pragma region Direct3D Resources

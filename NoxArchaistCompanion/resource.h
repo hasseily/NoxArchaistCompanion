@@ -94,6 +94,7 @@
 #define ID_VIDEO_INCREMENT              32817
 #define ID_Menu32821                    32821
 #define ID_HACKWINDOW_SHOW              32822
+#define ID_WINDOW_RESET                 32824
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -102,7 +103,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        143
-#define _APS_NEXT_COMMAND_VALUE         32823
+#define _APS_NEXT_COMMAND_VALUE         32826
 #define _APS_NEXT_CONTROL_VALUE         1020
 #define _APS_NEXT_SYMED_VALUE           111
 #endif
