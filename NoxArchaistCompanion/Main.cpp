@@ -168,11 +168,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			RECT rc = { 0, 0, static_cast<LONG>(w), static_cast<LONG>(h) };
 
-			AdjustWindowRect(&rc, WS_OVERLAPPED | WS_SYSMENU, TRUE);
+			AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
 			m_initialWindowWidth = rc.right - rc.left;
 			m_initialWindowHeight = rc.bottom - rc.top;
 
-			hwnd = CreateWindowExW(0, L"NoxArchaistCompanionWindowClass", L"Nox Archaist Companion", WS_OVERLAPPED | WS_SYSMENU,
+			hwnd = CreateWindowExW(0, L"NoxArchaistCompanionWindowClass", L"Nox Archaist Companion", WS_OVERLAPPEDWINDOW,
 				CW_USEDEFAULT, CW_USEDEFAULT, m_initialWindowWidth, m_initialWindowHeight, nullptr, nullptr, hInstance,
 				nullptr);
 			// TODO: Change to CreateWindowExW(WS_EX_TOPMOST, L"NoxArchaistCompanionWindowClass", L"NoxArchaistCompanion", WS_POPUP,
