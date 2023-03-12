@@ -35,8 +35,6 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 	}
 	case WM_COMMAND:
 	{
-		bool wasHandled = false;
-
 		//////////////////////////////////////////////////////////////////////////
 		// pulldown was changed
 		if (HIWORD(wParam) == CBN_SELCHANGE)
@@ -44,11 +42,9 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 			if (HWND(lParam) == GetDlgItem(hwndDlg, IDC_COMBOMEMBER))	// The character pulldown
 			{
 				haw->Update();
-				wasHandled = true;
+				return true;
 			}
 		}
-		if (wasHandled)
-			return true;
 
 		//////////////////////////////////////////////////////////////////////////
 		// Manage specific unique UI controls
@@ -62,7 +58,7 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 			{
 				haw->RefreshCustomLocValue();
 			}
-			wasHandled = true;
+			return true;
 			break;
 		}
 		case IDC_CHECKHEX:
@@ -76,28 +72,28 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 				SetWindowText(f, L"0");
 				haw->Update();
 			}
-			wasHandled = true;
+			return true;
 			break;
 		}
 		default:
 			break;
 		};
-		if (wasHandled)
-			return true;
 
 		//////////////////////////////////////////////////////////////////////////
 		// Regular field was modified
 		int iConvertedVal = 0;
-		wchar_t cExp[6] = L"00000";
+		wchar_t cFText[6] = L"00000";
 		if (HIWORD(wParam) == EN_CHANGE)
 		{
 			HWND hField = HWND(lParam);
-			if (hField == GetDlgItem(hwndDlg, IDC_EXP))		// Experience (16 bits)
+			if (hField == GetDlgItem(hwndDlg, IDC_EXP) ||
+				hField == GetDlgItem(hwndDlg, IDC_FOOD) ||
+				hField == GetDlgItem(hwndDlg, IDC_GOLD)
+				)		// All 16 bits fields
 			{
-				// Experience is unique with its 2 bytes, so take care of it independently
-				GetWindowTextW(hField, cExp, 6);
+				GetWindowTextW(hField, cFText, 6);
 				try {
-					iConvertedVal = std::stoi(cExp, nullptr, haw->baseRadix);
+					iConvertedVal = std::stoi(cFText, nullptr, haw->baseRadix);
 					if (iConvertedVal > 0xffff)
 					{
 						iConvertedVal = 0xffff;
@@ -106,9 +102,7 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 						else
 							SetWindowText(hField, L"65535");
 					}
-					HWND b = GetDlgItem(hwndDlg, IDC_BUTTONSETMEMBER);
-					EnableWindow(b, true);
-					wasHandled = true;
+					goto ENABLE_SAVE_BUTTON;
 				}
 				catch (std::invalid_argument& e) {
 					// std::cout << e.what();
@@ -116,14 +110,12 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 					break;
 				}
 			}
-			if (wasHandled)
-				return true;
 
 			// From here on, the field is a single byte field
 			// Ensure it doesn't flow over 255
-			GetWindowTextW(hField, cExp, 6);
+			GetWindowTextW(hField, cFText, 6);
 			try {
-				iConvertedVal = std::stoi(cExp, nullptr, haw->baseRadix);
+				iConvertedVal = std::stoi(cFText, nullptr, haw->baseRadix);
 				if (iConvertedVal > 0xFF)
 				{
 					iConvertedVal = 0xFF;
@@ -138,9 +130,14 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 				SetWindowText(hField, L"0");
 				break;
 			}
+ENABLE_SAVE_BUTTON:
 			// Now enable the correct button to save
 			HWND b;
-			if (hField == GetDlgItem(hwndDlg, IDC_TORCHES) || hField == GetDlgItem(hwndDlg, IDC_PICKS))
+			if (hField == GetDlgItem(hwndDlg, IDC_TORCHES) ||
+				hField == GetDlgItem(hwndDlg, IDC_PICKS) ||
+				hField == GetDlgItem(hwndDlg, IDC_FOOD) ||
+				hField == GetDlgItem(hwndDlg, IDC_GOLD)
+				)
 				b = GetDlgItem(hwndDlg, IDC_BUTTONSETTOOLS);
 			else if (hField == GetDlgItem(hwndDlg, IDC_MEMNEWVAL))
 				b = GetDlgItem(hwndDlg, IDC_BUTTONSETMEM);
@@ -168,10 +165,10 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 				try {
 					// exp is 2 bytes, set each one independently
 					hField = GetDlgItem(hwndDlg, IDC_EXP);
-					GetWindowTextW(hField, cExp, 6);
-					iConvertedVal = std::stoi(cExp, nullptr, haw->baseRadix);
-					charPtr[0x05] = iConvertedVal % 0x100;
-					charPtr[0x06] = iConvertedVal / 0x100;
+					GetWindowTextW(hField, cFText, 6);
+					iConvertedVal = std::stoi(cFText, nullptr, haw->baseRadix);
+					charPtr[0x05] = iConvertedVal & 0xff;	// technically there's no need for the mask, we're getting the first byte
+					charPtr[0x06] = iConvertedVal >> 8;
 				}
 				catch (std::invalid_argument& e) {
 					haw->Update();
@@ -182,8 +179,34 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 			}
 			else if (LOWORD(wParam) == IDC_BUTTONSETTOOLS)
 			{
-				MemGetBankPtr(0)[0x420] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_TORCHES));
-				MemGetBankPtr(0)[0x421] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_PICKS));
+				auto memPtr = haw->GetMemPtrGenericStart(cpuconstants.MEM_TORCHES);
+				memPtr[0] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_TORCHES));
+				memPtr = haw->GetMemPtrGenericStart(cpuconstants.MEM_PICKS);
+				memPtr[0] = haw->GetFieldVal(GetDlgItem(hwndDlg, IDC_PICKS));
+
+				HWND hField;
+				try {
+					// gold and food are 2 bytes each
+					// gold
+					memPtr = haw->GetMemPtrGenericStart(cpuconstants.MEM_GOLD);
+					hField = GetDlgItem(hwndDlg, IDC_GOLD);
+					GetWindowTextW(hField, cFText, 6);
+					iConvertedVal = std::stoi(cFText, nullptr, haw->baseRadix);
+					memPtr[0] = iConvertedVal & 0xff;
+					memPtr[1] = iConvertedVal >> 8;
+					// food
+					memPtr = haw->GetMemPtrGenericStart(cpuconstants.MEM_FOOD);
+					hField = GetDlgItem(hwndDlg, IDC_FOOD);
+					GetWindowTextW(hField, cFText, 6);
+					iConvertedVal = std::stoi(cFText, nullptr, haw->baseRadix);
+					memPtr[0] = iConvertedVal & 0xff;
+					memPtr[1] = iConvertedVal >> 8;
+				}
+				catch (std::invalid_argument& e) {
+					haw->Update();
+					return false;
+				}
+
 				haw->Update();
 				return true;
 			}
@@ -192,10 +215,10 @@ INT_PTR CALLBACK HackProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPar
 				HWND hdlMemLoc = GetDlgItem(hwndDlg, IDC_MEMLOC);
 				HWND hdlMemValNew = GetDlgItem(hwndDlg, IDC_MEMNEWVAL);
 				// Get the memory byte to change
-				GetWindowTextW(hdlMemLoc, cExp, 6);
+				GetWindowTextW(hdlMemLoc, cFText, 6);
 				int iMemLoc = 0;
 				try {
-					iMemLoc = std::stoi(cExp, nullptr, 16);
+					iMemLoc = std::stoi(cFText, nullptr, 16);
 				}
 				catch (std::invalid_argument& e) {
 					// std::cout << e.what();
@@ -317,9 +340,13 @@ void HackWindow::Update()
 	SetWindowText(GetDlgItem(hwndHack, IDC_LEVEL), cMemVal);
 	_itow_s(charPtr[0x05] + (charPtr[0x06] * 0x100), cMemVal, baseRadix);
 	SetWindowText(GetDlgItem(hwndHack, IDC_EXP), cMemVal);
-	_itow_s(*(MemGetBankPtr(0) + 0x420), cMemVal, baseRadix);
+	_itow_s(GetMemPtrGenericStart(cpuconstants.MEM_FOOD)[0] + (GetMemPtrGenericStart(cpuconstants.MEM_FOOD)[1] * 0x100), cMemVal, baseRadix);
+	SetWindowText(GetDlgItem(hwndHack, IDC_FOOD), cMemVal);
+	_itow_s(GetMemPtrGenericStart(cpuconstants.MEM_GOLD)[0] + (GetMemPtrGenericStart(cpuconstants.MEM_GOLD)[1] * 0x100), cMemVal, baseRadix);
+	SetWindowText(GetDlgItem(hwndHack, IDC_GOLD), cMemVal);
+	_itow_s(GetMemPtrGenericStart(cpuconstants.MEM_TORCHES)[0], cMemVal, baseRadix);
 	SetWindowText(GetDlgItem(hwndHack, IDC_TORCHES), cMemVal);
-	_itow_s(*(MemGetBankPtr(0) + 0x421), cMemVal, baseRadix);
+	_itow_s(GetMemPtrGenericStart(cpuconstants.MEM_PICKS)[0], cMemVal, baseRadix);
 	SetWindowText(GetDlgItem(hwndHack, IDC_PICKS), cMemVal);
 
 	RefreshCustomLocValue();
@@ -329,15 +356,20 @@ void HackWindow::Update()
 	EnableWindow(GetDlgItem(hwndHack, IDC_BUTTONSETMEM), false);
 }
 
-UINT8* HackWindow::GetMemPtrPartyStart()
+UINT8* HackWindow::GetMemPtrGenericStart(unsigned int memPos)
 {
 	UINT8* memPtr;
-	if (cpuconstants.MEM_PARTY > 0xFFFF)	// Aux Mem
-		memPtr = MemGetBankPtr(1) + (cpuconstants.MEM_PARTY - 0x10000);
+	if (memPos > 0xFFFF)	// Aux Mem
+		memPtr = MemGetBankPtr(1) + (memPos - (unsigned int)0x10000);
 	else
-		memPtr = MemGetBankPtr(0) + (cpuconstants.MEM_PARTY);
-	
+		memPtr = MemGetBankPtr(0) + memPos;
+
 	return memPtr;
+}
+
+UINT8* HackWindow::GetMemPtrPartyStart()
+{
+	return GetMemPtrGenericStart(cpuconstants.MEM_PARTY);
 }
 
 UINT8* HackWindow::GetMemPtrCharacter()

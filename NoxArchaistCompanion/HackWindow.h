@@ -18,6 +18,7 @@ public:
 	HWND hwndHack = NULL;				// handle to hack window
 	bool isHex = false;					// display in hex
 	UINT8 baseRadix = 10;				// base 10 or base 16 (hex)
+	UINT8* GetMemPtrGenericStart(unsigned int memPos);
 	UINT8* GetMemPtrPartyStart();
 	UINT8* GetMemPtrCharacter();		// Characters 0-5
 private:

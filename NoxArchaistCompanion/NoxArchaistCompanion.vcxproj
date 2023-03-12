@@ -241,6 +241,10 @@
     <None Include="Profiles\v1.1.9\Nox Archaist - Full.json" />
     <None Include="Profiles\v1.1.9\Nox Archaist - Solo.json" />
     <None Include="Profiles\v1.1.9\Nox Archaist.json" />
+    <None Include="Profiles\v1.3.2\Nox Archaist - Full.json" />
+    <None Include="Profiles\v1.3.2\Nox Archaist - Solo.json" />
+    <None Include="Profiles\v1.3.2\Nox Archaist.json" />
+    <None Include="Profiles\v1.3.2\Nox_Archaist - Full Six Party.json" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Assets\PixelShader.hlsl">
@@ -253,8 +257,7 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion v1.1.4.xml" />
-    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion v1.1.9.xml" />
+    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

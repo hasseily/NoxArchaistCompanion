@@ -300,6 +300,18 @@
     <None Include="Profiles\v1.1.4\Nox Archaist - Solo.json">
       <Filter>Profiles\1.1.4</Filter>
     </None>
+    <None Include="Profiles\v1.3.2\Nox_Archaist - Full Six Party.json">
+      <Filter>Profiles\1.3.2</Filter>
+    </None>
+    <None Include="Profiles\v1.3.2\Nox Archaist - Full.json">
+      <Filter>Profiles\1.3.2</Filter>
+    </None>
+    <None Include="Profiles\v1.3.2\Nox Archaist - Solo.json">
+      <Filter>Profiles\1.3.2</Filter>
+    </None>
+    <None Include="Profiles\v1.3.2\Nox Archaist.json">
+      <Filter>Profiles\1.3.2</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Profiles">
@@ -344,6 +356,9 @@
     <Filter Include="Profiles\1.1.9">
       <UniqueIdentifier>{dd60f26b-8c5e-45fb-ad4c-c2a8e04291cc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Profiles\1.3.2">
+      <UniqueIdentifier>{279dab89-736f-472e-a1f5-c2a62da654f2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="settings.manifest">
@@ -351,10 +366,7 @@
     </Manifest>
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion v1.1.4.xml">
-      <Filter>Profiles\Grid Cartographer Profiles</Filter>
-    </Xml>
-    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion v1.1.9.xml">
+    <Xml Include="Profiles\Grid Cartographer Profiles\Nox_Archaist Companion.xml">
       <Filter>Profiles\Grid Cartographer Profiles</Filter>
     </Xml>
   </ItemGroup>

@@ -6,6 +6,10 @@
 struct noxcpuconstants
 {
 	UINT MEM_PARTY;			// memory area where party data starts
+	UINT MEM_FOOD;
+	UINT MEM_GOLD;
+	UINT MEM_PICKS;
+	UINT MEM_TORCHES;
 	UINT PC_PRINTSTR;			// program counter of PRINT.STR routine (can be overriden before screen output, especially in combat for variables)
 	UINT PC_CARRIAGE_RETURN1;	// program counter of a CARRIAGE.RETURN that breaks the lines down in specific lengths (16 chars max). Only use it in battle!
 	UINT PC_CARRIAGE_RETURN2;	// program counter of a CARRIAGE.RETURN that finishes a line

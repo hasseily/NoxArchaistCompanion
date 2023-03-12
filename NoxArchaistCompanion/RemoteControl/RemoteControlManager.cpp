@@ -211,6 +211,10 @@ void RemoteControlManager::setVersionCPUConstants()
 			return;
 		}
 		cpuconstants.MEM_PARTY				= static_cast<UINT>(std::stoi(ccv["MEM_PARTY"].get<std::string>(), nullptr, 0));
+		cpuconstants.MEM_FOOD				= static_cast<UINT>(std::stoi(ccv["MEM_FOOD"].get<std::string>(), nullptr, 0));
+		cpuconstants.MEM_GOLD				= static_cast<UINT>(std::stoi(ccv["MEM_GOLD"].get<std::string>(), nullptr, 0));
+		cpuconstants.MEM_TORCHES			= static_cast<UINT>(std::stoi(ccv["MEM_TORCHES"].get<std::string>(), nullptr, 0));
+		cpuconstants.MEM_PICKS				= static_cast<UINT>(std::stoi(ccv["MEM_PICKS"].get<std::string>(), nullptr, 0));
 		cpuconstants.A_PRINT_RIGHT			= static_cast<UINT>(std::stoi(ccv["A_PRINT_RIGHT"].get<std::string>(), nullptr, 0));
 		cpuconstants.PC_CARRIAGE_RETURN1	= static_cast<UINT>(std::stoi(ccv["PC_CARRIAGE_RETURN1"].get<std::string>(), nullptr, 0));
 		cpuconstants.PC_CARRIAGE_RETURN2	= static_cast<UINT>(std::stoi(ccv["PC_CARRIAGE_RETURN2"].get<std::string>(), nullptr, 0));

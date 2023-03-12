@@ -46,6 +46,8 @@
 #define IDC_MEMCURRENTVAL               1018
 #define IDC_BUTTONSETTOOLS              1019
 #define IDC_BUTTONSETMEMBER             1020
+#define IDC_FOOD                        1021
+#define IDC_GOLD                        1022
 #define ID_FILE_ACTIVATEPROFILE         32771
 #define ID_EMULATOR_PAUSE               32772
 #define ID_EMULATOR_RESET               32773
