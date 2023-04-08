@@ -664,7 +664,7 @@ void UpdateHiResRGBCell(int x, int y, uint16_t addr, bgra_t* pVideoAddress)
 	uint8_t byteval2 = *pMain;
 	uint8_t byteval3 = *(pMain + 1);
 	uint8_t byteval4 = (x >= 38 ? 0 : *(pMain + 2));
-	
+
 	// all 28 bits chained
 	DWORD dwordval = (byteval1 & 0x7F) | ((byteval2 & 0x7F) << 7) | ((byteval3 & 0x7F) << 14) | ((byteval4 & 0x7F) << 21);
 
@@ -690,9 +690,14 @@ void UpdateHiResRGBCell(int x, int y, uint16_t addr, bgra_t* pVideoAddress)
 	bw[0] = *reinterpret_cast<const UINT32*>(&g_pPaletteRGB[0]);
 	bw[1] = *reinterpret_cast<const UINT32*>(&g_pPaletteRGB[1]);
 
-	DWORD mask  =  0x01C0; //  00|000001 1|1000000
-	DWORD chck1 =  0x0140; //  00|000001 0|1000000
-	DWORD chck2 =  0x0080; //  00|000000 1|0000000
+	DWORD mask = 0x01C0; //  00|000001 1|1000000
+	DWORD chck1 = 0x0140; //  00|000001 0|1000000
+	DWORD chck2 = 0x0080; //  00|000000 1|0000000
+
+	// To remove bleed when a pixel is between 2 white pixels
+	DWORD mask0 = 0b0000001111100000;
+	DWORD chck01 = 0b0000001101100000;
+	// DWORD chck02 = 0b0000000010000000;
 
 	// HIRES render in RGB works on a pixel-basis (1-bit data in framebuffer)
 	// The pixel can be 'color', if it makes a 101 or 010 pattern with the two neighbour bits
@@ -708,9 +713,23 @@ void UpdateHiResRGBCell(int x, int y, uint16_t addr, bgra_t* pVideoAddress)
 		xoffset = 7;
 	}
 
-	for (int i = xoffset; i < xoffset+7; i++)
+	for (int i = xoffset; i < xoffset + 7; i++)
 	{
-		if (((dwordval & mask) == chck1) || ((dwordval & mask) == chck2))
+		// remove bleed if a 0 pixel is between 2 white pixels ( 11 0 11 )
+		if ((dwordval & mask0) == chck01)
+		{
+			*(pDst) = bw[0];
+			*(pDst + 1) = *(pDst);
+			pDst += 2;
+		}
+		// remove bleed if a 1 pixel is between 2 black pixels ( 00 1 00 )
+// 		else if ((dwordval & mask0) == chck02)
+// 		{
+// 			*(pDst) = bw[1];
+// 			*(pDst + 1) = *(pDst);
+// 			pDst += 2;
+// 		}
+		else if (((dwordval & mask) == chck1) || ((dwordval & mask) == chck2))
 		{
 			// Color pixel
 			*(pDst) = colors[i];
