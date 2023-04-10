@@ -118,6 +118,8 @@ void Game::Initialize(HWND window, int width, int height)
     // Then we control how often we render later in the Render() method
 	// m_timer.SetTargetElapsedSeconds(1.0 / MAX_RENDERED_FRAMES_PER_SECOND);
 	m_timer.SetFixedTimeStep(false);
+
+    EmulatorLoadDefaultHDV();
 }
 
 #pragma region Window texture and size

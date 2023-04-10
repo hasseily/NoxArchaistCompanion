@@ -31,6 +31,7 @@ UINT GetFrameBufferBorderHeight();
 void ApplyNonVolatileConfig();
 void EmulatorOneTimeInitialization(HWND window);
 void EmulatorRepeatInitialization();
+void EmulatorLoadDefaultHDV();
 void EmulatorReboot();
 void EmulatorMessageLoopProcessing();
 

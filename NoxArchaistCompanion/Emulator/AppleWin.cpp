@@ -490,6 +490,10 @@ void EmulatorRepeatInitialization()
 	SoundCore_TweakVolumes();
 	VideoRedrawScreen();
 
+}
+
+void EmulatorLoadDefaultHDV()
+{
 	bool bRes = HD_Insert(HARDDISK_1, g_nonVolatile.hdvPath.c_str());
 	if (!bRes)
 	{
