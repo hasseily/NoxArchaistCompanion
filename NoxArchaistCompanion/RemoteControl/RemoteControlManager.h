@@ -14,7 +14,7 @@ public:
 	void setLoadedHDInfo(ImageInfo* imageInfo);
 	void getInput();
 	void sendOutput(LPBITMAPINFO pFramebufferinfo, UINT8* pFramebufferbits);
-	void setVersionCPUConstants();
+	void setVersionCPUConstants(std::string _version);
 	void updateRunningProgramInfo();
 	void setKeypressExclusionList(UINT8 exclusionList[], UINT8 length);
 
@@ -24,6 +24,8 @@ public:
 	static void RemoteControlManager::setTrackOnlyEnabled(bool bEnabled);
 
 	UINT const kMinRepeatInterval = 400;	// Minimum keypress repeat message interval in ms
+private:
+	std::string getHdvGameVersionString(ImageInfo* imageInfo);
 };
 
 static UINT8 aDefaultKeyExclusionList[] =

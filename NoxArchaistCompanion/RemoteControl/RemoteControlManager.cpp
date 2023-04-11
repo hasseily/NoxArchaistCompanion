@@ -52,8 +52,6 @@ namespace fs = std::filesystem;
 
 #define UNKNOWN_VOLUME_NAME "Unknown Volume"
 #define UNKNOWN_VERSION		"0.0.0"
-#define VERSION_STRING_FILE_OFFSET 0x37CA
-#define VERSION_STRING_LENGTH	5
 
  // The GameLink I/O structure
 struct Gamelink_Block {
@@ -76,6 +74,9 @@ Info_HDV g_infoHdv = { std::string(UNKNOWN_VOLUME_NAME), std::string(UNKNOWN_VER
 UINT64 iCurrentTicks;						// Used to check the repeat interval
 UINT8 iOldVolumeLevel;
 static std::unordered_set<UINT8> exclusionSet;		// list of VK codes that will not be passed through to Applewin
+
+static std::string sVersion;						// Game Version
+static std::string sVersionFileOffset;				// Position of the Game Version in the HDV file
 
 static bool bVideoNativeFormat = false;
 
@@ -158,6 +159,52 @@ void RemoteControlManager::setKeypressExclusionList(UINT8 _exclusionList[], UINT
 
 //===========================================================================
 
+std::string RemoteControlManager::getHdvGameVersionString(ImageInfo* imageInfo)
+{
+	if (imageInfo)
+	{
+		fs::path constantsPath = fs::current_path();
+		constantsPath += "\\Assets\\Versions.json";
+		try
+		{
+			std::ifstream i(constantsPath);
+			nlohmann::json j;
+			i >> j;
+			// Iterate over each possible version object, and check that the value in the file offset given
+			// matches the name of the version object. The one that matches is the correct game version.
+			for each (const auto& d in j.items())
+			{
+				std::string _expectedVersion = d.key();
+				auto versionOffset = static_cast<UINT>(std::stoi(d.value().at("VERSION").get<std::string>(), nullptr, 0));
+				// Now find the version string
+				BYTE blockWithVersion[HD_BLOCK_SIZE];
+				imageInfo->pImageType->Read(imageInfo, versionOffset / HD_BLOCK_SIZE, blockWithVersion);
+				auto _version = std::string(
+					std::begin(blockWithVersion) + (versionOffset % HD_BLOCK_SIZE),
+					std::begin(blockWithVersion) + (versionOffset % HD_BLOCK_SIZE) + _expectedVersion.length());
+				HA::ConvertUpperAsciiToStr(_version);
+				// see if it matches the expected version. If so, this is the correct game version
+				if (_version == _expectedVersion)
+				{
+					return _version;
+					break;
+				}
+			}
+		}
+		catch (nlohmann::detail::parse_error err) {
+			char buf[sizeof(err.what()) + 500];
+			snprintf(buf, 500, "Error retrieving game version string: %s\n", err.what());
+			OutputDebugStringA(buf);
+		}
+	}
+	else
+	{
+		return std::string(UNKNOWN_VERSION);
+	}
+}
+
+//===========================================================================
+
 void RemoteControlManager::setLoadedHDInfo(ImageInfo* imageInfo)
 {
 	// pass in NULL to remove it
@@ -172,13 +219,8 @@ void RemoteControlManager::setLoadedHDInfo(ImageInfo* imageInfo)
 		HA::ConvertWStrToStr(&wsTitle, &g_infoHdv.VolumeName);
 		g_infoHdv.sig = 0x58c37f8c;		// Nox Archaist
 
-		// Now find the version string that is at offset 0x37CA of the HDV file
-		BYTE blockWithVersion[HD_BLOCK_SIZE];
-		imageInfo->pImageType->Read(imageInfo, VERSION_STRING_FILE_OFFSET / HD_BLOCK_SIZE, blockWithVersion);
-		g_infoHdv.sVersion = std::string(
-			std::begin(blockWithVersion) + (VERSION_STRING_FILE_OFFSET % HD_BLOCK_SIZE),
-			std::begin(blockWithVersion) + (VERSION_STRING_FILE_OFFSET % HD_BLOCK_SIZE) + VERSION_STRING_LENGTH);
-		HA::ConvertUpperAsciiToStr(g_infoHdv.sVersion);
+		g_infoHdv.sVersion = getHdvGameVersionString(imageInfo);
+		setVersionCPUConstants(g_infoHdv.sVersion);
 	}
 	else {
 		bHardDiskIsLoaded = false;
@@ -191,7 +233,7 @@ void RemoteControlManager::setLoadedHDInfo(ImageInfo* imageInfo)
 
 //===========================================================================
 
-void RemoteControlManager::setVersionCPUConstants()
+void RemoteControlManager::setVersionCPUConstants(std::string _version)
 {
 	fs::path constantsPath = fs::current_path();
 	constantsPath += "\\Assets\\Versions.json";
@@ -200,8 +242,7 @@ void RemoteControlManager::setVersionCPUConstants()
 		std::ifstream i(constantsPath);
 		nlohmann::json j;
 		i >> j;
-		const char* version = g_infoHdv.sVersion.c_str();
-		nlohmann::json ccv = j[version];
+		nlohmann::json ccv = j[_version];
 		if (ccv.empty())
 		{
 			MessageBox(g_hFrameWindow, 
@@ -257,7 +298,6 @@ void RemoteControlManager::updateRunningProgramInfo()
 
 	if (bHardDiskIsLoaded)
 	{
-		setVersionCPUConstants();
 		GameLink::SetProgramInfo(g_infoHdv.VolumeName, 0, 0, versionHash, g_infoHdv.sig);
 	}
 	else
