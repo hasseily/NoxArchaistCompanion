@@ -197,10 +197,7 @@ std::string RemoteControlManager::getHdvGameVersionString(ImageInfo* imageInfo)
 			OutputDebugStringA(buf);
 		}
 	}
-	else
-	{
-		return std::string(UNKNOWN_VERSION);
-	}
+	return std::string(UNKNOWN_VERSION);
 }
 
 //===========================================================================
