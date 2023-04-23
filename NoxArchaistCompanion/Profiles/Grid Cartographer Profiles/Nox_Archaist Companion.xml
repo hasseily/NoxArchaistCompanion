@@ -22,28 +22,8 @@
       <!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
       <peek bytes="2af9 0000 267d 6cec 6ced" />
     </detect>
-		<!-- Nox Archaist Companion running Nox Archaist HDV version 1.3.0 -->
-		<detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010300" ph1="0" ph0="0">
-			<!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
-			<peek bytes="2af9 0000 267d 6ceb 6cec" />
-		</detect>
-    <!-- Nox Archaist Companion running Nox Archaist HDV version 1.3.1 -->
-    <detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010301" ph1="0" ph0="0">
-      <!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
-      <peek bytes="2af9 0000 267d 6ceb 6cec" />
-    </detect>
-    <!-- Nox Archaist Companion running Nox Archaist HDV version 1.3.2 -->
-    <detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010302" ph1="0" ph0="0">
-      <!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
-      <peek bytes="2af9 0000 267d 6ceb 6cec" />
-    </detect>
-    <!-- Nox Archaist Companion running Nox Archaist HDV version 1.3.3 -->
-    <detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010303" ph1="0" ph0="0">
-      <!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
-      <peek bytes="2af9 0000 267d 6ceb 6cec" />
-    </detect>
-    <!-- Nox Archaist Companion running Nox Archaist HDV version 1.3.4 -->
-    <detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010304" ph1="0" ph0="0">
+    <!-- Nox Archaist Companion running Nox Archaist HDV version 1.3.5 -->
+    <detect system="APPLE II" sys="40a3f909" prg="58c37f8c" ph3="58c37f8c" ph2="00010305" ph1="0" ph0="0">
       <!-- 0:mapID 1:region 2:maptype 3:xpos 4:ypos -->
       <peek bytes="2af9 0000 267d 6ceb 6cec" />
     </detect>
