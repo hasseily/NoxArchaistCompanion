@@ -241,14 +241,10 @@
     <None Include="Profiles\v1.1.9\Nox Archaist - Full.json" />
     <None Include="Profiles\v1.1.9\Nox Archaist - Solo.json" />
     <None Include="Profiles\v1.1.9\Nox Archaist.json" />
-    <None Include="Profiles\v1.3.2\Nox Archaist - Full.json" />
-    <None Include="Profiles\v1.3.2\Nox Archaist - Solo.json" />
-    <None Include="Profiles\v1.3.2\Nox Archaist.json" />
-    <None Include="Profiles\v1.3.2\Nox_Archaist - Full Six Party.json" />
-    <None Include="Profiles\v1.3.3\Nox Archaist - Full.json" />
-    <None Include="Profiles\v1.3.3\Nox Archaist - Solo.json" />
-    <None Include="Profiles\v1.3.3\Nox Archaist.json" />
-    <None Include="Profiles\v1.3.3\Nox_Archaist - Full Six Party.json" />
+    <None Include="Profiles\v1.3 Lord of Storms\Nox Archaist - Full.json" />
+    <None Include="Profiles\v1.3 Lord of Storms\Nox Archaist - Solo.json" />
+    <None Include="Profiles\v1.3 Lord of Storms\Nox Archaist.json" />
+    <None Include="Profiles\v1.3 Lord of Storms\Nox_Archaist - Full Six Party.json" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Assets\PixelShader.hlsl">

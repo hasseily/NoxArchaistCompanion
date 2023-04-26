@@ -300,29 +300,17 @@
     <None Include="Profiles\v1.1.4\Nox Archaist - Solo.json">
       <Filter>Profiles\1.1.4</Filter>
     </None>
-    <None Include="Profiles\v1.3.2\Nox_Archaist - Full Six Party.json">
-      <Filter>Profiles\1.3.2</Filter>
+    <None Include="Profiles\v1.3 Lord of Storms\Nox Archaist - Full.json">
+      <Filter>Profiles\1.3.7 Lord of Storms</Filter>
     </None>
-    <None Include="Profiles\v1.3.2\Nox Archaist - Full.json">
-      <Filter>Profiles\1.3.2</Filter>
+    <None Include="Profiles\v1.3 Lord of Storms\Nox Archaist - Solo.json">
+      <Filter>Profiles\1.3.7 Lord of Storms</Filter>
     </None>
-    <None Include="Profiles\v1.3.2\Nox Archaist - Solo.json">
-      <Filter>Profiles\1.3.2</Filter>
+    <None Include="Profiles\v1.3 Lord of Storms\Nox Archaist.json">
+      <Filter>Profiles\1.3.7 Lord of Storms</Filter>
     </None>
-    <None Include="Profiles\v1.3.2\Nox Archaist.json">
-      <Filter>Profiles\1.3.2</Filter>
-    </None>
-    <None Include="Profiles\v1.3.3\Nox_Archaist - Full Six Party.json">
-      <Filter>Profiles\1.3.3</Filter>
-    </None>
-    <None Include="Profiles\v1.3.3\Nox Archaist - Full.json">
-      <Filter>Profiles\1.3.3</Filter>
-    </None>
-    <None Include="Profiles\v1.3.3\Nox Archaist - Solo.json">
-      <Filter>Profiles\1.3.3</Filter>
-    </None>
-    <None Include="Profiles\v1.3.3\Nox Archaist.json">
-      <Filter>Profiles\1.3.3</Filter>
+    <None Include="Profiles\v1.3 Lord of Storms\Nox_Archaist - Full Six Party.json">
+      <Filter>Profiles\1.3.7 Lord of Storms</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -368,11 +356,8 @@
     <Filter Include="Profiles\1.1.9">
       <UniqueIdentifier>{dd60f26b-8c5e-45fb-ad4c-c2a8e04291cc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Profiles\1.3.2">
-      <UniqueIdentifier>{279dab89-736f-472e-a1f5-c2a62da654f2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Profiles\1.3.3">
-      <UniqueIdentifier>{2bcdfe41-42ac-4444-b9dc-b3e9a00d5a95}</UniqueIdentifier>
+    <Filter Include="Profiles\1.3.7 Lord of Storms">
+      <UniqueIdentifier>{a84f26c4-2251-4c4d-8fc7-7a87b79ee48e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -2,8 +2,8 @@
   "meta": {
     "name": "Nox Archaist - Solo Run",
     "author": "Rikkles",
-    "revision": 1,
-    "date": "2021.01.25",
+    "revision": 1137,
+    "date": "2023.04.26",
     "api_version": 2
   },
   "tables": {
@@ -528,7 +528,7 @@
         },
         {
           "type": "Header",
-          "template": "Download Nox Archaist Companion on Github",
+          "template": "Nox Companion - Running Nox Archaist: Lord of Storms",
           "color": [
             0.9,
             0.2,
