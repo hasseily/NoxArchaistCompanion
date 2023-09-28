@@ -13,7 +13,7 @@
 #define IDM_EXIT                        105
 #define IDI_NOXARCHAISTCOMPANION        107
 #define IDI_SMALL                       108
-#define IDC_NOXARCHAISTCOMPANION        109
+#define IDC_HDVCOMPANION                109
 #define IDR_ACCELERATOR1                110
 #define IDR_HDDRVR_FW                   128
 #define IDR_MOCKINGBOARD_D_FW           129
@@ -64,7 +64,7 @@
 #define ID_LOGWINDOW_SHOW               32785
 #define ID_LOGWINDOW_LOAD               32786
 #define ID_LOGWINDOW_SAVE               32787
-#define ID_EMULATOR_SELECTNOXHDV        32788
+#define ID_EMULATOR_SELECTHDV           32788
 #define ID_EMULATOR_SPEED               32789
 #define ID_SPEED_0                      32790
 #define ID_SPEED_1                      32791

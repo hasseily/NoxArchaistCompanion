@@ -135,7 +135,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	try {
 		// Initialize global strings
 		LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-		LoadStringW(hInstance, IDC_NOXARCHAISTCOMPANION, szWindowClass, MAX_LOADSTRING);
+		LoadStringW(hInstance, IDC_HDVCOMPANION, szWindowClass, MAX_LOADSTRING);
 
 		if (!XMVerifyCPUSupport())
 			return 1;
@@ -157,8 +157,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			wcex.hIcon = LoadIconW(hInstance, L"IDI_ICON");
 			wcex.hCursor = LoadCursorW(nullptr, IDC_ARROW);
 			wcex.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
-			wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_NOXARCHAISTCOMPANION);
-			wcex.lpszClassName = L"NoxArchaistCompanionWindowClass";
+			wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_HDVCOMPANION);
+			wcex.lpszClassName = L"HDVCompanionWindowClass";
 			wcex.hIconSm = LoadIconW(wcex.hInstance, L"IDI_ICON");
 			if (!RegisterClassExW(&wcex))
 				return 1;
@@ -175,10 +175,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			m_initialWindowWidth = rc.right - rc.left;
 			m_initialWindowHeight = rc.bottom - rc.top;
 
-			hwnd = CreateWindowExW(0, L"NoxArchaistCompanionWindowClass", L"Nox Archaist Companion", WS_OVERLAPPEDWINDOW,
+			hwnd = CreateWindowExW(0, L"HDVCompanionWindowClass", L"HDV Companion", WS_OVERLAPPEDWINDOW,
 				CW_USEDEFAULT, CW_USEDEFAULT, m_initialWindowWidth, m_initialWindowHeight, nullptr, nullptr, hInstance,
 				nullptr);
-			// TODO: Change to CreateWindowExW(WS_EX_TOPMOST, L"NoxArchaistCompanionWindowClass", L"NoxArchaistCompanion", WS_POPUP,
+			// TODO: Change to CreateWindowExW(WS_EX_TOPMOST, L"HDVCompanionWindowClass", L"HDV Companion", WS_POPUP,
 			// to default to fullscreen.
 
 			if (!hwnd)
@@ -499,7 +499,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		}
-		case ID_EMULATOR_SELECTNOXHDV:
+		case ID_EMULATOR_SELECTHDV:
 		{
 			HD_Select(HARDDISK_1);
 			break;
