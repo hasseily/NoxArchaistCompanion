@@ -256,10 +256,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	static bool s_fullscreen = false;
 	// TODO: Set s_fullscreen to true if defaulting to fullscreen.
 
+	// Static variables to keep track of the saved menu and its state.
+	static HMENU hSavedMenu = NULL;
+	static bool s_isMenuVisible = true;
+
 	auto game = reinterpret_cast<Game*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 
 	switch (message)
 	{
+	case WM_CREATE:
+	{
+		// Save the current menu so it can be restored later.
+		hSavedMenu = GetMenu(hWnd);
+	}
+	break;
 	case WM_PAINT:
 		if (game)
 		{
@@ -430,6 +440,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		KeybQueueKeypress(wParam, ASCII);
 		break;
 	case WM_KEYDOWN:	// Send to the applewin emulator
+	{
+		// Toggle the menu visibility when F2 is pressed.
+		if (wParam == VK_F2)
+		{
+			if (s_isMenuVisible)
+			{
+				// Hide the menu bar.
+				SetMenu(hWnd, NULL);
+				DrawMenuBar(hWnd);
+				s_isMenuVisible = false;
+			}
+			else
+			{
+				// Restore the menu bar.
+				SetMenu(hWnd, hSavedMenu);
+				DrawMenuBar(hWnd);
+				s_isMenuVisible = true;
+			}
+		}
+	}
 		Keyboard::ProcessMessage(message, wParam, lParam);
 		KeybQueueKeypress(wParam, NOT_ASCII);
 		break;
