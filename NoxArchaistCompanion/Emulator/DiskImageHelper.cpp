@@ -1566,7 +1566,30 @@ eDetectResult CWOZHelper::ProcessChunks(ImageInfo* pImageInfo, uint32_t& dwOffse
 			case WRIT_CHUNK_ID:	// WOZ v2 (optional)
 				break;
 			case META_CHUNK_ID:	// (optional)
+			{
+				// WOZ META is tab/newline-separated key/value pairs. Pull
+				// out title / subtitle / version into the ImageInfo so the
+				// frontend can show the disk's pretty name.
+				const std::string meta(reinterpret_cast<const char*>(pImage32), chunkSize);
+				size_t lineStart = 0;
+				while (lineStart < meta.size())
+				{
+					const size_t lineEnd = meta.find('\n', lineStart);
+					const size_t lineStop = (lineEnd == std::string::npos) ? meta.size() : lineEnd;
+					const std::string line = meta.substr(lineStart, lineStop - lineStart);
+					const size_t tab = line.find('\t');
+					if (tab != std::string::npos)
+					{
+						const std::string key = line.substr(0, tab);
+						const std::string val = line.substr(tab + 1);
+						if      (key == "title")    pImageInfo->szTitle    = val;
+						else if (key == "subtitle") pImageInfo->szSubtitle = val;
+						else if (key == "version")  pImageInfo->szVersion  = val;
+					}
+					lineStart = (lineEnd == std::string::npos) ? meta.size() : lineEnd + 1;
+				}
 				break;
+			}
 			default:	// no idea what this chunk is, so skip it
 				_ASSERT(0);
 				break;
@@ -2237,6 +2260,16 @@ CImageBase* CHardDiskImageHelper::Detect(LPBYTE pImage, uint32_t dwSize, const c
 	pImageInfo->pWOZTrackMap = 0;	// TODO: WOZ
 	pImageInfo->optimalBitTiming = 0;	// TODO: WOZ
 	pImageInfo->maxNibblesPerTrack = 0;	// TODO
+
+	// NAC: pull the ProDOS volume name out of the HDV directory header.
+	// Per qkumba: the volume-directory key block lives at offset $400; the
+	// low nibble of byte $404 is the name length, name bytes follow at $405.
+	if (pImage && dwSize >= 0x405 + 0x0F)
+	{
+		const UINT len = pImage[0x404] & 0x0F;
+		if (len > 0)
+			pImageInfo->szVolumeName.assign(reinterpret_cast<const char*>(pImage + 0x405), len);
+	}
 
 	return pImageType;
 }

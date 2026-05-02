@@ -29,6 +29,13 @@ struct ImageInfo
 	uint32_t			uOffset;
 	bool			bWriteProtected;
 	UINT			uImageSize;
+	// NAC: title/subtitle/version come from the WOZ META chunk for floppy
+	// images; szVolumeName is the ProDOS volume name read from offset $404
+	// of HDV images. The sidebar / window-title can show whichever is set.
+	std::string		szTitle;
+	std::string		szSubtitle;
+	std::string		szVersion;
+	std::string		szVolumeName;
 	std::string		szFilenameInZip;
 	zip_fileinfo	zipFileInfo;
 	UINT			uNumEntriesInZip;
