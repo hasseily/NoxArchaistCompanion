@@ -23,7 +23,11 @@
 #include "Emulator/Memory.h"
 #include "Emulator/NTSC.h"
 #include "Emulator/RGBMonitor.h"
+#include "Emulator/Speaker.h"
 #include "Emulator/Video.h"
+
+extern bool g_bDisableDirectSound;
+extern bool g_bDisableDirectSoundMockingboard;
 
 #include <cstdio>
 #include <filesystem>
@@ -70,6 +74,20 @@ std::filesystem::path FindResourcesDir()
 
 void InitEmulator()
 {
+    // NAC has no logo / pause / debug UI; the //e runs continuously from
+    // boot. CPU::CpuExecute asserts on MODE_LOGO (its default), so set
+    // MODE_RUNNING before any CpuExecute call.
+    g_nAppMode = MODE_RUNNING;
+
+    // No audio yet — SpkrInitialize still has to run though, otherwise
+    // g_pSpeakerBuffer stays NULL and the //e ROM's BELL routine
+    // ($FBE4..$FBEF, which toggles $C030) crashes inside SpkrToggle ->
+    // UpdateSpkr. The g_bDisableDirectSound flag tells SpkrInitialize to
+    // mute the voice instead of talking to DirectSound.
+    g_bDisableDirectSound = true;
+    g_bDisableDirectSoundMockingboard = true;
+    SpkrInitialize();
+
     SetApple2Type(A2TYPE_APPLE2EENHANCED);
     RGB_SetVideocard(Video7_SL7, 15, 0);
 

@@ -159,11 +159,14 @@ void Renderer::DrawFramebuffer()
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, m_framebufferTex);
 
+    // The emulator framebuffer follows the Windows BMP convention (origin at
+    // bottom-left, scanlines stored bottom-up), so flip V to put the top of
+    // the image at the top of the window.
     glBegin(GL_TRIANGLE_STRIP);
-        glTexCoord2f(0.0f, 0.0f); glVertex2f(left,  top);
-        glTexCoord2f(1.0f, 0.0f); glVertex2f(right, top);
-        glTexCoord2f(0.0f, 1.0f); glVertex2f(left,  bottom);
-        glTexCoord2f(1.0f, 1.0f); glVertex2f(right, bottom);
+        glTexCoord2f(0.0f, 1.0f); glVertex2f(left,  top);
+        glTexCoord2f(1.0f, 1.0f); glVertex2f(right, top);
+        glTexCoord2f(0.0f, 0.0f); glVertex2f(left,  bottom);
+        glTexCoord2f(1.0f, 0.0f); glVertex2f(right, bottom);
     glEnd();
 
     glBindTexture(GL_TEXTURE_2D, 0);
