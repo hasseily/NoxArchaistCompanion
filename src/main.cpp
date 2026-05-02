@@ -34,9 +34,14 @@
 #include "Emulator/Video.h"
 
 
+#include <nlohmann/json.hpp>
+
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <memory>
+#include <string>
 
 namespace
 {
@@ -104,6 +109,82 @@ std::filesystem::path FindProfilesDir()
     return "Profiles";
 }
 
+// Same walk-up for Assets/Versions.json (used by Nox version detection).
+std::filesystem::path FindAssetsDir()
+{
+    const char* base = SDL_GetBasePath();
+    std::filesystem::path dir = base ? base : ".";
+    for (int i = 0; i < 5; ++i)
+    {
+        const auto candidate = dir / "Assets";
+        if (std::filesystem::exists(candidate / "Versions.json")) return candidate;
+        const auto nacCandidate = dir / "NoxArchaistCompanion" / "Assets";
+        if (std::filesystem::exists(nacCandidate / "Versions.json")) return nacCandidate;
+        dir = dir.parent_path();
+        if (dir.empty()) break;
+    }
+    return "Assets";
+}
+
+// Probe an .hdv file for the Nox Archaist version string by reading the
+// few bytes Versions.json says contain it for each candidate. The Apple //e
+// stores ASCII with the high bit set, so we strip 0x80 before comparing.
+// Returns the matching version key (e.g. "1.3.7") or an empty string.
+std::string DetectNoxVersion(const std::filesystem::path& hdvPath,
+                             const std::filesystem::path& assetsDir)
+{
+    const auto versionsJsonPath = assetsDir / "Versions.json";
+    std::ifstream jf(versionsJsonPath);
+    if (!jf) return {};
+
+    nlohmann::json versions;
+    try { jf >> versions; }
+    catch (...) { return {}; }
+
+    std::ifstream hdv(hdvPath, std::ios::binary);
+    if (!hdv) return {};
+
+    for (auto it = versions.begin(); it != versions.end(); ++it)
+    {
+        const std::string& key = it.key();
+        if (!it.value().is_object() || !it.value().contains("VERSION")) continue;
+
+        try
+        {
+            const uint32_t off = (uint32_t)std::stoul(
+                it.value()["VERSION"].get<std::string>(), nullptr, 0);
+            hdv.seekg(off);
+            std::string buf(key.size(), '\0');
+            hdv.read(buf.data(), (std::streamsize)key.size());
+            if (!hdv) continue;
+            for (char& c : buf) c &= 0x7F;
+            if (buf == key) return key;
+        }
+        catch (...) {}
+    }
+    return {};
+}
+
+// Pack the digits of a version string into a uint32. Matches the old NAC
+// scheme: "1.1.9" -> 0x00010109, "1004" -> 0x01000004 (right-to-left,
+// one digit per byte, non-digits skipped).
+uint32_t PackVersionDigits(const std::string& s)
+{
+    uint32_t hash = 0;
+    int      ix   = 0;
+    for (auto it = s.rbegin(); it != s.rend() && ix < 4; ++it)
+    {
+        if (*it >= '0' && *it <= '9')
+        {
+            hash |= ((uint32_t)(*it - '0')) << (8 * ix);
+            ++ix;
+        }
+    }
+    return hash;
+}
+
+constexpr uint32_t kNoxArchaistSig = 0x58C37F8C;
+
 void InitEmulator(const std::filesystem::path& hdvPath)
 {
     // NAC has no logo / pause / debug UI; the //e runs continuously from
@@ -152,10 +233,18 @@ void InitEmulator(const std::filesystem::path& hdvPath)
         }
         else
         {
-            // Tell Gamelink which game is loaded so Grid Cartographer can
-            // pick the right map / hint sheet.
-            const std::string stem = hdvPath.stem().string();
-            GameLink::SetProgramInfo(stem, 0, 0, 0, 0);
+            // Detect the Nox Archaist version from the HDV bytes so the
+            // SetProgramInfo handshake with Grid Cartographer carries the
+            // right (version-hash, sig) — without it GC just sees 0:0:0:0
+            // and can't pick the correct map / hint sheet.
+            const std::string version = DetectNoxVersion(hdvPath, FindAssetsDir());
+            const uint32_t    hash    = PackVersionDigits(version);
+            const uint32_t    sig     = version.empty() ? 0u : kNoxArchaistSig;
+            const std::string name    = hdvPath.stem().string();
+            GameLink::SetProgramInfo(name, 0, 0, hash, sig);
+            std::fprintf(stderr, "Gamelink: program=\"%s\" version=\"%s\" "
+                                 "hash=0x%08x sig=0x%08x\n",
+                         name.c_str(), version.c_str(), hash, sig);
         }
     }
 
@@ -389,10 +478,26 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     {
         const int fbW = static_cast<int>(video.GetFrameBufferWidth());
         const int fbH = static_cast<int>(video.GetFrameBufferHeight());
+
+        // The Apple //e framebuffer is BGRA stored bottom-up (Windows BMP
+        // convention). GC expects top-down, so reverse scanlines into a
+        // static scratch buffer before handing it over.
+        static std::vector<uint8_t> flipped;
+        const size_t rowBytes = (size_t)fbW * 4;
+        const size_t bytes    = rowBytes * (size_t)fbH;
+        flipped.resize(bytes);
+        const uint8_t* src = video.GetFrameBuffer();
+        for (int y = 0; y < fbH; ++y)
+        {
+            std::memcpy(flipped.data() + y * rowBytes,
+                        src + (fbH - 1 - y) * rowBytes,
+                        rowBytes);
+        }
+
         GameLink::Out(static_cast<uint16_t>(fbW), static_cast<uint16_t>(fbH),
                       static_cast<double>(fbW) / static_cast<double>(fbH),
                       /*need_mouse*/ false,
-                      video.GetFrameBuffer(),
+                      flipped.data(),
                       g_externalMemMain);
     }
 
