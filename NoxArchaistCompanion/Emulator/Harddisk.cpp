@@ -35,6 +35,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "DiskImage.h"	// ImageError_e, Disk_Status_e
 #include "Memory.h"
 #include "Registry.h"
+#include "ResourceIds.h"
 #include "SaveState.h"
 #include "YamlHelper.h"
 
@@ -221,16 +222,31 @@ void HarddiskInterfaceCard::SetHdcFirmwareMode(HdcMode hdcMode)
 
 void HarddiskInterfaceCard::InitializeIO(LPBYTE pCxRomPeripheral)
 {
-	// TODO Phase 4: load HDC SmartPort / v1 / v2 firmware blob from filesystem
+	const uint32_t HARDDISK_FW_SIZE = APPLE_SLOT_SIZE;
+	WORD id = IDR_HDC_SMARTPORT_FW;
+	if (m_useHdcFirmwareV1 || m_saveStateFirmwareV1) id = IDR_HDDRVR_FW;
+	else if (m_useHdcFirmwareV2 || m_saveStateFirmwareV2) id = IDR_HDDRVR_V2_FW;
+
 	m_saveStateFirmwareV1 = false;
 	m_saveStateFirmwareV2 = false;
 
-	if (m_saveStateFirmwareValid)
+	BYTE* pData = NULL;
+	if (!m_saveStateFirmwareValid)
 	{
-		BYTE* pFirmwareBase = pCxRomPeripheral + m_slot * APPLE_SLOT_SIZE;
-		memcpy(pFirmwareBase, m_saveStateFirmware, APPLE_SLOT_SIZE);
-		m_saveStateFirmwareValid = false;
+		pData = GetFrame().GetResource(id, "FIRMWARE", HARDDISK_FW_SIZE);
+		if (pData == NULL)
+			return;
+		if (id == IDR_HDDRVR_FW || id == IDR_HDDRVR_V2_FW)
+			m_isFirmwareV1or2 = true;
 	}
+	else
+	{
+		m_saveStateFirmwareValid = false;
+		pData = m_saveStateFirmware;
+	}
+
+	BYTE* pFirmwareBase = pCxRomPeripheral + m_slot * APPLE_SLOT_SIZE;
+	memcpy(pFirmwareBase, pData, HARDDISK_FW_SIZE);
 
 	RegisterIoHandler(m_slot, IORead, IOWrite, NULL, NULL, this, NULL);
 }

@@ -49,7 +49,8 @@ public:
     void GetBitmap(WORD id, LONG cb, LPVOID lpvBits) override;
 
     std::shared_ptr<NetworkBackend> CreateNetworkBackend(const std::string&) override { return nullptr; }
-    std::shared_ptr<SoundBuffer> CreateSoundBuffer(uint32_t, uint32_t, int, const char*) override { return nullptr; }
+    std::shared_ptr<SoundBuffer> CreateSoundBuffer(uint32_t bufferBytes, uint32_t sampleRate,
+                                                   int channels, const char* voiceName) override;
 
     BYTE* GetResource(WORD id, LPCSTR lpType, uint32_t expectedSize) override;
     void Restart() override {}

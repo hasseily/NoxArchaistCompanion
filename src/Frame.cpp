@@ -4,6 +4,7 @@
 
 #include "Frame.h"
 #include "PropertySheet.h"
+#include "AudioOutput.h"
 
 #include "Emulator/Interface.h"
 #include "Emulator/Video.h"
@@ -60,6 +61,7 @@ const char* ResourceFilename(WORD id)
     case IDR_APPLE2E_ENHANCED_ROM:       return "Apple2e_Enhanced.rom";
     case IDR_APPLE2E_ENHANCED_VIDEO_ROM: return "Apple2e_Enhanced_Video.rom";
     case IDR_HDDRVR_FW:                  return "Hddrvr.bin";
+    case IDR_HDC_SMARTPORT_FW:           return "HDC-SmartPort.bin";
     case IDR_MOCKINGBOARD_D_FW:          return "Mockingboard-D.rom";
     case IDR_TKCLOCK_FW:                 return "TKClock.rom";
     default:                             return nullptr;
@@ -171,16 +173,17 @@ void Frame::GetBitmap(WORD id, LONG cb, LPVOID lpvBits)
     }
 }
 
+std::shared_ptr<SoundBuffer> Frame::CreateSoundBuffer(uint32_t bufferBytes, uint32_t sampleRate,
+                                                      int channels, const char* voiceName)
+{
+    return AudioOutput::Create(bufferBytes, sampleRate, channels, voiceName);
+}
+
 } // namespace nac
 
-// DSAvailable() is normally provided by the Windows DXSoundBuffer / Linux
-// linuxsoundbuffer translation unit. Phase 5 has no audio backend, so
-// return false — Speaker / Mockingboard / SSI263 init paths bail out
-// cleanly without trying to talk to a sound card.
-bool DSAvailable()
-{
-    return false;
-}
+// DSAvailable() lives in linuxsoundbuffer.cpp (vendored alongside the
+// LinuxSoundBuffer ring) and unconditionally returns true. NAC's actual
+// audio backend is the AudioOutput SDL3 wrapper above.
 
 // ---------------------------------------------------------------------------
 // Interface.h singletons. Each lives in static storage; the emulator core

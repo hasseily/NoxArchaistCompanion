@@ -39,6 +39,7 @@ set(EMU_AUDIO
     6522.cpp
     6821.cpp
     Riff.cpp
+    linuxsoundbuffer.cpp   # platform-neutral ring buffer (vendored from upstream linux/)
 )
 
 set(EMU_DISK_IO

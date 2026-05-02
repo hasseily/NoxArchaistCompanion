@@ -57,6 +57,7 @@ add_executable(nac WIN32
     src/main.cpp
     src/Renderer.cpp
     src/Frame.cpp
+    src/AudioOutput.cpp
     ${GAMELINK_SOURCES}
 )
 

@@ -16,9 +16,11 @@
 #include "RemoteControl/Gamelink.h"
 
 #include "Emulator/CardManager.h"
+#include "Emulator/Card.h"
 #include "Emulator/Common.h"
 #include "Emulator/Core.h"
 #include "Emulator/CPU.h"
+#include "Emulator/Harddisk.h"
 #include "Emulator/Interface.h"
 #include "Emulator/Keyboard.h"
 #include "Emulator/Memory.h"
@@ -27,8 +29,6 @@
 #include "Emulator/Speaker.h"
 #include "Emulator/Video.h"
 
-extern bool g_bDisableDirectSound;
-extern bool g_bDisableDirectSoundMockingboard;
 
 #include <cstdio>
 #include <filesystem>
@@ -41,14 +41,17 @@ constexpr int kWindowWidth  = 800;
 constexpr int kWindowHeight = 600;
 constexpr uint32_t kSimRamSize = 128 * 1024;
 
-// One frame of //e cycles at 1.0205 MHz / 60 Hz. The emulator's own
-// CpuCalcCycles loop will refine this with timing feedback.
-constexpr uint32_t kCyclesPerFrame = 17030;
+// 1.02 MHz Apple //e clock — used to convert elapsed wall-clock time
+// into cycles to feed CpuExecute. Pacing by real time (not by SDL_AppIterate
+// invocation count) keeps the //e at native speed regardless of the host
+// monitor's refresh rate.
+constexpr double kClockHz = 1020484.45;
 
 struct AppState
 {
-    nac::Renderer renderer;
-    bool          gamelink_up = false;
+    nac::Renderer         renderer;
+    bool                  gamelink_up = false;
+    std::filesystem::path hdv_path;          // optional HDV from argv[1]
 };
 
 // Walk up from the executable directory looking for Resources/. Lets the
@@ -73,20 +76,15 @@ std::filesystem::path FindResourcesDir()
     return "Resources";
 }
 
-void InitEmulator()
+void InitEmulator(const std::filesystem::path& hdvPath)
 {
     // NAC has no logo / pause / debug UI; the //e runs continuously from
     // boot. CPU::CpuExecute asserts on MODE_LOGO (its default), so set
     // MODE_RUNNING before any CpuExecute call.
     g_nAppMode = MODE_RUNNING;
 
-    // No audio yet — SpkrInitialize still has to run though, otherwise
-    // g_pSpeakerBuffer stays NULL and the //e ROM's BELL routine
-    // ($FBE4..$FBEF, which toggles $C030) crashes inside SpkrToggle ->
-    // UpdateSpkr. The g_bDisableDirectSound flag tells SpkrInitialize to
-    // mute the voice instead of talking to DirectSound.
-    g_bDisableDirectSound = true;
-    g_bDisableDirectSoundMockingboard = true;
+    // SDL3 audio: Frame::CreateSoundBuffer hands back an AudioOutput
+    // (LinuxSoundBuffer + SDL_AudioStream on the default playback device).
     SpkrInitialize();
 
     SetApple2Type(A2TYPE_APPLE2EENHANCED);
@@ -99,8 +97,28 @@ void InitEmulator()
 
     SetCurrentCLK6502();
 
+    // SmartPort HDD card in slot 7. Must be in place *before* MemInitialize
+    // so MemInitializeIO wires it up and loads its firmware blob.
+    GetCardMgr().Insert(SLOT7, CT_GenericHDD, /*updateRegistry*/ false);
+
+    // Mockingboard in slots 4 & 5 (NAC convention; Nox Archaist drives
+    // both for stereo). MockingboardCardManager lazy-inits its SoundBuffer
+    // the first time the game touches the chips.
+    GetCardMgr().Insert(SLOT4, CT_MockingboardC, /*updateRegistry*/ false);
+    GetCardMgr().Insert(SLOT5, CT_MockingboardC, /*updateRegistry*/ false);
+
     GetFrame().Initialize(true);   // allocates the BGRA framebuffer + Video::Initialize
-    MemInitialize();               // loads ROMs + sets up cards
+    MemInitialize();               // loads ROMs + cards' firmware
+
+    if (!hdvPath.empty())
+    {
+        auto* hdc = static_cast<HarddiskInterfaceCard*>(GetCardMgr().GetObj(SLOT7));
+        if (hdc && !hdc->Insert(HARDDISK_1, hdvPath.string()))
+        {
+            std::fprintf(stderr, "HD_Insert failed for %s\n", hdvPath.string().c_str());
+        }
+    }
+
     GetFrame().VideoRedrawScreen();
 
     // //e Enhanced ships with Caps Lock UP — lowercase letters pass
@@ -117,9 +135,9 @@ void ShutdownEmulator()
 
 } // namespace
 
-SDL_AppResult SDL_AppInit(void** appstate, int /*argc*/, char** /*argv*/)
+SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 {
-    if (!SDL_Init(SDL_INIT_VIDEO))
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO))
     {
         std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -129,6 +147,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int /*argc*/, char** /*argv*/)
     nac::Frame::SetResourceDir(FindResourcesDir());
 
     auto state = std::make_unique<AppState>();
+    if (argc >= 2)
+        state->hdv_path = argv[1];
+
     if (!state->renderer.Init("Nox Archaist Companion", kWindowWidth, kWindowHeight))
     {
         return SDL_APP_FAILURE;
@@ -142,7 +163,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int /*argc*/, char** /*argv*/)
         state->gamelink_up = true;
     }
 
-    InitEmulator();
+    InitEmulator(state->hdv_path);
 
     *appstate = state.release();
     return SDL_APP_CONTINUE;
@@ -256,7 +277,38 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 {
     auto* state = static_cast<AppState*>(appstate);
 
-    CpuExecute(kCyclesPerFrame, /*bVideoUpdate*/ true);
+    // Pace the CPU by real elapsed time so the emulator runs at //e speed
+    // (~1.02 MHz) regardless of the host's vsync rate. Cap per-tick cycles
+    // to ~4 frames worth so a paused / debugger-broken host doesn't trigger
+    // a long catch-up sprint.
+    static uint64_t lastNs = SDL_GetTicksNS();
+    const uint64_t  nowNs  = SDL_GetTicksNS();
+    const uint64_t  deltaNs = nowNs - lastNs;
+    lastNs = nowNs;
+
+    uint32_t cycles = (uint32_t)(deltaNs * kClockHz * 1e-9);
+    if (cycles == 0)        cycles = 1;
+    if (cycles > 17030 * 4) cycles = 17030 * 4;
+
+    // Mirror upstream's CommonFrame::ExecuteOneFrame: split the run into
+    // ~1 ms batches and tick the cards + speaker after each batch, so
+    // SpkrUpdate / Mockingboard / SSI263 land samples in their ring
+    // buffers at the right rate.
+    const uint32_t cyclesPerMs = (uint32_t)(g_fCurrentCLK6502 * 1e-3);
+    const UINT     cyclesPerFrame = NTSC_GetCyclesPerFrame();
+    uint32_t totalExecuted = 0;
+    do
+    {
+        const uint32_t batch = (cyclesPerMs < cycles - totalExecuted) ? cyclesPerMs : cycles - totalExecuted;
+        const uint32_t executed = CpuExecute(batch, /*bVideoUpdate*/ true);
+        totalExecuted += executed;
+
+        GetCardMgr().Update(executed);
+        SpkrUpdate(executed);
+
+        g_dwCyclesThisFrame = (g_dwCyclesThisFrame + executed) % cyclesPerFrame;
+    } while (totalExecuted < cycles);
+
     GetFrame().VideoRedrawScreen();
 
     Video& video = GetVideo();
