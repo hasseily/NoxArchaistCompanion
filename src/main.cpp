@@ -110,6 +110,12 @@ void InitEmulator(const std::filesystem::path& hdvPath)
     GetFrame().Initialize(true);   // allocates the BGRA framebuffer + Video::Initialize
     MemInitialize();               // loads ROMs + cards' firmware
 
+    // Power-cycle the cards. Without this, the Mockingboard's AY chips
+    // never get their initial Reset() and the timer / audio path stays
+    // dormant — so games that program MB at boot (Nox Archaist) end up
+    // making no sound. Mirrors upstream's ResetMachineState ordering.
+    GetCardMgr().Reset(/*powerCycle*/ true);
+
     if (!hdvPath.empty())
     {
         auto* hdc = static_cast<HarddiskInterfaceCard*>(GetCardMgr().GetObj(SLOT7));
