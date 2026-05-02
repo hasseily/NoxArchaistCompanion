@@ -37,33 +37,28 @@ layer compiles standalone.
 Commit: "add CMake build, headless Linux build green".
 
 ## Phase 1 — vendor cross-platform AppleWin core
-Replace `NoxArchaistCompanion/Emulator/` with a stripped subset of
-`hasseily/AppleWin` master (the cross-platform branch). The current
-`Emulator/` was forked from a very old Win32-only AppleWin and
-heavily customised; the plan is to throw that away, take a clean
-upstream baseline, and re-add the small set of NAC-specific game
-hooks (e.g. the `noxcpuconstants` struct used by `Game.cpp`) on top.
+✅ Done. Replaced `NoxArchaistCompanion/Emulator/` with a stripped subset of
+`hasseily/AppleWin` master. The old Win32-only fork is gone. The vendored
+upstream files have removed-component refs stripped (Disk II, Mouse, Z80,
+parallel, serial, Uthernet, Pravets, FourPlay, SNESMAX, CopyProtectionDongles,
+Tape, Speech, debugger, Configuration helpers, ProDOS_*, Tfe, Z80VICE).
+Resource-loading (`FindResource(IDR_*)`) is stubbed with `TODO Phase 4`
+markers — the SDL3 frontend will load ROMs from disk. The single NAC patch
+re-applied on top is `noxcpuconstants` in `CPU.{h,cpp}`. The remaining NAC
+hooks (Memory.cpp Gamelink hookup, Video.cpp RemoteControl bracketing,
+Harddisk.cpp NonVolatile / RemoteControl notify, DiskImageHelper.cpp WOZ
+META + ProDOS HDV title parsing, CPU.cpp `Fetch()` Nox combat trap) are
+deferred to the phase that wires the frontend back in.
 
-For each file:
+Acceptance (revised): top-level CMake builds `nac_emulator.lib` (plus
+`yaml`, `nac_zlib`, `nac_minizip` support libs) on Windows. The vcxproj is
+no longer maintained — CMake is the single source of truth across
+Windows/Linux/macOS.
 
-1. Copy from `../AppleWin/source/` into `NoxArchaistCompanion/Emulator/`.
-2. Walk every `#ifdef _WIN32` / `WIN32` and delete the Win32-only path.
-3. Delete every Disk II / floppy reference (`Disk.cpp`, `Disk2CardManager*`,
-   `DiskFormatTrack*`, `Disk2InterfaceCard`, slot-6 wiring).
-4. Delete every other expansion card (Mouse, Z80, parallel, serial,
-   Uthernet, Pravets, FourPlay, dongles, NetworkCard).
-5. Delete the AppleWin debugger (`Debugger/`, `SaveState.*` if not needed).
-6. Remove Win32-only video helpers; keep `Video.cpp` / `NTSC.cpp` /
-   `RGBMonitor.cpp` / `NTSC_CharSet.cpp` / `VidHD.cpp`.
-7. Audio: keep `AY8910`, `Mockingboard*`, `SoundCore`, `Speaker`, `SSI263*`,
-   `SAM*`. Drop `Tape.*`, `cassettetape.*`, `Speech.*`.
-
-Acceptance: Windows build still passes (vcxproj updated to point at the
-new files, PCH still works).
-
-Commit per logical group: "vendor AppleWin core CPU+memory", "vendor
-AppleWin video", "vendor AppleWin audio", "vendor AppleWin disk (Smartport
-only)".
+Four commits: "vendor AppleWin core CPU+memory", "vendor AppleWin video",
+"vendor AppleWin audio", "vendor AppleWin disk + I/O". Only the last builds
+in isolation — `Memory.cpp` pulls peripheral headers that arrive over the
+sequence — but each commit is a coherent file group.
 
 ## Phase 2 — vendor the post-processor
 Copy `source/frontends/sdl/pp/` from the `pp` branch into
