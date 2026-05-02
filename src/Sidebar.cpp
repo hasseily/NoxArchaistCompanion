@@ -76,6 +76,7 @@ void Sidebar::LoadProfilesFromDir(const std::filesystem::path& profileDir)
 
 bool Sidebar::SetActiveProfile(const std::string& name)
 {
+    m_blockCache.clear();   // stale cached text from old profile shouldn't leak
     if (name.empty())
     {
         m_activeName.clear();
@@ -111,27 +112,42 @@ std::string Sidebar::SerializeVar(const nlohmann::json& var) const
     try { memoffset = std::stoul(var["memstart"].get<std::string>(), nullptr, 0); }
     catch (...) { return {}; }
 
-    // The NAC profile convention treats memory as one contiguous 128 KiB
-    // block: 0x00000-0x0FFFF = main RAM, 0x10000-0x1FFFF = aux RAM. The
-    // upstream emulator stores the two halves in separate allocations,
-    // so dispatch by offset.
-    const uint8_t* p = nullptr;
-    if (memoffset + (uint32_t)length <= 0x10000u)
-    {
-        const uint8_t* mem = reinterpret_cast<const uint8_t*>(MemGetMainPtr(0));
-        if (!mem) return {};
-        p = mem + memoffset;
-    }
-    else if (memoffset >= 0x10000u && memoffset + (uint32_t)length <= 0x20000u)
-    {
-        const uint8_t* aux = reinterpret_cast<const uint8_t*>(MemGetAuxPtr(0));
-        if (!aux) return {};
-        p = aux + (memoffset - 0x10000u);
-    }
-    else
-    {
-        return {};   // straddling the main/aux boundary — invalid
-    }
+    // NAC profiles treat memory as one contiguous 128 KiB block:
+    // 0x00000-0x0FFFF is the CPU-visible address space (which the //e's
+    // STORE80 / RAMRD / ALTZP soft switches route to either main or aux
+    // bank per page) and 0x10000-0x1FFFF is the literal aux RAM (the
+    // 64 KiB aux bank, addressed independently of any soft switch).
+    //
+    // For the CPU-visible half we copy through memshadow[] — that's the
+    // page table the CPU actually dereferences, so it stays correct as
+    // Nox toggles 80STORE / RAMRD during gameplay. memmain[] read raw
+    // would give the wrong bank whenever a soft switch is flipped.
+    //
+    // The literal aux half just goes straight to memaux + offset.
+    std::vector<uint8_t> buf;
+    buf.reserve(length);
+
+    auto append = [&](uint32_t off) -> bool {
+        if (off < 0x10000u)
+        {
+            const uint8_t* page = memshadow[off >> 8];
+            if (!page) return false;
+            buf.push_back(page[off & 0xFF]);
+        }
+        else if (off < 0x20000u)
+        {
+            const uint8_t* aux = reinterpret_cast<const uint8_t*>(MemGetAuxPtr(0));
+            if (!aux) return false;
+            buf.push_back(aux[off - 0x10000u]);
+        }
+        else return false;
+        return true;
+    };
+
+    for (int i = 0; i < length; ++i)
+        if (!append(memoffset + (uint32_t)i)) return {};
+
+    const uint8_t* p = buf.data();
 
     const std::string type = var["type"].get<std::string>();
 
@@ -205,29 +221,60 @@ std::string Sidebar::SerializeVar(const nlohmann::json& var) const
 // can all throw on profile fields that don't match expectations.
 namespace { struct SerializeVarCatch {}; }
 
-std::string Sidebar::FormatBlockText(const nlohmann::json& block) const
+std::string Sidebar::FormatBlockText(int blockKey, const nlohmann::json& block)
 {
+    std::string fresh;
     try
     {
-        std::string text = block.value("template", std::string{});
-        if (!block.contains("vars") || !block["vars"].is_array()) return text;
-
-        const std::string placeholder = "{}";
-        for (const auto& v : block["vars"])
+        fresh = block.value("template", std::string{});
+        if (block.contains("vars") && block["vars"].is_array())
         {
-            const auto pos = text.find(placeholder);
-            if (pos == std::string::npos) break;
-            text.replace(pos, placeholder.size(), SerializeVar(v));
+            const std::string placeholder = "{}";
+            for (const auto& v : block["vars"])
+            {
+                const auto pos = fresh.find(placeholder);
+                if (pos == std::string::npos) break;
+                fresh.replace(pos, placeholder.size(), SerializeVar(v));
+            }
         }
-        return text;
     }
     catch (...)
     {
-        return "<format error>";
+        fresh = "<format error>";
     }
+
+    BlockCache& c = m_blockCache[blockKey];
+    if (fresh == c.displayed)
+    {
+        // Already showing this value — nothing to do, reset the pending state.
+        c.pending.clear();
+        c.pendingCount = 0;
+        return c.displayed;
+    }
+    if (fresh == c.pending)
+    {
+        // Same as the last sample but different from what we display.
+        // Promote once it stabilises.
+        if (++c.pendingCount >= kStableFrames)
+        {
+            c.displayed = std::move(c.pending);
+            c.pending.clear();
+            c.pendingCount = 0;
+        }
+    }
+    else
+    {
+        // New candidate — start counting.
+        c.pending      = std::move(fresh);
+        c.pendingCount = 1;
+    }
+
+    // Until pending stabilises, keep showing the last good value (empty on
+    // first frame — that's fine, the next stable sample will fill it in).
+    return c.displayed;
 }
 
-void Sidebar::DrawSidebar(const nlohmann::json& sidebar, const char* anchor)
+void Sidebar::DrawSidebar(int sidebarIndex, const nlohmann::json& sidebar, const char* anchor)
 {
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     const float menuH = ImGui::GetFrameHeight();   // top main-menu bar
@@ -276,15 +323,20 @@ void Sidebar::DrawSidebar(const nlohmann::json& sidebar, const char* anchor)
         return;
     }
 
+    int blockIndex = 0;
     for (const auto& block : sidebar["blocks"])
     {
         const std::string type = block.value("type", std::string("Content"));
         if (type == "Empty")
         {
             ImGui::Spacing();
+            ++blockIndex;
             continue;
         }
-        const std::string text  = FormatBlockText(block);
+        // Pack sidebar+block index into one int for the debounce cache key.
+        const int blockKey = (sidebarIndex << 16) | blockIndex;
+        ++blockIndex;
+        const std::string text  = FormatBlockText(blockKey, block);
         const ImVec4      color = ParseColor(block);
 
         if (type == "Header")
@@ -310,10 +362,11 @@ void Sidebar::Render()
     if (!m_active["sidebars"].is_array()) return;
     try
     {
+        int idx = 0;
         for (const auto& sb : m_active["sidebars"])
         {
             const std::string anchor = sb.value("type", std::string("Right"));
-            DrawSidebar(sb, anchor.c_str());
+            DrawSidebar(idx++, sb, anchor.c_str());
         }
     }
     catch (const std::exception& e)

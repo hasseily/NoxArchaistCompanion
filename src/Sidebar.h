@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace nac
@@ -38,12 +39,27 @@ public:
 
 private:
     std::string SerializeVar(const nlohmann::json& var) const;
-    std::string FormatBlockText(const nlohmann::json& block) const;
-    void DrawSidebar(const nlohmann::json& sidebar, const char* anchor);
+    std::string FormatBlockText(int blockKey, const nlohmann::json& block);
+    void DrawSidebar(int sidebarIndex, const nlohmann::json& sidebar, const char* anchor);
+
+    // Per-block debounce: a freshly-formatted text only replaces the
+    // displayed text after it has been seen kStableFrames consecutive
+    // SDL_AppIterate calls. The //e's CPU often runs through several
+    // cycles where a sidebar buffer or the STORE80 soft-switch is mid-
+    // update, so the raw read flickers. Holding the previous stable
+    // value until the new one settles hides that glitching.
+    static constexpr int kStableFrames = 4;
+    struct BlockCache
+    {
+        std::string pending;        // last-seen formatted text
+        int         pendingCount = 0;
+        std::string displayed;      // what the user sees
+    };
 
     std::map<std::string, nlohmann::json> m_profiles;
     std::string                           m_activeName;
-    nlohmann::json                        m_active;   // copy of m_profiles[m_activeName]
+    nlohmann::json                        m_active;
+    std::unordered_map<int, BlockCache>   m_blockCache;
 };
 
 } // namespace nac

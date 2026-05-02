@@ -151,18 +151,26 @@ Memory dispatch: NAC profiles use a contiguous 128 KiB convention
 emulator stores main + aux as separate allocations, so `SerializeVar`
 splits by offset and uses `MemGetMainPtr` or `MemGetAuxPtr` accordingly.
 
-**Known gap:** values in main RAM that Nox routes through STORE80 /
-RAMRD soft-switches (coords, torches, location, picks, spells —
-addresses around $0420 / $703c / $6CEC) flicker. The raw `memmain[off]`
-read doesn't honour the //e bank-switch state, so the underlying byte
-sometimes lives in aux instead. Needs a `MemReadByte`-style reader that
-respects the soft switches at read time.
+Main-RAM reads now go through `memshadow[addr>>8]` instead of raw
+`memmain[off]`, so they honour the //e's STORE80 / RAMRD / ALTZP
+soft-switches at read time (the same page table the CPU itself
+dereferences). Aux-half profile addresses still go straight to
+`MemGetAuxPtr`.
 
-Acceptance (partial): sidebar shows up, party stats / skills (aux RAM)
-update live. Bank-switched main RAM values flicker — investigation
-deferred.
+Per-block debounce: the formatted text only replaces the displayed
+value once it has been seen `kStableFrames` (4) consecutive
+SDL_AppIterate calls in a row. The CPU is often mid-update of a
+sidebar buffer or has just flipped a soft switch when our iterate
+wakes, so the raw read flickers; the debounce hides that glitching
+without blocking legitimate gameplay changes (~67 ms extra latency).
 
-Commit: "port sidebar to ImGui — party stats live, bank-switched fields TBD".
+Acceptance: sidebar shows live values for both aux-RAM (party stats,
+skills) and main-RAM-via-soft-switch (coords, torches, location,
+picks, spells), without flicker.
+
+Commits:
+* "port sidebar to ImGui — party stats live, bank-switched fields TBD"
+* "soft-switch-aware sidebar reads + per-block debounce".
 
 ## Phase 8 — port keyboard / mouse / gamepad input
 ⏳ Keyboard done. `src/main.cpp::SDL_AppEvent` translates SDL3 events into
