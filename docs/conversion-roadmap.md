@@ -142,15 +142,28 @@ Acceptance: sidebar tiles, fonts, and hint sheets render on Linux.
 Commit: "port sidebar to ImGui".
 
 ## Phase 8 — port keyboard / mouse / gamepad input
-Replace the Win32 message loop in `Main.cpp` and the
-`DirectX::Keyboard` / `DirectX::Mouse` / `DirectX::GamePad` use in
-`Game.cpp` with `SDL_Event` translation. `RemoteControlManager.cpp` —
-specifically the DIK→VK keyboard table — gets rewritten in
-`SDL_Scancode` terms.
+⏳ Keyboard done. `src/main.cpp::SDL_AppEvent` translates SDL3 events into
+the emulator's `KeybQueueKeypress(key, ASCII | NOT_ASCII)` API:
+* `SDL_EVENT_TEXT_INPUT` → ASCII path for printable chars (UTF-8 → 7-bit).
+* `SDL_EVENT_KEY_DOWN` for control chars (Return, Backspace, Tab, Esc) →
+  ASCII path with `0x0D` / `0x08` / `0x09` / `0x1B`. The //e firmware
+  reads these as keyboard-latch chars, not as VK events.
+* `SDL_EVENT_KEY_DOWN` for arrows / Insert / Delete / Home / End /
+  PageUp/Down / F-keys → VK path via a small `SdlKeyToVK` table.
+* `SDLK_CAPSLOCK` toggles `KeybToggleCapsLock`.
+* Initial `KeybSetCapsLock(false)` matches the //e Enhanced shipping
+  default (Caps Lock up).
+* Alt+F4 closes the window. Esc is **not** a quit shortcut — the //e
+  firmware uses it.
 
-Acceptance: the game is fully playable on Linux.
+Still TODO: mouse, gamepad, and the `RemoteControlManager.cpp` DIK→VK
+keyboard-table rewrite in `SDL_Scancode` terms (deferred until the
+RemoteControl frontend is wired in).
 
-Commit: "SDL3 input handling, scancode-based RemoteControl".
+Acceptance (partial): you can type at the BASIC prompt — `print 2+2`
+↵ → `4`. Game-playability acceptance waits on RemoteControlManager + HDD.
+
+Commit: "SDL3 keyboard input — typing works at the BASIC prompt".
 
 ## Phase 9 — verify on Windows
 Switch the Windows build to CMake, validate end-to-end (Visual Studio

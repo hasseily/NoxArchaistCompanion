@@ -20,6 +20,7 @@
 #include "Emulator/Core.h"
 #include "Emulator/CPU.h"
 #include "Emulator/Interface.h"
+#include "Emulator/Keyboard.h"
 #include "Emulator/Memory.h"
 #include "Emulator/NTSC.h"
 #include "Emulator/RGBMonitor.h"
@@ -101,6 +102,11 @@ void InitEmulator()
     GetFrame().Initialize(true);   // allocates the BGRA framebuffer + Video::Initialize
     MemInitialize();               // loads ROMs + sets up cards
     GetFrame().VideoRedrawScreen();
+
+    // //e Enhanced ships with Caps Lock UP — lowercase letters pass
+    // through, Shift produces uppercase. The emulator default of true
+    // forces every letter uppercase, which surprises modern users.
+    KeybSetCapsLock(false);
 }
 
 void ShutdownEmulator()
@@ -128,6 +134,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int /*argc*/, char** /*argv*/)
         return SDL_APP_FAILURE;
     }
 
+    SDL_StartTextInput(state->renderer.Window());
+
     if (GameLink::Init(false) && GameLink::AllocRAM(kSimRamSize))
     {
         GameLink::SetProgramInfo("Nox Archaist Companion", 0, 0, 0, 0);
@@ -140,11 +148,107 @@ SDL_AppResult SDL_AppInit(void** appstate, int /*argc*/, char** /*argv*/)
     return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event)
+namespace
 {
-    if (event->type == SDL_EVENT_QUIT) return SDL_APP_SUCCESS;
-    if (event->type == SDL_EVENT_KEY_DOWN && event->key.key == SDLK_ESCAPE)
+
+// Control chars the //e firmware reads as ASCII (Win32 routes these via
+// WM_CHAR, not WM_KEYDOWN). SDL3 SDL_EVENT_TEXT_INPUT doesn't fire for
+// control chars, so we send them from KEY_DOWN through the ASCII path.
+BYTE SdlKeyToAscii(SDL_Keycode k)
+{
+    switch (k)
+    {
+    case SDLK_RETURN: case SDLK_KP_ENTER: return 0x0D;
+    case SDLK_BACKSPACE:                  return 0x08;
+    case SDLK_TAB:                        return 0x09;
+    case SDLK_ESCAPE:                     return 0x1B;
+    default:                              return 0;
+    }
+}
+
+// Map SDL3 keycodes for non-printable keys to the Win32 VK_* codes that
+// KeybQueueKeypress(..., NOT_ASCII) expects.
+WPARAM SdlKeyToVK(SDL_Keycode k)
+{
+    switch (k)
+    {
+    case SDLK_LEFT:                           return VK_LEFT;
+    case SDLK_RIGHT:                          return VK_RIGHT;
+    case SDLK_UP:                             return VK_UP;
+    case SDLK_DOWN:                           return VK_DOWN;
+    case SDLK_DELETE:                         return VK_DELETE;
+    case SDLK_INSERT:                         return VK_INSERT;
+    case SDLK_HOME:                           return VK_HOME;
+    case SDLK_END:                            return VK_END;
+    case SDLK_PAGEUP:                         return VK_PRIOR;
+    case SDLK_PAGEDOWN:                       return VK_NEXT;
+    case SDLK_F1:  return VK_F1;  case SDLK_F2:  return VK_F2;
+    case SDLK_F3:  return VK_F3;  case SDLK_F4:  return VK_F4;
+    case SDLK_F5:  return VK_F5;  case SDLK_F6:  return VK_F6;
+    case SDLK_F7:  return VK_F7;  case SDLK_F8:  return VK_F8;
+    case SDLK_F9:  return VK_F9;  case SDLK_F10: return VK_F10;
+    case SDLK_F11: return VK_F11; case SDLK_F12: return VK_F12;
+    default:                                  return 0;
+    }
+}
+
+} // namespace
+
+SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
+{
+    auto* state = static_cast<AppState*>(appstate);
+    (void)state;
+
+    switch (event->type)
+    {
+    case SDL_EVENT_QUIT:
         return SDL_APP_SUCCESS;
+
+    case SDL_EVENT_KEY_DOWN:
+    {
+        // Alt+F4 quits.
+        if (event->key.key == SDLK_F4 && (event->key.mod & SDL_KMOD_ALT))
+            return SDL_APP_SUCCESS;
+
+        // Caps Lock toggles the //e's emulated caps state.
+        if (event->key.key == SDLK_CAPSLOCK)
+        {
+            KeybToggleCapsLock();
+            break;
+        }
+
+        KeybUpdateCtrlShiftStatus();
+
+        // Return / Backspace / Tab / Esc come in via the ASCII path —
+        // that's how the //e firmware reads them.
+        if (BYTE ascii = SdlKeyToAscii(event->key.key))
+        {
+            KeybQueueKeypress(ascii, ASCII);
+            break;
+        }
+
+        // Arrows / Insert / Delete / F-keys go through the VK path.
+        if (WPARAM vk = SdlKeyToVK(event->key.key))
+        {
+            KeybQueueKeypress(vk, NOT_ASCII);
+        }
+        break;
+    }
+
+    case SDL_EVENT_TEXT_INPUT:
+    {
+        for (const char* p = event->text.text; p && *p; ++p)
+        {
+            const unsigned char c = static_cast<unsigned char>(*p);
+            if (c < 0x80)
+                KeybQueueKeypress(c, ASCII);
+        }
+        break;
+    }
+
+    default:
+        break;
+    }
     return SDL_APP_CONTINUE;
 }
 
