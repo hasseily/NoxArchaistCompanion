@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "NTSC_CharSet.h"
 #include "Interface.h"
 #include "Core.h"
+#include "ResourceIds.h"
 
 
 unsigned char csbits_enhanced2e[2][256][8];	// Enhanced //e (2732 4K video ROM)
@@ -249,16 +250,21 @@ static void userVideoRomForIIPlus(void)
 
 void make_csbits(void)
 {
-	// TODO Phase 4: load IIe Enhanced video ROM (and II/II+, J-Plus, Base64A, Pravets bitmaps) from filesystem.
-	// Original //e is just Enhanced //e with the 32 mousetext chars [0x40..0x5F] replaced by the non-alt charset chars [0x40..0x5F]
+	// NAC only emulates the Apple //e Enhanced — load its 4K video ROM and
+	// derive the bit-pattern table from it.
+	BYTE* pVideoRom = GetFrame().GetResource(IDR_APPLE2E_ENHANCED_VIDEO_ROM, "ROM", Video::kVideoRomSize4K);
+	if (pVideoRom)
+	{
+		userVideoRom4K(&csbits_enhanced2e[0], pVideoRom);
+	}
+
+	// Original //e is just Enhanced //e with the 32 mousetext chars [0x40..0x5F]
+	// replaced by the non-alt charset chars [0x40..0x5F]
 	memcpy(csbits_2e, csbits_enhanced2e, sizeof(csbits_enhanced2e));
 	memcpy(&csbits_2e[1][64], &csbits_2e[0][64], 32*8);
 
-	// Try to use any user-provided video ROM for Original/Enhanced //e
+	// Allow a user-supplied video ROM file to override the Enhanced //e set.
 	userVideoRomForIIe();
-
-	// Try to use any user-provided video ROM for II/II+
-	userVideoRomForIIPlus();
 }
 
 csbits_t Get2e_csbits(void)

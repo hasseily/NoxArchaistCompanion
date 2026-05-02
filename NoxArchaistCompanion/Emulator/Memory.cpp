@@ -47,6 +47,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "VidHD.h"
 
 #include "Configuration/IPropertySheet.h"
+#include "ResourceIds.h"
+#include "StrFormat.h"
 #include "YamlHelper.h"
 
 // In this file allocate the 64KB of RAM with aligned memory allocations (0x10000)
@@ -2035,15 +2037,34 @@ void MemInitialize()
 
 void MemInitializeROM(void)
 {
-	// TODO Phase 4: load Apple2e_Enhanced.rom (and other models) from filesystem
-	memset(pCxRomInternal, 0, CxRomSize);
+	// NAC only ships the Apple //e Enhanced ROM. Other models are pruned.
+	BYTE* pData = GetFrame().GetResource(IDR_APPLE2E_ENHANCED_ROM, "ROM", Apple2eRomSize);
+
+	if (pData == NULL)
+	{
+		const std::string strText = StrFormat(
+			"Unable to open the required firmware ROM data file.\n\nFile: %s",
+			"Apple2e_Enhanced.rom");
+		LogFileOutput("%s\n", strText.c_str());
+		GetFrame().FrameMessageBox(strText.c_str(), "Nox Archaist Companion",
+								   MB_ICONSTOP | MB_SETFOREGROUND);
+		ExitProcess(1);
+	}
+
+	memset(pCxRomInternal,   0, CxRomSize);
 	memset(pCxRomPeripheral, 0, CxRomSize);
+
+	// Apple //e ROM is 16K: first 4K → $C000-$CFFF (internal), next 12K → $D000-$FFFF.
+	memcpy(pCxRomInternal, pData, CxRomSize);
+	pData += CxRomSize;
+
 	memrompages = MaxRomPages;
+	memcpy(memrom, pData, Apple2RomSize);
 }
 
 void MemInitializeCustomF8ROM(void)
 {
-	// TODO Phase 4: filesystem-based ROM loading
+	// NAC doesn't expose The Freeze's F8 ROM or other custom F8 overrides.
 }
 
 void MemInitializeCustomROM(void)

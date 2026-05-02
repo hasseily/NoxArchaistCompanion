@@ -56,6 +56,7 @@ endif()
 add_executable(nac WIN32
     src/main.cpp
     src/Renderer.cpp
+    src/Frame.cpp
     ${GAMELINK_SOURCES}
 )
 

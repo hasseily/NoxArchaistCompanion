@@ -68,7 +68,10 @@ set(YAML_SOURCES
 add_library(yaml STATIC ${YAML_SOURCES})
 target_include_directories(yaml PUBLIC libyaml/include)
 target_include_directories(yaml PRIVATE libyaml/win32)
-target_compile_definitions(yaml PRIVATE HAVE_CONFIG_H YAML_DECLARE_STATIC)
+target_compile_definitions(yaml PRIVATE HAVE_CONFIG_H)
+# Consumers also need YAML_DECLARE_STATIC so yaml.h doesn't emit dllimport
+# decorations against this static lib on Windows.
+target_compile_definitions(yaml PUBLIC YAML_DECLARE_STATIC)
 
 # ---------------------------------------------------------------------------
 # zlib — vendored under Emulator/zlib/, used by minizip for ZIP/GZ disk images.
@@ -138,5 +141,6 @@ if(WIN32)
         winmm
         dsound
         dxguid
+        strmiids   # CLSID_SystemClock used by SoundCore.cpp
     )
 endif()

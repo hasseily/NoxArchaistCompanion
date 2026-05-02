@@ -96,13 +96,31 @@ into a GL texture and blits it.
 Commit: "SDL3 main loop and GL context; black window opens".
 
 ## Phase 5 — wire the emulator into the renderer
-Hook `g_pFramebufferinfo` (BGRA 32bpp) into a GL texture. Run the
-emulator tick from the SDL main loop. Don't engage the post-processor
-yet — just blit straight.
+✅ Done. The SDL main loop runs `CpuExecute(kCyclesPerFrame, true)` then
+`GetFrame().VideoRedrawScreen()` each iteration; the resulting BGRA
+framebuffer is uploaded to a GL texture and drawn as a letterboxed full-
+window quad. New `src/Frame.{cpp,h}` is a minimal `FrameBase` that owns
+the framebuffer, loads ROMs from `Resources/`, and stubs everything else.
+`src/PropertySheet.h` is an all-defaults `IPropertySheet`.
 
-Acceptance: NAC shows the Apple //e boot screen on Linux.
+ROM loading is real now: `MemInitializeROM` and `make_csbits` (in
+`NTSC_CharSet`) call `GetFrame().GetResource(IDR_*, ...)` against the
+files in `Emulator/Resources/`. The resource IDs live in
+`Emulator/ResourceIds.h`. Apple //e Enhanced video ROM
+(`Apple2e_Enhanced_Video.rom`) was copied in from upstream — NAC's
+original `CHARSET8C.bmp` was a Pravets bitmap, not the Enhanced //e
+video ROM.
 
-Commit: "render emulator framebuffer through plain GL blit".
+`DSAvailable()` is stubbed to `false` in `src/Frame.cpp` so the
+`Speaker` / `Mockingboard` / `SSI263` init paths bail out cleanly without
+audio — sound arrives in a later phase via SDL_audio.
+
+Renderer still uses an OpenGL **compatibility profile** + immediate-mode
+quad; Phase 6 (post-processor) swaps to 3.3 core + glad + shaders.
+
+Acceptance met: `nac.exe` shows the Apple //e boot screen.
+
+Commit: "wire the emulator framebuffer through a plain GL blit".
 
 ## Phase 6 — engage the post-processor
 Route the framebuffer through `PostProcessor::Render` instead of the

@@ -22,15 +22,19 @@ public:
     bool Init(const char* title, int width, int height);
     void Shutdown();
 
-    // Clear backbuffer + (later) draw the framebuffer texture + any overlays.
     void BeginFrame();
+    void UploadFramebuffer(const void* bgra, int w, int h);
+    void DrawFramebuffer();
     void EndFrame();
 
     SDL_Window* Window() const { return m_window; }
 
 private:
-    SDL_Window*   m_window  = nullptr;
-    SDL_GLContext m_glctx   = nullptr;
+    SDL_Window*   m_window         = nullptr;
+    SDL_GLContext m_glctx          = nullptr;
+    unsigned int  m_framebufferTex = 0;
+    int           m_texWidth       = 0;
+    int           m_texHeight      = 0;
 };
 
 } // namespace nac
