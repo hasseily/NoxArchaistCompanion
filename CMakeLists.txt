@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(NoxArchaistCompanion VERSION 2.2.4 LANGUAGES CXX)
+project(NoxArchaistCompanion VERSION 2.2.4 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,6 +8,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
+
+# ---------------------------------------------------------------------------
+# nac_emulator: stripped, vendored AppleWin core (Phase 1).
+# ---------------------------------------------------------------------------
+add_subdirectory(NoxArchaistCompanion/Emulator)
 
 # ---------------------------------------------------------------------------
 # Gamelink: platform-neutral protocol layer + one per-platform backend.

@@ -1,6 +1,5 @@
 #if defined(_WIN32)
 
-#include "pch.h"
 #include "RemoteControl/Gamelink_backend.h"
 
 #include <Windows.h>

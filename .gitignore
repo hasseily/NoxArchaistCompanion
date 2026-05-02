@@ -9,3 +9,6 @@ Debug
 /NoxArchaistCompanion/x64/Release
 /build
 /build-*
+
+# Claude Code working dir
+/.claude/

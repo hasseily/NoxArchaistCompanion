@@ -2,21 +2,23 @@
 
 #include "Common.h"
 
-
+// Game-specific 6502 program counters and memory addresses for Nox Archaist.
+// The frontend populates this once at startup; the emulator's CPU::Fetch()
+// trap-points consult it to drive Gamelink/log output.
 struct noxcpuconstants
 {
-	UINT MEM_PARTY;			// memory area where party data starts
+	UINT MEM_PARTY;             // memory area where party data starts
 	UINT MEM_FOOD;
 	UINT MEM_GOLD;
 	UINT MEM_PICKS;
 	UINT MEM_TORCHES;
-	UINT PC_PRINTSTR;			// program counter of PRINT.STR routine (can be overriden before screen output, especially in combat for variables)
-	UINT PC_CARRIAGE_RETURN1;	// program counter of a CARRIAGE.RETURN that breaks the lines down in specific lengths (16 chars max). Only use it in battle!
-	UINT PC_CARRIAGE_RETURN2;	// program counter of a CARRIAGE.RETURN that finishes a line
-	UINT PC_COUT;				// program counter of COUT routine which is the lowest level and prints a single char at A
-	UINT A_PRINT_RIGHT;		// A register's value for printing to right scroll area (where the conversations are)
-	UINT PC_INITIATE_COMBAT;	// when combat routine starts
-	UINT PC_END_COMBAT;		// when combat routine ends (don't log during combat)
+	UINT PC_PRINTSTR;           // PRINT.STR routine entry (overridden before screen output, especially in combat)
+	UINT PC_CARRIAGE_RETURN1;   // CARRIAGE.RETURN that breaks lines down to 16 chars (battle only)
+	UINT PC_CARRIAGE_RETURN2;   // CARRIAGE.RETURN that finishes a line
+	UINT PC_COUT;               // COUT (lowest level char-out, A = char)
+	UINT A_PRINT_RIGHT;         // A-register value indicating output to right scroll area (conversations)
+	UINT PC_INITIATE_COMBAT;    // combat routine start
+	UINT PC_END_COMBAT;         // combat routine end (don't log during combat)
 };
 extern noxcpuconstants cpuconstants;
 
@@ -30,15 +32,28 @@ struct regsrec
   WORD sp;  // stack pointer
   BYTE bJammed; // CPU has crashed (NMOS 6502 only)
 };
-extern regsrec    regs;
 
+// 6502 Processor Status flags
+enum {
+	AF_SIGN = 0x80,
+	AF_OVERFLOW = 0x40,
+	AF_RESERVED = 0x20,
+	AF_BREAK = 0x10,
+	AF_DECIMAL = 0x08,
+	AF_INTERRUPT = 0x04,
+	AF_ZERO = 0x02,
+	AF_CARRY = 0x01
+};
+
+extern regsrec    regs;
 extern unsigned __int64 g_nCumulativeCycles;
 
 void    CpuDestroy ();
 void    CpuCalcCycles(ULONG nExecutedCycles);
-DWORD   CpuExecute(const DWORD uCycles, const bool bVideoUpdate);
+uint32_t   CpuExecute(const uint32_t uCycles, const bool bVideoUpdate);
 ULONG   CpuGetCyclesThisVideoFrame(ULONG nExecutedCycles);
-void    CpuInitialize ();
+void    CpuCreateCriticalSection(void);
+void    CpuInitialize(void);
 void    CpuSetupBenchmark ();
 void	CpuIrqReset();
 void	CpuIrqAssert(eIRQSRC Device);
@@ -47,6 +62,8 @@ void	CpuNmiReset();
 void	CpuNmiAssert(eIRQSRC Device);
 void	CpuNmiDeassert(eIRQSRC Device);
 void    CpuReset ();
+void    CpuSaveSnapshot(class YamlSaveHelper& yamlSaveHelper);
+void    CpuLoadSnapshot(class YamlLoadHelper& yamlLoadHelper, UINT version);
 
 BYTE	CpuRead(USHORT addr, ULONG uExecutedCycles);
 void	CpuWrite(USHORT addr, BYTE value, ULONG uExecutedCycles);
@@ -60,5 +77,8 @@ void     SetMainCpuDefault(eApple2Type apple2Type);
 eCpuType GetActiveCpu(void);
 void     SetActiveCpu(eCpuType cpu);
 
+bool IsIrqAsserted(void);
 bool Is6502InterruptEnabled(void);
 void ResetCyclesExecutedForDebugger(void);
+bool IsInterruptInLastExecution(void);
+void SetIrqOnLastOpcodeCycle(void);
