@@ -80,6 +80,12 @@
     <ClCompile Include="RemoteControl\Gamelink.cpp">
       <Filter>Remote Control</Filter>
     </ClCompile>
+    <ClCompile Include="RemoteControl\Gamelink_win32.cpp">
+      <Filter>Remote Control</Filter>
+    </ClCompile>
+    <ClCompile Include="RemoteControl\Gamelink_posix.cpp">
+      <Filter>Remote Control</Filter>
+    </ClCompile>
     <ClCompile Include="RemoteControl\RemoteControlManager.cpp">
       <Filter>Remote Control</Filter>
     </ClCompile>
@@ -193,6 +199,9 @@
       <Filter>Emulator</Filter>
     </ClInclude>
     <ClInclude Include="RemoteControl\Gamelink.h">
+      <Filter>Remote Control</Filter>
+    </ClInclude>
+    <ClInclude Include="RemoteControl\Gamelink_backend.h">
       <Filter>Remote Control</Filter>
     </ClInclude>
     <ClInclude Include="RemoteControl\RemoteControlManager.h">

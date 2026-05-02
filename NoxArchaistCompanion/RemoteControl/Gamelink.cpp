@@ -1,587 +1,299 @@
-// Game Link
+// Gamelink protocol layer.
 //
-// Game Link is an API created by DWD for Grid Cartographer, to link his map-making software
-// to emulators like DosBox and FS-UAE. There is a version of DosBox called dosbox-gridc that implements this API,
-// as well as multiple other emulators.
-// Game Link's core premise is to link the emulator and 3rd party programs via shared memory.
-// There are 4 main pieces:
-// 	- A map that contains input from the 3rd party into the emulator, containing:
-//		- a structure with audio volume information
-//		- a structure that passes the current state of the keyboard and the delta mouse
-// 	- A map that contains output from the emulator, containing the emulated hardware RAM and frame information
-// 	- Also included in the output is information about the active emulated program and its unique signature
-// 	- A special terminal-style interface to pass to the emulator commands that are not keystrokes (reset, quit, pause, etc...)
+// Gamelink is the shared-memory bridge between an emulator and Grid
+// Cartographer (or another companion app conforming to the same protocol).
+// The protocol defines a single byte-identical struct (sSharedMemoryMap_R4)
+// laid out on top of an OS shared-memory region, plus a named mutex that
+// serialises read/write access. NAC plays the server role: it allocates the
+// region, fills the frame/audio/peek fields each tick, and reads input/
+// terminal commands written by GC.
 //
-// Applewin's code:
-//	- allocates main and aux mem as shared memory
-//	- creates a running program signature with help from Signatures.cpp
-//	- calls Gamelink::In() and Gamelink::Out() to grab commands/keystrokes and send video & ram respectively
+// This file is platform-neutral. The OS-specific shared-memory and mutex
+// primitives live in Gamelink_win32.cpp / Gamelink_posix.cpp behind the
+// GameLink::backend interface declared in Gamelink_backend.h.
 
 #include "pch.h"
-#include <Windows.h>
-#include "resource.h"
-#include "Emulator/Applewin.h"
-#include "Emulator/Common.h"
 #include "RemoteControl/Gamelink.h"
-#include "Emulator/CPU.h"
+#include "RemoteControl/Gamelink_backend.h"
+#include "Emulator/AppleWin.h"
+#include "Emulator/Common.h"
+
 #include <algorithm>
+#include <cstring>
 
-//------------------------------------------------------------------------------
-// Local Definitions
-//------------------------------------------------------------------------------
-
-// Need to masquerade as AppleWin for Grid Cartographer
-#define SYSTEM_NAME		"AppleWin"
-#define PROTOCOL_VER		4
+// Names must masquerade as AppleWin so Grid Cartographer recognises us
+#define SYSTEM_NAME				"AppleWin"
+#define PROTOCOL_VER			4
 #define GAMELINK_MUTEX_NAME		"DWD_GAMELINK_MUTEX_R4"
 #define GAMELINK_MMAP_NAME		"DWD_GAMELINK_MMAP_R4"
 
 using namespace GameLink;
 
-//------------------------------------------------------------------------------
-// Local Data
-//------------------------------------------------------------------------------
-
-static HANDLE g_mutex_handle;
-static HANDLE g_mmap_handle;
-static HANDLE g_mmapcomp_handle;
-
-static bool g_bEnableGamelink = true;		// default to true
-static bool g_bEnableTrackOnly;
-
-static UINT g_membase_size;
-
-static bool g_use_native_format = false;
-
-static GameLink::sSharedMemoryMap_R4* g_p_shared_memory;
-static GameLink::sSharedMMapBuffer_R1* g_p_outbuf;
-
-#define MEMORY_MAP_CORE_SIZE sizeof( GameLink::sSharedMemoryMap_R4 )
-
-
-//------------------------------------------------------------------------------
-// Local Functions
-//------------------------------------------------------------------------------
-
-static void shared_memory_init()
+namespace
 {
-	// Initialise
+	bool g_bEnableGamelink = true;
+	bool g_bEnableTrackOnly = false;
+	bool g_use_native_format = false;
 
-	g_p_shared_memory->version = PROTOCOL_VER;
-	g_p_shared_memory->flags = 0;
+	uint32_t g_membase_size = 0;
 
-	memset( g_p_shared_memory->system, 0, sizeof( g_p_shared_memory->system ) );
-	strcpy_s( g_p_shared_memory->system, SYSTEM_NAME );
-	memset( g_p_shared_memory->program, 0, sizeof( g_p_shared_memory->program ) );
+	GameLink::sSharedMemoryMap_R4* g_p_shared_memory = nullptr;
+	GameLink::sSharedMMapBuffer_R1* g_p_outbuf = nullptr;
 
-	g_p_shared_memory->program_hash[0] = 0;
-	g_p_shared_memory->program_hash[1] = 0;
-	g_p_shared_memory->program_hash[2] = 0;
-	g_p_shared_memory->program_hash[3] = 0;
+	RemoteCommandHandler g_remote_command_handler = nullptr;
 
-	// reset input
-	g_p_shared_memory->input.mouse_dx = 0;
-	g_p_shared_memory->input.mouse_dy = 0;
+	constexpr std::size_t MEMORY_MAP_CORE_SIZE = sizeof(GameLink::sSharedMemoryMap_R4);
 
-
-	g_p_shared_memory->input.mouse_btn = 0;
-
-	for ( int i = 0; i < 8; ++i ) {
-		g_p_shared_memory->input.keyb_state[i] = 0;
-	}
-
-	// reset peek interface
-	g_p_shared_memory->peek.addr_count = 0;
-	memset( g_p_shared_memory->peek.addr, 0, GameLink::sSharedMMapPeek_R2::PEEK_LIMIT * sizeof( UINT ) );
-	memset( g_p_shared_memory->peek.data, 0, GameLink::sSharedMMapPeek_R2::PEEK_LIMIT * sizeof( UINT8 ) );
-
-	// blank frame
-	g_p_shared_memory->frame.seq = 0;
-	g_p_shared_memory->frame.image_fmt = 0; // = no frame
-	g_p_shared_memory->frame.width = 0;
-	g_p_shared_memory->frame.height = 0;
-
-	g_p_shared_memory->frame.par_x = 1;
-	g_p_shared_memory->frame.par_y = 1;
-	memset( g_p_shared_memory->frame.buffer, 0, GameLink::sSharedMMapFrame_R1::MAX_PAYLOAD );
-
-	// audio: 100%
-	g_p_shared_memory->audio.master_vol_l = 100;
-	g_p_shared_memory->audio.master_vol_r = 100;
-
-	// RAM
-	g_p_shared_memory->ram_size = g_membase_size;
-
-}
-
-//
-// create_mutex
-//
-// Create a globally unique mutex.
-//
-// \returns 1 if we made one, 0 if it failed or the mutex existed already (also a failure).
-//
-static int create_mutex( const char* p_name )
-{
-
-	// The mutex is already open?
-	g_mutex_handle = OpenMutexA( SYNCHRONIZE, FALSE, p_name );
-	if ( g_mutex_handle != 0 ) {
-		// .. didn't fail - so must already exist.
-		CloseHandle( g_mutex_handle );
-		g_mutex_handle = 0;
-		return 0;
-	}
-
-	// Actually create it.
-	g_mutex_handle = CreateMutexA( NULL, FALSE, p_name );
-	if ( g_mutex_handle ) {
-		return 1;
-	}
-
-	return 0;
-}
-
-//
-// destroy_mutex
-//
-// Tidy up the mutex.
-//
-static void destroy_mutex( const char* p_name )
-{
-	(void)(p_name);
-
-	if ( g_mutex_handle )
+	void shared_memory_init()
 	{
-		CloseHandle( g_mutex_handle );
-		g_mutex_handle = NULL;
+		g_p_shared_memory->version = PROTOCOL_VER;
+		g_p_shared_memory->flags = 0;
+
+		std::memset(g_p_shared_memory->system, 0, sizeof(g_p_shared_memory->system));
+		std::strncpy(g_p_shared_memory->system, SYSTEM_NAME, sizeof(g_p_shared_memory->system) - 1);
+		std::memset(g_p_shared_memory->program, 0, sizeof(g_p_shared_memory->program));
+
+		for (int i = 0; i < 4; ++i)
+			g_p_shared_memory->program_hash[i] = 0;
+
+		g_p_shared_memory->input.mouse_dx = 0;
+		g_p_shared_memory->input.mouse_dy = 0;
+		g_p_shared_memory->input.mouse_btn = 0;
+		for (int i = 0; i < 8; ++i)
+			g_p_shared_memory->input.keyb_state[i] = 0;
+
+		g_p_shared_memory->peek.addr_count = 0;
+		std::memset(g_p_shared_memory->peek.addr, 0, sizeof(g_p_shared_memory->peek.addr));
+		std::memset(g_p_shared_memory->peek.data, 0, sizeof(g_p_shared_memory->peek.data));
+
+		g_p_shared_memory->frame.seq = 0;
+		g_p_shared_memory->frame.image_fmt = 0;
+		g_p_shared_memory->frame.width = 0;
+		g_p_shared_memory->frame.height = 0;
+		g_p_shared_memory->frame.par_x = 1;
+		g_p_shared_memory->frame.par_y = 1;
+		std::memset(g_p_shared_memory->frame.buffer, 0, sSharedMMapFrame_R1::MAX_PAYLOAD);
+
+		g_p_shared_memory->audio.master_vol_l = 100;
+		g_p_shared_memory->audio.master_vol_r = 100;
+
+		g_p_shared_memory->ram_size = g_membase_size;
+	}
+
+	void proc_mech(GameLink::sSharedMMapBuffer_R1* cmd, uint16_t payload)
+	{
+		if (payload <= 1 || payload > 128)
+			return;
+
+		cmd->payload = 0;
+		char* com = reinterpret_cast<char*>(cmd->data);
+		com[payload] = 0;
+
+		if (g_remote_command_handler == nullptr)
+			return;
+
+		if (std::strcmp(com, ":reset") == 0)
+			g_remote_command_handler(RemoteCommand::Reset);
+		else if (std::strcmp(com, ":pause") == 0)
+			g_remote_command_handler(RemoteCommand::Pause);
+		else if (std::strcmp(com, ":shutdown") == 0)
+			g_remote_command_handler(RemoteCommand::Shutdown);
 	}
 }
 
-//
-// create_shared_memory
-//
-// Create a shared memory area.
-//
-// \returns 1 if we made one, 0 if it failed.
-//
-static int create_shared_memory()
+void GameLink::SetRemoteCommandHandler(RemoteCommandHandler handler)
 {
-	const int memory_map_size = MEMORY_MAP_CORE_SIZE + g_membase_size;
-
-	g_mmap_handle = CreateFileMappingA( INVALID_HANDLE_VALUE, NULL,
-			PAGE_READWRITE, 0, memory_map_size,	GAMELINK_MMAP_NAME );
-
-	if ( g_mmap_handle )
-	{
-		g_p_shared_memory = reinterpret_cast< GameLink::sSharedMemoryMap_R4* >(
-			MapViewOfFile( g_mmap_handle, FILE_MAP_ALL_ACCESS, 0, 0, memory_map_size )
-			);
-
-		if ( g_p_shared_memory )
-		{
-			return 1; // Success!
-		}
-	}
-
-	// Failure
-	// tidy up file mapping.
-	if (g_mmap_handle)
-	{
-		CloseHandle(g_mmap_handle);
-		g_mmap_handle = NULL;
-	}
-	return 0;
+	g_remote_command_handler = handler;
 }
 
-//
-// destroy_shared_memory
-//
-// Destroy the shared memory area.
-//
-static void destroy_shared_memory()
+bool GameLink::GetGameLinkEnabled()			{ return g_bEnableGamelink; }
+void GameLink::SetGameLinkEnabled(bool e)	{ g_bEnableGamelink = e; }
+bool GameLink::GetTrackOnlyEnabled()		{ return g_bEnableTrackOnly; }
+void GameLink::SetTrackOnlyEnabled(bool e)	{ g_bEnableTrackOnly = e; }
+bool GameLink::GetVideoNativeFormat()		{ return g_use_native_format; }
+
+int GameLink::Init(bool trackonly_mode)
 {
-	const int memory_map_size = MEMORY_MAP_CORE_SIZE + g_membase_size;
-
-	if ( g_p_shared_memory )
-	{
-		UnmapViewOfFile( g_p_shared_memory );
-		g_p_shared_memory = NULL;
-	}
-
-	if ( g_mmap_handle )
-	{
-		CloseHandle( g_mmap_handle );
-		g_mmap_handle = NULL;
-	}
-	if (g_mmapcomp_handle)
-	{
-		CloseHandle(g_mmapcomp_handle);
-		g_mmapcomp_handle = NULL;
-	}
-}
-
-//
-// proc_mech
-//
-// Process a mechanical command - encoded form for computer-computer communication. Minimal feedback.
-//
-static void proc_mech(GameLink::sSharedMMapBuffer_R1* cmd, UINT16 payload)
-{
-	// Ignore NULL commands.
-	if (payload <= 1 || payload > 128)
-		return;
-
-	cmd->payload = 0;
-	char* com = (char*)(cmd->data);
-	com[payload] = 0;
-
-	//	printf( "command = %s; payload = %d\n", com, payload );
-
-		//
-		// Decode
-
-	if (strcmp(com, ":reset") == 0)
-	{
-		PostMessageW(g_hFrameWindow, WM_COMMAND, (WPARAM)ID_EMULATOR_RESET, 1);
-	}
-	else if (strcmp(com, ":pause") == 0)
-	{
-		PostMessageW(g_hFrameWindow, WM_COMMAND, (WPARAM)ID_EMULATOR_PAUSE, 0);
-	}
-	else if (strcmp(com, ":shutdown") == 0)
-	{
-		PostMessageW(g_hFrameWindow, WM_DESTROY, 0, 0);
-	}
-}
-
-//==============================================================================
-
-//------------------------------------------------------------------------------
-// Accessors
-//------------------------------------------------------------------------------
-bool GameLink::GetGameLinkEnabled(void)
-{
-	return g_bEnableGamelink;
-}
-
-void GameLink::SetGameLinkEnabled(const bool bEnabled)
-{
-	g_bEnableGamelink = bEnabled;
-}
-
-bool GameLink::GetTrackOnlyEnabled(void)
-{
-	return g_bEnableTrackOnly;
-}
-
-void GameLink::SetTrackOnlyEnabled(const bool bEnabled)
-{
-	g_bEnableTrackOnly = bEnabled;
-}
-
-
-//------------------------------------------------------------------------------
-// GameLink::Init
-//------------------------------------------------------------------------------
-int GameLink::Init( const bool trackonly_mode )
-{
-	int iresult;
-
-	// Already initialised?
-	if ( g_mutex_handle )
-	{
-		// success
-		return 1;
-	}
-
-	// Store the mode we're in.
 	g_bEnableTrackOnly = trackonly_mode;
-
-	// Create a fresh mutex.
-	iresult = create_mutex( GAMELINK_MUTEX_NAME );
-	if ( iresult != 1 )
-	{
-		// failed.
-		return 0;
-	}
-
-	return 1;
+	return backend::create_mutex(GAMELINK_MUTEX_NAME) ? 1 : 0;
 }
 
-//------------------------------------------------------------------------------
-// GameLink::AllocRAM
-//------------------------------------------------------------------------------
-UINT8* GameLink::AllocRAM( const UINT size )
+uint8_t* GameLink::AllocRAM(uint32_t size)
 {
-	int iresult;
-
 	g_membase_size = size;
 
-	// Create a shared memory area.
-	iresult = create_shared_memory();
-	if ( iresult != 1 )
+	const std::size_t memory_map_size = MEMORY_MAP_CORE_SIZE + g_membase_size;
+	void* p = nullptr;
+	if (!backend::create_shared_memory(GAMELINK_MMAP_NAME, memory_map_size, &p))
 	{
-		destroy_mutex( GAMELINK_MUTEX_NAME );
-		// failed.
-		return 0;
+		backend::destroy_mutex();
+		return nullptr;
 	}
 
-	// Initialise
+	g_p_shared_memory = reinterpret_cast<GameLink::sSharedMemoryMap_R4*>(p);
 	shared_memory_init();
-
 	GameLink::InitTerminal();
 
-	const int memory_map_size = MEMORY_MAP_CORE_SIZE + g_membase_size;
-
-	UINT8* membase = ((UINT8*)g_p_shared_memory) + MEMORY_MAP_CORE_SIZE;
-
-	// Return RAM base pointer.
-	return membase;
+	return reinterpret_cast<uint8_t*>(g_p_shared_memory) + MEMORY_MAP_CORE_SIZE;
 }
 
-//------------------------------------------------------------------------------
-// GameLink::Term
-//------------------------------------------------------------------------------
 void GameLink::Term()
 {
-	// SEND ABORT CODE TO CLIENT (don't care if it fails)
-	if ( g_p_shared_memory )
+	// Tell client we're going away (ignore failures).
+	if (g_p_shared_memory)
 		g_p_shared_memory->version = 0;
 
-	destroy_shared_memory();
+	backend::destroy_shared_memory(MEMORY_MAP_CORE_SIZE + g_membase_size);
+	backend::destroy_mutex();
 
-	destroy_mutex( GAMELINK_MUTEX_NAME );
-
+	g_p_shared_memory = nullptr;
 	g_membase_size = 0;
 }
 
-
-//------------------------------------------------------------------------------
-// GameLink::SetProgramInfo
-//------------------------------------------------------------------------------
-//
-// Grid Cartographer uses an array of 4 longs to determine the unique signature
-// of a program. Here we convert the Applewin signature of the form "page-crc"
-// where the page is a decimal and the crc is a hex, into 2 longs for use by
-// Grid Cartographer
-
-void GameLink::SetProgramInfo(const std::string name, UINT i1, UINT i2, UINT i3, UINT i4)
+// Grid Cartographer keys programs by an array of 4 uint32_ts. AppleWin's
+// "page-crc" form is broken up by the caller and passed straight through.
+void GameLink::SetProgramInfo(const std::string name, uint32_t i1, uint32_t i2, uint32_t i3, uint32_t i4)
 {
-	if (g_p_shared_memory)
-	{
-		std::string szTmp = name.substr(0, sizeof(g_p_shared_memory->program));
-		strcpy_s(g_p_shared_memory->program, szTmp.c_str());
-		g_p_shared_memory->program_hash[0] = i1;
-		g_p_shared_memory->program_hash[1] = i2;
-		g_p_shared_memory->program_hash[2] = i3;
-		g_p_shared_memory->program_hash[3] = i4;
-	}
+	if (!g_p_shared_memory)
+		return;
+
+	const std::size_t maxlen = sizeof(g_p_shared_memory->program) - 1;
+	const std::string truncated = name.substr(0, maxlen);
+	std::memset(g_p_shared_memory->program, 0, sizeof(g_p_shared_memory->program));
+	std::memcpy(g_p_shared_memory->program, truncated.data(), truncated.size());
+
+	g_p_shared_memory->program_hash[0] = i1;
+	g_p_shared_memory->program_hash[1] = i2;
+	g_p_shared_memory->program_hash[2] = i3;
+	g_p_shared_memory->program_hash[3] = i4;
 }
 
-//------------------------------------------------------------------------------
-// GameLink::In
-//------------------------------------------------------------------------------
-//
-// Incoming information from the external program via the Gamelink API
-// Copy it to g_gamelink and let Applewin know we're ready
-// The GC input takes precedence over the other input
-
-int GameLink::In( GameLink::sSharedMMapInput_R2* p_input,
-				  GameLink::sSharedMMapAudio_R1* p_audio )
+int GameLink::In(GameLink::sSharedMMapInput_R2* p_input,
+                 GameLink::sSharedMMapAudio_R1* p_audio)
 {
-	int ready = 0;
+	if (!g_p_shared_memory)
+		return 0;
 
-	if ( g_p_shared_memory )
+	if (g_bEnableTrackOnly)
 	{
-		if (g_bEnableTrackOnly)
-		{
-			// No input.
-			memset( p_input, 0, sizeof( sSharedMMapInput_R2 ) );
-		}
-		else
-		{
-			if (g_p_shared_memory->input.ready)
-			{
-				// Copy client input out of shared memory
-				memcpy(p_input, &(g_p_shared_memory->input), sizeof(sSharedMMapInput_R2));
-
-				// Clear remote delta, prevent counting more than once.
-				g_p_shared_memory->input.mouse_dx = 0;
-				g_p_shared_memory->input.mouse_dy = 0;
-
-				ready = 1; // Got some input, set ready flag to show it's GC input
-				g_p_shared_memory->input.ready = 0;
-			}
-
-
-			if (g_p_shared_memory->audio.master_vol_l <= 100)
-				p_audio->master_vol_l = g_p_shared_memory->audio.master_vol_l;
-			if (g_p_shared_memory->audio.master_vol_r <= 100)
-				p_audio->master_vol_r = g_p_shared_memory->audio.master_vol_r;
-		}
+		std::memset(p_input, 0, sizeof(sSharedMMapInput_R2));
+		return 0;
 	}
+
+	int ready = 0;
+	if (g_p_shared_memory->input.ready)
+	{
+		std::memcpy(p_input, &g_p_shared_memory->input, sizeof(sSharedMMapInput_R2));
+		// Clear remote delta to prevent double-counting.
+		g_p_shared_memory->input.mouse_dx = 0;
+		g_p_shared_memory->input.mouse_dy = 0;
+		g_p_shared_memory->input.ready = 0;
+		ready = 1;
+	}
+
+	if (g_p_shared_memory->audio.master_vol_l <= 100)
+		p_audio->master_vol_l = g_p_shared_memory->audio.master_vol_l;
+	if (g_p_shared_memory->audio.master_vol_r <= 100)
+		p_audio->master_vol_r = g_p_shared_memory->audio.master_vol_r;
 
 	return ready;
 }
 
-//------------------------------------------------------------------------------
-// GameLink::Out
-//------------------------------------------------------------------------------
-//
-// Outgoing information to any programs conforming with the Gamelink API
-// This must be triggered for every frame if we want correct video output
-//
-// Version only with memory, used for out-of-band commands
-void GameLink::Out(const UINT8* p_sysmem)
+void GameLink::Out(const uint8_t* p_sysmem)
 {
-	Out(0, 0, 1, false, NULL, p_sysmem);
+	Out(0, 0, 1.0, false, nullptr, p_sysmem);
 }
 
-// Full version with video out
-void GameLink::Out( const UINT16 frame_width,
-					const UINT16 frame_height,
-					const double source_ratio,
-					const bool want_mouse,
-					const UINT8* p_frame,
-					const UINT8* p_sysmem )
+void GameLink::Out(uint16_t frame_width,
+                   uint16_t frame_height,
+                   double source_ratio,
+                   bool want_mouse,
+                   const uint8_t* p_frame,
+                   const uint8_t* p_sysmem)
 {
-	// Not initialised (or disabled) ?
-	if ( g_p_shared_memory == NULL ) {
-		return; // <=== EARLY OUT
-	}
+	if (!g_p_shared_memory)
+		return;
 
-	// Create integer ratio
-	UINT16 par_x, par_y;
-	if ( source_ratio >= 1.0 )
+	uint16_t par_x, par_y;
+	if (source_ratio >= 1.0)
 	{
 		par_x = 4096;
-		par_y = static_cast< UINT16 >( source_ratio * 4096.0 );
+		par_y = static_cast<uint16_t>(source_ratio * 4096.0);
 	}
 	else
 	{
-		par_x = static_cast< UINT16 >( 4096.0 / source_ratio );
+		par_x = static_cast<uint16_t>(4096.0 / source_ratio);
 		par_y = 4096;
 	}
 
-	// Build flags
-	UINT8 flags;
-
+	uint8_t flags;
 	if (g_bEnableTrackOnly)
 	{
-		// Tracking Only - Emulator handles video/input as usual.
 		flags = sSharedMemoryMap_R4::FLAG_NO_FRAME;
 	}
 	else
 	{
-		// External Input Mode
 		flags = sSharedMemoryMap_R4::FLAG_WANT_KEYB;
-		if ( want_mouse )
+		if (want_mouse)
 			flags |= sSharedMemoryMap_R4::FLAG_WANT_MOUSE;
 	}
 
-	// Paused?
 	if (g_nAppMode == AppMode_e::MODE_PAUSED)
 		flags |= sSharedMemoryMap_R4::FLAG_PAUSED;
 
-
-	//
-	// Send data?
-
-	// Message buffer
 	sSharedMMapBuffer_R1 proc_mech_buffer;
 	proc_mech_buffer.payload = 0;
 
-	DWORD mutex_result;
-	mutex_result = WaitForSingleObject( g_mutex_handle, 3000 );
-	if ( mutex_result == WAIT_OBJECT_0 )
+	if (!backend::lock(3000))
+		return;
 
+	g_p_shared_memory->version = PROTOCOL_VER;
+	g_p_shared_memory->flags = flags;
+
+	if (!g_bEnableTrackOnly && p_frame)
 	{
+		++g_p_shared_memory->frame.seq;
 
-		{ // ========================
+		g_p_shared_memory->frame.image_fmt = 1;	// 32-bit RGBA
+		g_p_shared_memory->frame.width = frame_width;
+		g_p_shared_memory->frame.height = frame_height;
+		g_p_shared_memory->frame.par_x = par_x;
+		g_p_shared_memory->frame.par_y = par_y;
 
-			// Set version
-			g_p_shared_memory->version = PROTOCOL_VER;
-
-			// Store flags
-			g_p_shared_memory->flags = flags;
-
-			if ((g_bEnableTrackOnly == false) && p_frame)
-			{
-				// Update the frame sequence
-				++g_p_shared_memory->frame.seq;
-
-				// Copy frame properties
-				g_p_shared_memory->frame.image_fmt = 1; // = 32-bit RGBA
-				g_p_shared_memory->frame.width = frame_width;
-				g_p_shared_memory->frame.height = frame_height;
-				g_p_shared_memory->frame.par_x = par_x;
-				g_p_shared_memory->frame.par_y = par_y;
-
-				// Frame Buffer
-				UINT payload;
-				payload = frame_width * frame_height * 4;
-				if ( frame_width <= sSharedMMapFrame_R1::MAX_WIDTH && frame_height <= sSharedMMapFrame_R1::MAX_HEIGHT )
-				{
-					memcpy( g_p_shared_memory->frame.buffer, p_frame, payload );
-				}
-			}
-
-			// Peek for special requested memory items
-			UpdatePeekInfo(&g_p_shared_memory->peek, p_sysmem);
-
-			// Message Processing.
-			ExecTerminal( &(g_p_shared_memory->buf_recv),
-						  &(g_p_shared_memory->buf_tohost),
-						  &(proc_mech_buffer) );
-
-		} // ========================
-
-		ReleaseMutex( g_mutex_handle );
-
-		// Mechanical Message Processing, out of mutex.
-		if ( proc_mech_buffer.payload )
-			ExecTerminalMech( &proc_mech_buffer );
+		if (frame_width <= sSharedMMapFrame_R1::MAX_WIDTH &&
+		    frame_height <= sSharedMMapFrame_R1::MAX_HEIGHT)
+		{
+			const uint32_t payload = uint32_t(frame_width) * uint32_t(frame_height) * 4u;
+			std::memcpy(g_p_shared_memory->frame.buffer, p_frame, payload);
+		}
 	}
 
+	UpdatePeekInfo(&g_p_shared_memory->peek, p_sysmem);
+	ExecTerminal(&g_p_shared_memory->buf_recv,
+	             &g_p_shared_memory->buf_tohost,
+	             &proc_mech_buffer);
+
+	backend::unlock();
+
+	// Mechanical commands run outside the lock so the handler is free to
+	// re-enter Gamelink (e.g. to toggle pause).
+	if (proc_mech_buffer.payload)
+		ExecTerminalMech(&proc_mech_buffer);
 }
 
-void GameLink::UpdatePeekInfo(sSharedMMapPeek_R2* peek, const UINT8* p_sysmem)
+void GameLink::UpdatePeekInfo(sSharedMMapPeek_R2* peek, const uint8_t* p_sysmem)
 {
-	// Peek for special requested memory items
-	for (UINT pindex = 0;
-		pindex < peek->addr_count &&
-		pindex < sSharedMMapPeek_R2::PEEK_LIMIT;
-		++pindex)
+	const uint32_t count = std::min<uint32_t>(peek->addr_count, sSharedMMapPeek_R2::PEEK_LIMIT);
+	for (uint32_t i = 0; i < count; ++i)
 	{
-		// read address
-		UINT address;
-		address = peek->addr[pindex];
-
-		UINT8 data;
-		// valid?
-		if (address < g_membase_size)
-		{
-			data = p_sysmem[address]; // read data
-		}
-		else
-		{
-			data = 0; // <-- safe
-		}
-
-		// write data
-		peek->data[pindex] = data;
+		const uint32_t address = peek->addr[i];
+		peek->data[i] = (address < g_membase_size) ? p_sysmem[address] : uint8_t(0);
 	}
 }
 
 void GameLink::InitTerminal()
 {
-	g_p_outbuf = 0;
-}
-
-bool GameLink::GetVideoNativeFormat()
-{
-	return g_use_native_format;
+	g_p_outbuf = nullptr;
 }
 
 void GameLink::ExecTerminalMech(GameLink::sSharedMMapBuffer_R1* p_procbuf)
@@ -590,29 +302,22 @@ void GameLink::ExecTerminalMech(GameLink::sSharedMMapBuffer_R1* p_procbuf)
 }
 
 void GameLink::ExecTerminal(GameLink::sSharedMMapBuffer_R1* p_inbuf,
-	GameLink::sSharedMMapBuffer_R1* p_outbuf,
-	GameLink::sSharedMMapBuffer_R1* p_procbuf)
+                            GameLink::sSharedMMapBuffer_R1* p_outbuf,
+                            GameLink::sSharedMMapBuffer_R1* p_procbuf)
 {
-	// Nothing from the host, or host hasn't acknowledged our last message.
-	if (p_inbuf->payload == 0) {
+	if (p_inbuf->payload == 0)
 		return;
-	}
-	if (p_outbuf->payload > 0) {
+	if (p_outbuf->payload > 0)
 		return;
-	}
 
-	// Store output pointer
 	g_p_outbuf = p_outbuf;
 
-	// Process mode select ...
 	if (p_inbuf->data[0] == ':')
 	{
-		// Acknowledge now, to avoid loops.
-		UINT16 payload = p_inbuf->payload;
+		const uint16_t payload = p_inbuf->payload;
 		p_inbuf->payload = 0;
 
-		// Copy out.
-		memcpy(p_procbuf->data, p_inbuf->data, payload);
+		std::memcpy(p_procbuf->data, p_inbuf->data, payload);
 		p_procbuf->payload = payload;
 	}
 }

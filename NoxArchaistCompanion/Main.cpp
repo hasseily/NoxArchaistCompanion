@@ -8,7 +8,7 @@
 #include <WinUser.h>
 #include "SidebarManager.h"
 #include "SidebarContent.h"
-#include "RemoteControl/GameLink.h"
+#include "RemoteControl/Gamelink.h"
 #include "Keyboard.h"
 #include "HackWindow.h"
 #include "LogWindow.h"
@@ -52,6 +52,28 @@ std::shared_ptr<LogWindow> g_logW;
 std::shared_ptr<HackWindow> g_hackW;
 
 void ExitGame() noexcept;
+
+static HWND g_hMainWnd = nullptr;
+
+static void HandleRemoteCommand(GameLink::RemoteCommand cmd)
+{
+	if (!g_hMainWnd)
+		return;
+
+	switch (cmd)
+	{
+	case GameLink::RemoteCommand::Reset:
+		// lParam==1 suppresses the confirmation dialog (remote-driven reset)
+		PostMessageW(g_hMainWnd, WM_COMMAND, ID_EMULATOR_RESET, 1);
+		break;
+	case GameLink::RemoteCommand::Pause:
+		PostMessageW(g_hMainWnd, WM_COMMAND, ID_EMULATOR_PAUSE, 0);
+		break;
+	case GameLink::RemoteCommand::Shutdown:
+		PostMessageW(g_hMainWnd, WM_DESTROY, 0, 0);
+		break;
+	}
+}
 
 static void ExceptionHandler(LPCSTR pError)
 {
@@ -183,6 +205,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			if (!hwnd)
 				return 1;
+
+			g_hMainWnd = hwnd;
+			GameLink::SetRemoteCommandHandler(HandleRemoteCommand);
 
 			ShowWindow(hwnd, nCmdShow);
 			// TODO: Change nCmdShow to SW_SHOWMAXIMIZED to default to fullscreen.

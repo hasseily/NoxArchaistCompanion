@@ -1,200 +1,161 @@
-#ifndef __GAMELINK_H___
-#define __GAMELINK_H___
+#pragma once
 
-#include <Windows.h>
-
-//------------------------------------------------------------------------------
-// Namespace Declaration
-//------------------------------------------------------------------------------
+#include <cstdint>
+#include <string>
 
 namespace GameLink
 {
 
-	//--------------------------------------------------------------------------
-	// Global Declarations
-	//--------------------------------------------------------------------------
+#pragma pack(push, 1)
 
-#pragma pack( push, 1 )
-
-	//
-	// sSharedMMapFrame_R1
-	//
-	// Server -> Client Frame. 32-bit RGBA up to MAX_WIDTH x MAX_HEIGHT
-	//
+	// Server -> Client frame: 32-bit RGBA up to MAX_WIDTH x MAX_HEIGHT
 	struct sSharedMMapFrame_R1
 	{
-		UINT16 seq;
-		UINT16 width;
-		UINT16 height;
+		uint16_t seq;
+		uint16_t width;
+		uint16_t height;
 
-		UINT8 image_fmt; // 0 = no frame; 1 = 32-bit 0xAARRGGBB
-		UINT8 reserved0;
+		uint8_t image_fmt;	// 0 = no frame; 1 = 32-bit 0xAARRGGBB
+		uint8_t reserved0;
 
-		UINT16 par_x; // pixel aspect ratio
-		UINT16 par_y;
+		uint16_t par_x;		// pixel aspect ratio
+		uint16_t par_y;
 
 		enum { MAX_WIDTH = 1280 };
 		enum { MAX_HEIGHT = 1024 };
 
 		enum { MAX_PAYLOAD = MAX_WIDTH * MAX_HEIGHT * 4 };
-		UINT8 buffer[ MAX_PAYLOAD ];
+		uint8_t buffer[MAX_PAYLOAD];
 	};
 
-	//
-	// sSharedMMapInput_R2
-	//
-	// Client -> Server Input Data
-	//
-
+	// Client -> Server input
 	struct sSharedMMapInput_R2
 	{
 		float mouse_dx;
 		float mouse_dy;
-		UINT8 ready;
-		UINT8 mouse_btn;
-		UINT keyb_state[ 8 ];
+		uint8_t ready;
+		uint8_t mouse_btn;
+		uint32_t keyb_state[8];
 
-		enum { READY_NO = 0 };					// Input not ready
-		enum { READY_GC = 1 };					// Input from GC
-		enum { READY_OTHER = 17 };				// Input from other app
+		enum { READY_NO    = 0 };	// Input not ready
+		enum { READY_GC    = 1 };	// Input from GC
+		enum { READY_OTHER = 17 };	// Input from other app
 	};
 
-	//
-	// sSharedMMapPeek_R2
-	//
-	// Memory reading interface.
-	//
+	// Memory peek interface
 	struct sSharedMMapPeek_R2
 	{
 		enum { PEEK_LIMIT = 16 * 1024 };
 
-		UINT addr_count;
-		UINT addr[PEEK_LIMIT];
-		UINT8 data[PEEK_LIMIT];
+		uint32_t addr_count;
+		uint32_t addr[PEEK_LIMIT];
+		uint8_t data[PEEK_LIMIT];
 	};
 
-	//
-	// sSharedMMapBuffer_R1
-	//
-	// General buffer (64Kb)
-	//
+	// 64 KiB general buffer
 	struct sSharedMMapBuffer_R1
 	{
-		enum { BUFFER_SIZE = ( 64 * 1024 ) };
+		enum { BUFFER_SIZE = (64 * 1024) };
 
-		UINT16 payload;
-		UINT8 data[ BUFFER_SIZE ];
+		uint16_t payload;
+		uint8_t data[BUFFER_SIZE];
 	};
 
-	//
-	// sSharedMMapBuffer_R1
-	//
-	// Buffer for printing to autolog
-	//
+	// 2 KiB autolog print buffer
 	struct sSharedMMapPrintBuffer_R1
 	{
 		enum { PRINTBUFFER_SIZE = (2 * 1024) };
 
-		UINT16 string_size;
-		UINT8 data[PRINTBUFFER_SIZE];
+		uint16_t string_size;
+		uint8_t data[PRINTBUFFER_SIZE];
 	};
 
-	//
-	// sSharedMMapAudio_R1
-	//
-	// Audio control interface.
-	//
+	// Audio control interface
 	struct sSharedMMapAudio_R1
 	{
-		UINT8 master_vol_l;
-		UINT8 master_vol_r;
+		uint8_t master_vol_l;
+		uint8_t master_vol_r;
 	};
 
-	//
-	// sSharedMemoryMap_R4
-	//
-	// Memory Map (top-level object)
-	//
+	// Top-level memory map
 	struct sSharedMemoryMap_R4
 	{
 		enum {
-			FLAG_WANT_KEYB			= 1 << 0,
-			FLAG_WANT_MOUSE			= 1 << 1,
-			FLAG_NO_FRAME			= 1 << 2,
-			FLAG_PAUSED				= 1 << 3,
+			FLAG_WANT_KEYB	= 1 << 0,
+			FLAG_WANT_MOUSE	= 1 << 1,
+			FLAG_NO_FRAME	= 1 << 2,
+			FLAG_PAUSED		= 1 << 3,
 		};
 
-		enum {
-			SYSTEM_MAXLEN			= 64
-		};
+		enum { SYSTEM_MAXLEN  = 64 };
+		enum { PROGRAM_MAXLEN = 260 };
 
-		enum {
-			PROGRAM_MAXLEN			= 260
-		};
-
-		UINT8 version; // = PROTOCOL_VER
-		UINT8 flags;
-		char system[SYSTEM_MAXLEN] = {}; // System name.
-		char program[PROGRAM_MAXLEN] = {}; // Program name. Zero terminated.
-		UINT program_hash[4] = { 0,0,0,0 }; // Program code hash (256-bits)
+		uint8_t version;	// = PROTOCOL_VER
+		uint8_t flags;
+		char system[SYSTEM_MAXLEN] = {};
+		char program[PROGRAM_MAXLEN] = {};
+		uint32_t program_hash[4] = { 0, 0, 0, 0 };
 
 		sSharedMMapFrame_R1 frame;
 		sSharedMMapInput_R2 input;
 		sSharedMMapPeek_R2 peek;
-		sSharedMMapBuffer_R1 buf_recv; // a message to us.
+		sSharedMMapBuffer_R1 buf_recv;
 		sSharedMMapBuffer_R1 buf_tohost;
 		sSharedMMapAudio_R1 audio;
 
 		// added for protocol v4
-		UINT ram_size;
+		uint32_t ram_size;
 	};
 
-#pragma pack( pop )
+#pragma pack(pop)
 
+	// Remote command sent over the terminal-style :name protocol.
+	// The host registers a handler with SetRemoteCommandHandler; the handler
+	// is called from the same thread that drives Out() (i.e. the main loop).
+	enum class RemoteCommand
+	{
+		Reset,
+		Pause,
+		Shutdown,
+	};
+	using RemoteCommandHandler = void (*)(RemoteCommand);
+	void SetRemoteCommandHandler(RemoteCommandHandler handler);
 
-	//--------------------------------------------------------------------------
-	// Global Functions
-	//--------------------------------------------------------------------------
+	bool GetGameLinkEnabled();
+	void SetGameLinkEnabled(bool enabled);
+	bool GetTrackOnlyEnabled();
+	void SetTrackOnlyEnabled(bool enabled);
 
-	extern bool GetGameLinkEnabled(void);
-	extern void SetGameLinkEnabled(const bool bEnabled);
-	extern bool GetTrackOnlyEnabled(void);
-	extern void SetTrackOnlyEnabled(const bool bEnabled);
+	int Init(bool trackonly_mode);
 
-	extern int Init( const bool trackonly_mode );
-	
-	extern UINT8* AllocRAM( const UINT size );
+	uint8_t* AllocRAM(uint32_t size);
 
-	extern void Term();
+	void Term();
 
-	extern void SetProgramInfo(const std::string name, UINT i1, UINT i2, UINT i3, UINT i4);
+	void SetProgramInfo(const std::string name, uint32_t i1, uint32_t i2, uint32_t i3, uint32_t i4);
 
-	extern int In( sSharedMMapInput_R2* p_input,
-				   sSharedMMapAudio_R1* p_audio );
+	int In(sSharedMMapInput_R2* p_input,
+	       sSharedMMapAudio_R1* p_audio);
 
-	extern void Out(const UINT8* p_sysmem);
+	void Out(const uint8_t* p_sysmem);
 
-	extern void Out( const UINT16 frame_width,
-					 const UINT16 frame_height,
-					 const double source_ratio,
-					 const bool need_mouse,
-					 const UINT8* p_frame,
-					 const UINT8* p_sysmem );
+	void Out(uint16_t frame_width,
+	         uint16_t frame_height,
+	         double source_ratio,
+	         bool need_mouse,
+	         const uint8_t* p_frame,
+	         const uint8_t* p_sysmem);
 
-	extern void UpdatePeekInfo(sSharedMMapPeek_R2* peek, const UINT8* p_sysmem);
+	void UpdatePeekInfo(sSharedMMapPeek_R2* peek, const uint8_t* p_sysmem);
 
-	extern void ExecTerminal(sSharedMMapBuffer_R1* p_inbuf,
-		sSharedMMapBuffer_R1* p_outbuf,
-		sSharedMMapBuffer_R1* p_mechbuf);
+	void ExecTerminal(sSharedMMapBuffer_R1* p_inbuf,
+	                  sSharedMMapBuffer_R1* p_outbuf,
+	                  sSharedMMapBuffer_R1* p_mechbuf);
 
-	extern void ExecTerminalMech(sSharedMMapBuffer_R1* p_mechbuf);
+	void ExecTerminalMech(sSharedMMapBuffer_R1* p_mechbuf);
 
-	extern void InitTerminal();
+	void InitTerminal();
 
-	extern bool GetVideoNativeFormat();
+	bool GetVideoNativeFormat();
 
-}; // namespace GameLink
-
-//==============================================================================
-
-#endif // __GAMELINK_HDR__
+}	// namespace GameLink
