@@ -7,3 +7,5 @@ Debug
 /x64/Release
 /NoxArchaistCompanion/noxcompanion.conf
 /NoxArchaistCompanion/x64/Release
+/build
+/build-*

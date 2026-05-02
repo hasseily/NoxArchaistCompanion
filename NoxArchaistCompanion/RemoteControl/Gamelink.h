@@ -125,6 +125,7 @@ namespace GameLink
 	void SetGameLinkEnabled(bool enabled);
 	bool GetTrackOnlyEnabled();
 	void SetTrackOnlyEnabled(bool enabled);
+	void SetPaused(bool paused);
 
 	int Init(bool trackonly_mode);
 

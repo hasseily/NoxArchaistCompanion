@@ -12,11 +12,8 @@
 // primitives live in Gamelink_win32.cpp / Gamelink_posix.cpp behind the
 // GameLink::backend interface declared in Gamelink_backend.h.
 
-#include "pch.h"
 #include "RemoteControl/Gamelink.h"
 #include "RemoteControl/Gamelink_backend.h"
-#include "Emulator/AppleWin.h"
-#include "Emulator/Common.h"
 
 #include <algorithm>
 #include <cstring>
@@ -33,6 +30,7 @@ namespace
 {
 	bool g_bEnableGamelink = true;
 	bool g_bEnableTrackOnly = false;
+	bool g_bPaused = false;
 	bool g_use_native_format = false;
 
 	uint32_t g_membase_size = 0;
@@ -110,6 +108,7 @@ bool GameLink::GetGameLinkEnabled()			{ return g_bEnableGamelink; }
 void GameLink::SetGameLinkEnabled(bool e)	{ g_bEnableGamelink = e; }
 bool GameLink::GetTrackOnlyEnabled()		{ return g_bEnableTrackOnly; }
 void GameLink::SetTrackOnlyEnabled(bool e)	{ g_bEnableTrackOnly = e; }
+void GameLink::SetPaused(bool paused)		{ g_bPaused = paused; }
 bool GameLink::GetVideoNativeFormat()		{ return g_use_native_format; }
 
 int GameLink::Init(bool trackonly_mode)
@@ -238,7 +237,7 @@ void GameLink::Out(uint16_t frame_width,
 			flags |= sSharedMemoryMap_R4::FLAG_WANT_MOUSE;
 	}
 
-	if (g_nAppMode == AppMode_e::MODE_PAUSED)
+	if (g_bPaused)
 		flags |= sSharedMemoryMap_R4::FLAG_PAUSED;
 
 	sSharedMMapBuffer_R1 proc_mech_buffer;

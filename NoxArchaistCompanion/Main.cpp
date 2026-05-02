@@ -565,11 +565,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 			case AppMode_e::MODE_RUNNING:
 				g_nAppMode = AppMode_e::MODE_PAUSED;
+				GameLink::SetPaused(true);
 				SoundCore_SetFade(FADE_OUT);
 				CheckMenuItem(GetSubMenu(GetMenu(hWnd), 1), ID_EMULATOR_PAUSE, MF_BYCOMMAND | MF_CHECKED);
 				break;
 			case AppMode_e::MODE_PAUSED:
 				g_nAppMode = AppMode_e::MODE_RUNNING;
+				GameLink::SetPaused(false);
 				SoundCore_SetFade(FADE_IN);
 				CheckMenuItem(GetSubMenu(GetMenu(hWnd), 1), ID_EMULATOR_PAUSE, MF_BYCOMMAND | MF_UNCHECKED);
 				break;

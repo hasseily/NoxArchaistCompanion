@@ -14,9 +14,37 @@ Status legend: ✅ done · ⏳ in progress · ◻ todo
 - ✅ Cross-platform Gamelink (`Gamelink.h` + `Gamelink_{win32,posix}.cpp`)
 - ✅ `docs/gamelink.md`
 
+## Phase 3 — CMake build system
+Add top-level `CMakeLists.txt` and per-target sub-lists. Targets:
+- `nac_emulator` (static lib): vendored AppleWin core + pp.
+- `nac` (executable): app layer + emulator + Gamelink.
+
+Use `find_package(SDL3 CONFIG REQUIRED)` (FetchContent fallback for
+local builds), `find_package(OpenGL REQUIRED)`. ImGui via FetchContent
+or vcpkg.
+
+Acceptance: `cmake -B build && cmake --build build` succeeds on Linux
+(headless — main.cpp can be a stub that just initialises Gamelink and
+exits).
+
+✅ Done out of order, ahead of Phase 1, so the rest of the conversion
+has a Linux-side build target to validate against (we live on WSL2).
+The Phase 3 commit lands a minimal CMake (no SDL3/OpenGL/ImGui yet —
+they arrive in Phase 4 when the platform layer needs them) plus a tiny
+decoupling of `Gamelink.cpp` from the emulator globals so the protocol
+layer compiles standalone.
+
+Commit: "add CMake build, headless Linux build green".
+
 ## Phase 1 — vendor cross-platform AppleWin core
 Replace `NoxArchaistCompanion/Emulator/` with a stripped subset of
-`hasseily/AppleWin` master (the cross-platform branch). For each file:
+`hasseily/AppleWin` master (the cross-platform branch). The current
+`Emulator/` was forked from a very old Win32-only AppleWin and
+heavily customised; the plan is to throw that away, take a clean
+upstream baseline, and re-add the small set of NAC-specific game
+hooks (e.g. the `noxcpuconstants` struct used by `Game.cpp`) on top.
+
+For each file:
 
 1. Copy from `../AppleWin/source/` into `NoxArchaistCompanion/Emulator/`.
 2. Walk every `#ifdef _WIN32` / `WIN32` and delete the Win32-only path.
@@ -49,21 +77,6 @@ Acceptance: post-processor compiles as its own static lib with SDL3 +
 OpenGL headers available; no integration yet.
 
 Commit: "vendor post-processor from AppleWin pp branch".
-
-## Phase 3 — CMake build system
-Add top-level `CMakeLists.txt` and per-target sub-lists. Targets:
-- `nac_emulator` (static lib): vendored AppleWin core + pp.
-- `nac` (executable): app layer + emulator + Gamelink.
-
-Use `find_package(SDL3 CONFIG REQUIRED)` (FetchContent fallback for
-local builds), `find_package(OpenGL REQUIRED)`. ImGui via FetchContent
-or vcpkg.
-
-Acceptance: `cmake -B build && cmake --build build` succeeds on Linux
-(headless — main.cpp can be a stub that just initialises Gamelink and
-exits).
-
-Commit: "add CMake build, headless Linux build green".
 
 ## Phase 4 — SDL3 platform layer
 Replace `Main.cpp`, `DeviceResources.{cpp,h}`, the `pch.h` D3D12 includes,
