@@ -41,6 +41,16 @@ set(EMU_AUDIO
     Riff.cpp
 )
 
+set(EMU_DISK_IO
+    Harddisk.cpp
+    DiskImage.cpp
+    DiskImageHelper.cpp
+    Joystick.cpp
+    Keyboard.cpp
+    LanguageCard.cpp
+    NoSlotClock.cpp
+)
+
 # ---------------------------------------------------------------------------
 # libyaml — vendored under Emulator/libyaml/, built as a small static lib.
 # ---------------------------------------------------------------------------
@@ -114,6 +124,7 @@ add_library(nac_emulator STATIC
     ${EMU_CORE}
     ${EMU_VIDEO}
     ${EMU_AUDIO}
+    ${EMU_DISK_IO}
 )
 
 target_include_directories(nac_emulator PUBLIC
