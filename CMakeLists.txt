@@ -31,6 +31,37 @@ endif()
 find_package(OpenGL REQUIRED)
 
 # ---------------------------------------------------------------------------
+# Dear ImGui (docking branch) — fetched and built as a small static lib
+# with the SDL3 + OpenGL3 backends. Used by the sidebar (Phase 7) and any
+# future settings UI.
+# ---------------------------------------------------------------------------
+include(FetchContent)
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG        v1.91.6-docking
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(imgui)
+
+add_library(imgui STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+target_include_directories(imgui PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+)
+target_link_libraries(imgui PUBLIC SDL3::SDL3 OpenGL::GL)
+# imgui_impl_opengl3 loads GL function pointers itself via its own loader;
+# no glad needed.
+
+# ---------------------------------------------------------------------------
 # nac_emulator: stripped, vendored AppleWin core (Phase 1).
 # ---------------------------------------------------------------------------
 add_subdirectory(NoxArchaistCompanion/Emulator)
@@ -58,16 +89,19 @@ add_executable(nac WIN32
     src/Renderer.cpp
     src/Frame.cpp
     src/AudioOutput.cpp
+    src/Sidebar.cpp
     ${GAMELINK_SOURCES}
 )
 
 target_include_directories(nac PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/NoxArchaistCompanion
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
 target_link_libraries(nac PRIVATE
     nac_emulator
+    imgui
     SDL3::SDL3
     OpenGL::GL
 )

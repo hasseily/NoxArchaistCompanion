@@ -25,9 +25,12 @@ public:
     void BeginFrame();
     void UploadFramebuffer(const void* bgra, int w, int h);
     void DrawFramebuffer();
+    void BeginImGui();   // call between DrawFramebuffer and EndFrame
+    void EndImGui();
     void EndFrame();
 
-    SDL_Window* Window() const { return m_window; }
+    SDL_Window*   Window() const  { return m_window; }
+    SDL_GLContext GLContext() const { return m_glctx; }
 
 private:
     SDL_Window*   m_window         = nullptr;

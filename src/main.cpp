@@ -7,12 +7,16 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include <imgui.h>
+#include <backends/imgui_impl_sdl3.h>
+
 // StdAfx must precede the emulator headers — they rely on its Windows-types
 // + STL pulldown for BYTE/WORD/HWND etc.
 #include "Emulator/StdAfx.h"
 
 #include "Renderer.h"
 #include "Frame.h"
+#include "Sidebar.h"
 #include "RemoteControl/Gamelink.h"
 
 #include "Emulator/CardManager.h"
@@ -50,6 +54,7 @@ constexpr double kClockHz = 1020484.45;
 struct AppState
 {
     nac::Renderer         renderer;
+    nac::Sidebar          sidebar;
     bool                  gamelink_up = false;
     std::filesystem::path hdv_path;          // optional HDV from argv[1]
 };
@@ -74,6 +79,25 @@ std::filesystem::path FindResourcesDir()
         if (dir.empty()) break;
     }
     return "Resources";
+}
+
+// NAC's sidebar profiles live in NoxArchaistCompanion/Profiles/ in the
+// repo. Same walk-up logic as FindResourcesDir.
+std::filesystem::path FindProfilesDir()
+{
+    const char* base = SDL_GetBasePath();
+    std::filesystem::path dir = base ? base : ".";
+
+    for (int i = 0; i < 5; ++i)
+    {
+        const auto candidate = dir / "Profiles";
+        if (std::filesystem::is_directory(candidate)) return candidate;
+        const auto nacCandidate = dir / "NoxArchaistCompanion" / "Profiles";
+        if (std::filesystem::is_directory(nacCandidate)) return nacCandidate;
+        dir = dir.parent_path();
+        if (dir.empty()) break;
+    }
+    return "Profiles";
 }
 
 void InitEmulator(const std::filesystem::path& hdvPath)
@@ -101,11 +125,10 @@ void InitEmulator(const std::filesystem::path& hdvPath)
     // so MemInitializeIO wires it up and loads its firmware blob.
     GetCardMgr().Insert(SLOT7, CT_GenericHDD, /*updateRegistry*/ false);
 
-    // Mockingboard in slots 4 & 5 (NAC convention; Nox Archaist drives
-    // both for stereo). MockingboardCardManager lazy-inits its SoundBuffer
-    // the first time the game touches the chips.
+    // Mockingboard in slot 4 only — Nox Archaist's MB detection probes
+    // a single slot and gets confused by a second card. The MB class's
+    // SoundBuffer is lazy-inited the first time the game touches the chips.
     GetCardMgr().Insert(SLOT4, CT_MockingboardC, /*updateRegistry*/ false);
-    GetCardMgr().Insert(SLOT5, CT_MockingboardC, /*updateRegistry*/ false);
 
     GetFrame().Initialize(true);   // allocates the BGRA framebuffer + Video::Initialize
     MemInitialize();               // loads ROMs + cards' firmware
@@ -171,6 +194,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     InitEmulator(state->hdv_path);
 
+    state->sidebar.LoadProfilesFromDir(FindProfilesDir());
+    // Don't pick a default — every Nox version has a profile with the same
+    // "NOXARCHAIST" meta-name and reading the wrong one against live RAM
+    // produces garbage that flickers as values shift. Wait for the user
+    // to pick from the Profile menu.
+
     *appstate = state.release();
     return SDL_APP_CONTINUE;
 }
@@ -225,6 +254,16 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 {
     auto* state = static_cast<AppState*>(appstate);
     (void)state;
+
+    ImGui_ImplSDL3_ProcessEvent(event);
+
+    // When ImGui captures input (mouse over a window or focused text field),
+    // swallow that event so the //e doesn't also receive it.
+    const ImGuiIO& io = ImGui::GetIO();
+    if (event->type == SDL_EVENT_KEY_DOWN && io.WantCaptureKeyboard)
+        return SDL_APP_CONTINUE;
+    if (event->type == SDL_EVENT_TEXT_INPUT && io.WantCaptureKeyboard)
+        return SDL_APP_CONTINUE;
 
     switch (event->type)
     {
@@ -323,6 +362,31 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                                       static_cast<int>(video.GetFrameBufferWidth()),
                                       static_cast<int>(video.GetFrameBufferHeight()));
     state->renderer.DrawFramebuffer();
+
+    state->renderer.BeginImGui();
+    if (ImGui::BeginMainMenuBar())
+    {
+        if (ImGui::BeginMenu("Profile"))
+        {
+            const auto names = state->sidebar.ProfileNames();
+            if (names.empty())
+                ImGui::MenuItem("(no profiles found)", nullptr, false, false);
+            for (const auto& n : names)
+            {
+                const bool active = (n == state->sidebar.ActiveProfileName());
+                if (ImGui::MenuItem(n.c_str(), nullptr, active))
+                    state->sidebar.SetActiveProfile(n);
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("(none)", nullptr, state->sidebar.ActiveProfileName().empty()))
+                state->sidebar.SetActiveProfile("");
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+    state->sidebar.Render();
+    state->renderer.EndImGui();
+
     state->renderer.EndFrame();
 
     return SDL_APP_CONTINUE;

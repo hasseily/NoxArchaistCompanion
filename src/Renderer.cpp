@@ -3,6 +3,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_video.h>
 
+#include <imgui.h>
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_opengl3.h>
+
 #if defined(_WIN32)
     #include <windows.h>
     #include <GL/gl.h>
@@ -62,6 +66,15 @@ bool Renderer::Init(const char* title, int width, int height)
     SDL_GL_MakeCurrent(m_window, m_glctx);
     SDL_GL_SetSwapInterval(1);
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.IniFilename = nullptr;          // don't litter the cwd with imgui.ini
+    ImGui::StyleColorsDark();
+    ImGui_ImplSDL3_InitForOpenGL(m_window, m_glctx);
+    ImGui_ImplOpenGL3_Init("#version 130");
+
     glGenTextures(1, &m_framebufferTex);
     glBindTexture(GL_TEXTURE_2D, m_framebufferTex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -75,6 +88,12 @@ bool Renderer::Init(const char* title, int width, int height)
 
 void Renderer::Shutdown()
 {
+    if (m_glctx)
+    {
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplSDL3_Shutdown();
+        ImGui::DestroyContext();
+    }
     if (m_framebufferTex)
     {
         glDeleteTextures(1, &m_framebufferTex);
@@ -171,6 +190,19 @@ void Renderer::DrawFramebuffer()
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_TEXTURE_2D);
+}
+
+void Renderer::BeginImGui()
+{
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
+}
+
+void Renderer::EndImGui()
+{
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Renderer::EndFrame()

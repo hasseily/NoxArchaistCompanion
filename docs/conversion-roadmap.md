@@ -132,14 +132,37 @@ work on Linux.
 Commit: "route framebuffer through post-processor".
 
 ## Phase 7 — port the sidebar
-`SidebarManager` / `SidebarContent` / `Sidebar` currently use
-`DirectX::SpriteBatch` and `SpriteFont`. Replace with an ImGui-based
-panel — overlay rendering is straightforward in the post-processor
-output area.
+⏳ ImGui + sidebar profile loader done. `src/Sidebar.{cpp,h}` reads the
+JSON profiles under `NoxArchaistCompanion/Profiles/`, supports the same
+var types as the old `SidebarContent` (ascii, ascii_high, int_*, lookup),
+and renders each sidebar as an ImGui window anchored to the host window
+edge (Right / Left / Top / Bottom). Profile picker lives in the main
+menu bar (`Profile` menu); profiles are keyed by directory + meta name
+since every Nox version's profiles use the same `meta.name`.
 
-Acceptance: sidebar tiles, fonts, and hint sheets render on Linux.
+ImGui (docking branch v1.91.6-docking) is pulled via FetchContent and
+built as a small static lib with the SDL3 + OpenGL3 backends. Renderer
+gained `BeginImGui`/`EndImGui`; `SDL_AppEvent` forwards to
+`ImGui_ImplSDL3_ProcessEvent` and swallows keyboard events when ImGui
+wants capture, so the //e doesn't double-receive them.
 
-Commit: "port sidebar to ImGui".
+Memory dispatch: NAC profiles use a contiguous 128 KiB convention
+(0x00000-0x0FFFF = main RAM, 0x10000-0x1FFFF = aux RAM). Upstream
+emulator stores main + aux as separate allocations, so `SerializeVar`
+splits by offset and uses `MemGetMainPtr` or `MemGetAuxPtr` accordingly.
+
+**Known gap:** values in main RAM that Nox routes through STORE80 /
+RAMRD soft-switches (coords, torches, location, picks, spells —
+addresses around $0420 / $703c / $6CEC) flicker. The raw `memmain[off]`
+read doesn't honour the //e bank-switch state, so the underlying byte
+sometimes lives in aux instead. Needs a `MemReadByte`-style reader that
+respects the soft switches at read time.
+
+Acceptance (partial): sidebar shows up, party stats / skills (aux RAM)
+update live. Bank-switched main RAM values flicker — investigation
+deferred.
+
+Commit: "port sidebar to ImGui — party stats live, bank-switched fields TBD".
 
 ## Phase 8 — port keyboard / mouse / gamepad input
 ⏳ Keyboard done. `src/main.cpp::SDL_AppEvent` translates SDL3 events into
