@@ -28,6 +28,19 @@ set(EMU_VIDEO
     VidHD.cpp
 )
 
+set(EMU_AUDIO
+    AY8910.cpp
+    Mockingboard.cpp
+    MockingboardCardManager.cpp
+    SoundCore.cpp
+    Speaker.cpp
+    SSI263.cpp
+    SAM.cpp
+    6522.cpp
+    6821.cpp
+    Riff.cpp
+)
+
 # ---------------------------------------------------------------------------
 # libyaml — vendored under Emulator/libyaml/, built as a small static lib.
 # ---------------------------------------------------------------------------
@@ -100,6 +113,7 @@ endif()
 add_library(nac_emulator STATIC
     ${EMU_CORE}
     ${EMU_VIDEO}
+    ${EMU_AUDIO}
 )
 
 target_include_directories(nac_emulator PUBLIC
