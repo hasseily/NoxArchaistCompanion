@@ -44,6 +44,14 @@ typedef BYTE (__stdcall *iofunction)(WORD nPC, WORD nAddr, BYTE nWriteFlag, BYTE
 extern iofunction IORead[256];
 extern iofunction IOWrite[256];
 extern LPBYTE     memshadow[0x100];
+
+// NAC: optional pointer to a frontend-supplied 128 KiB block that backs
+// both main and aux RAM contiguously. Set BEFORE MemInitialize. When
+// non-null, memmain occupies bytes 0..0xFFFF of the block and memaux
+// occupies 0x10000..0x1FFFF, so external readers (Grid Cartographer
+// over Gamelink shared memory) see the //e's full 128 KiB in one mapping.
+// MemDestroy treats the block as borrowed and does not free it.
+extern LPBYTE g_externalMemMain;
 extern LPBYTE     memwrite[0x100];
 extern BYTE       memreadPageType[0x100];
 extern LPBYTE     mem;

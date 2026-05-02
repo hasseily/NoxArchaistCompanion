@@ -43,7 +43,6 @@ namespace
 
 constexpr int kWindowWidth  = 800;
 constexpr int kWindowHeight = 600;
-constexpr uint32_t kSimRamSize = 128 * 1024;
 
 // 1.02 MHz Apple //e clock — used to convert elapsed wall-clock time
 // into cycles to feed CpuExecute. Pacing by real time (not by SDL_AppIterate
@@ -58,6 +57,11 @@ struct AppState
     bool                  gamelink_up = false;
     std::filesystem::path hdv_path;          // optional HDV from argv[1]
 };
+
+// 128 KiB matches the //e main+aux footprint. Sized once and shared between
+// the Gamelink shared-memory region and the emulator's memmain/memaux
+// (g_externalMemMain).
+constexpr uint32_t kEmulatorRamBytes = 128 * 1024;
 
 // Walk up from the executable directory looking for Resources/. Lets the
 // app run both from build-win/ and from a packaged install.
@@ -146,6 +150,13 @@ void InitEmulator(const std::filesystem::path& hdvPath)
         {
             std::fprintf(stderr, "HD_Insert failed for %s\n", hdvPath.string().c_str());
         }
+        else
+        {
+            // Tell Gamelink which game is loaded so Grid Cartographer can
+            // pick the right map / hint sheet.
+            const std::string stem = hdvPath.stem().string();
+            GameLink::SetProgramInfo(stem, 0, 0, 0, 0);
+        }
     }
 
     GetFrame().VideoRedrawScreen();
@@ -186,10 +197,22 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     SDL_StartTextInput(state->renderer.Window());
 
-    if (GameLink::Init(false) && GameLink::AllocRAM(kSimRamSize))
+    if (GameLink::Init(false))
     {
-        GameLink::SetProgramInfo("Nox Archaist Companion", 0, 0, 0, 0);
-        state->gamelink_up = true;
+        if (uint8_t* ram = GameLink::AllocRAM(kEmulatorRamBytes))
+        {
+            // Hand the Gamelink shared-memory region to the emulator so
+            // memmain[0..0xFFFF] and memaux[0..0xFFFF] (which live at
+            // ram + 0x10000) become visible to Grid Cartographer in
+            // real-time, without copying.
+            g_externalMemMain = ram;
+            GameLink::SetProgramInfo("Nox Archaist Companion", 0, 0, 0, 0);
+            state->gamelink_up = true;
+        }
+        else
+        {
+            GameLink::Term();
+        }
     }
 
     InitEmulator(state->hdv_path);
@@ -357,6 +380,22 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     GetFrame().VideoRedrawScreen();
 
     Video& video = GetVideo();
+
+    // Push frame + memory snapshot to Grid Cartographer before we draw.
+    // GC reads from the same shared-memory region that backs memmain
+    // (g_externalMemMain), so it sees //e RAM with zero copies; the
+    // Out() call updates the frame metadata + handshake bytes.
+    if (state->gamelink_up && g_externalMemMain)
+    {
+        const int fbW = static_cast<int>(video.GetFrameBufferWidth());
+        const int fbH = static_cast<int>(video.GetFrameBufferHeight());
+        GameLink::Out(static_cast<uint16_t>(fbW), static_cast<uint16_t>(fbH),
+                      static_cast<double>(fbW) / static_cast<double>(fbH),
+                      /*need_mouse*/ false,
+                      video.GetFrameBuffer(),
+                      g_externalMemMain);
+    }
+
     state->renderer.BeginFrame();
     state->renderer.UploadFramebuffer(video.GetFrameBuffer(),
                                       static_cast<int>(video.GetFrameBufferWidth()),

@@ -219,6 +219,8 @@ SOFT SWITCH STATUS FLAGS
 //
 
 LPBYTE			memshadow[_6502_NUM_PAGES];
+
+LPBYTE g_externalMemMain = NULL;
 LPBYTE			memwrite[_6502_NUM_PAGES];
 BYTE			memreadPageType[_6502_NUM_PAGES];
 
@@ -1585,8 +1587,15 @@ static void UpdatePagingForAltRW(void)
 
 void MemDestroy()
 {
-	ALIGNED_FREE(memaux);
-	ALIGNED_FREE(memmain);
+	if (g_externalMemMain)
+	{
+		// Borrowed block — frontend owns the lifetime.
+	}
+	else
+	{
+		ALIGNED_FREE(memaux);
+		ALIGNED_FREE(memmain);
+	}
 	FreeMemImage();
 
 	delete [] memdirty;
@@ -1983,8 +1992,18 @@ void MemInitialize()
 {
 	// ALLOCATE MEMORY FOR THE APPLE MEMORY IMAGE AND ASSOCIATED DATA STRUCTURES
 	// NB. alloc memaux even if a IIe with an empty aux slot - writes still go to memaux, but reads are from floating bus
-	memaux   = ALIGNED_ALLOC(_6502_MEM_LEN);	// NB. alloc even if model is Apple II/II+, since it's used by VidHD card
-	memmain  = ALIGNED_ALLOC(_6502_MEM_LEN);
+	if (g_externalMemMain)
+	{
+		// Frontend supplied a contiguous 128 KiB block (Gamelink shared mem):
+		// main RAM in the low half, aux RAM in the high half.
+		memmain = g_externalMemMain;
+		memaux  = g_externalMemMain + _6502_MEM_LEN;
+	}
+	else
+	{
+		memaux   = ALIGNED_ALLOC(_6502_MEM_LEN);	// NB. alloc even if model is Apple II/II+, since it's used by VidHD card
+		memmain  = ALIGNED_ALLOC(_6502_MEM_LEN);
+	}
 	memimage = AllocMemImage();
 
 	memdirty = new BYTE[0x100];
