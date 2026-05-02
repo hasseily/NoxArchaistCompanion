@@ -74,18 +74,26 @@ OpenGL headers available; no integration yet.
 Commit: "vendor post-processor from AppleWin pp branch".
 
 ## Phase 4 — SDL3 platform layer
-Replace `Main.cpp`, `DeviceResources.{cpp,h}`, the `pch.h` D3D12 includes,
-`HackWindow.{cpp,h}`, `LogWindow.{cpp,h}` with SDL3 + ImGui equivalents.
+✅ Done (window-only). New `src/main.cpp` uses `SDL_MAIN_USE_CALLBACKS`
+(`SDL_AppInit/Event/Iterate/Quit`). New `src/Renderer.{cpp,h}` owns the
+`SDL_Window` and the `SDL_GLContext`, requests OpenGL 3.3 core, clears the
+backbuffer black, and swaps. The `nac` executable now links the
+`nac_emulator` static lib + `SDL3::SDL3` + `OpenGL::GL` and is built as a
+GUI app (`WIN32` flag — no console window). Esc or window-close exits
+cleanly. Gamelink still comes up at startup.
 
-- New `src/main.cpp` using `SDL_MAIN_USE_CALLBACKS` (cf. AppleWin
-  `frontends/sdl/sdlappmain.cpp`).
-- `src/Renderer.{cpp,h}` owns the `SDL_Window`, the `SDL_GLContext`, and
-  the framebuffer GL texture.
-- ImGui sidebar / hack / log replace the Win32 dialogs.
+SDL3 is pulled via `find_package(SDL3 CONFIG QUIET)` with a `FetchContent`
+fallback to `release-3.2.20` so a fresh clone builds without external
+setup. On Windows a POST_BUILD step copies `SDL3.dll` next to `nac.exe`.
 
-Acceptance: NAC starts on Linux, shows a black window, shuts down cleanly.
+ImGui (sidebar / hack / log windows) is **deferred** — it lands when there's
+real UI to render (Phase 6/7), not while the window is still empty.
 
-Commit: "SDL3 main loop and GL context; window opens on Linux".
+Acceptance met: `nac.exe` opens a black 800×600 GL window, pumps events,
+shuts down cleanly. Phase 5 wires the Apple //e framebuffer (BGRA 32bpp)
+into a GL texture and blits it.
+
+Commit: "SDL3 main loop and GL context; black window opens".
 
 ## Phase 5 — wire the emulator into the renderer
 Hook `g_pFramebufferinfo` (BGRA 32bpp) into a GL texture. Run the
