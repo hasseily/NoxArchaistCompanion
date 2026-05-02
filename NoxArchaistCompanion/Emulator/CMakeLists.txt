@@ -20,6 +20,14 @@ set(EMU_CORE
     CardManager.cpp
 )
 
+set(EMU_VIDEO
+    Video.cpp
+    NTSC.cpp
+    NTSC_CharSet.cpp
+    RGBMonitor.cpp
+    VidHD.cpp
+)
+
 # ---------------------------------------------------------------------------
 # libyaml — vendored under Emulator/libyaml/, built as a small static lib.
 # ---------------------------------------------------------------------------
@@ -91,6 +99,7 @@ endif()
 # ---------------------------------------------------------------------------
 add_library(nac_emulator STATIC
     ${EMU_CORE}
+    ${EMU_VIDEO}
 )
 
 target_include_directories(nac_emulator PUBLIC
