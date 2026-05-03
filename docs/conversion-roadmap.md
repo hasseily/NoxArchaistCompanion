@@ -192,14 +192,29 @@ the emulator's `KeybQueueKeypress(key, ASCII | NOT_ASCII)` API:
 * Alt+F4 closes the window. Esc is **not** a quit shortcut — the //e
   firmware uses it.
 
-Still TODO: mouse, gamepad, and the `RemoteControlManager.cpp` DIK→VK
-keyboard-table rewrite in `SDL_Scancode` terms (deferred until the
-RemoteControl frontend is wired in).
+**Grid Cartographer keyboard input** → `src/RemoteInput.{cpp,h}`. Each
+iterate (before `CpuExecute`) pulls the 256-bit DIK scancode bitmap
+from Gamelink shared memory via `GameLink::In`, diffs against the
+previous sample, translates fresh / repeating scancodes to Win32 VK
+using the same 256-byte table the old NAC `RemoteControlManager` used,
+then dispatches via `KeybQueueKeypress` (ASCII path for Return /
+Backspace / Tab / Esc / letters / digits / space; NOT_ASCII for arrow
+keys). Repeats throttled to one fire per 400 ms per scancode so a
+held-down GC key doesn't blast the //e's single-strobe keyboard latch.
+A small exclusion set drops the F-keys / page-nav VKs that the old
+NAC used for window-menu shortcuts.
 
-Acceptance (partial): you can type at the BASIC prompt — `print 2+2`
-↵ → `4`. Game-playability acceptance waits on RemoteControlManager + HDD.
+Deferred:
+* **Mouse-as-paddle** — niche feature.
+* **Gamepad** — gamepad axes routing was tried and reverted (user
+  preference); local keyboard is enough for Nox.
 
-Commit: "SDL3 keyboard input — typing works at the BASIC prompt".
+Acceptance: typing works at the BASIC prompt; Grid Cartographer's
+"send keypress" feature drives the //e through Gamelink shared mem.
+
+Commits:
+* "SDL3 keyboard input — typing works at the BASIC prompt"
+* "wire Grid Cartographer keyboard input through Gamelink shared mem".
 
 ## Phase 9 — verify on Windows
 Switch the Windows build to CMake, validate end-to-end (Visual Studio
