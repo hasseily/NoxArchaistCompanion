@@ -168,9 +168,14 @@ Acceptance: sidebar shows live values for both aux-RAM (party stats,
 skills) and main-RAM-via-soft-switch (coords, torches, location,
 picks, spells), without flicker.
 
+Profile picker keys by `<version-dir> / <file-stem>` (multiple .json
+files in one version dir all have `meta.name = "NOXARCHAIST"`, so the
+file stem disambiguates Solo / Full / Full Six Party).
+
 Commits:
 * "port sidebar to ImGui — party stats live, bank-switched fields TBD"
-* "soft-switch-aware sidebar reads + per-block debounce".
+* "soft-switch-aware sidebar reads + per-block debounce"
+* "key sidebar profiles by file stem so Solo / Full all show up".
 
 ## Phase 8 — port keyboard / mouse / gamepad input
 ⏳ Keyboard done. `src/main.cpp::SDL_AppEvent` translates SDL3 events into

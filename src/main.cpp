@@ -234,17 +234,24 @@ void InitEmulator(const std::filesystem::path& hdvPath)
         else
         {
             // Detect the Nox Archaist version from the HDV bytes so the
-            // SetProgramInfo handshake with Grid Cartographer carries the
-            // right (version-hash, sig) — without it GC just sees 0:0:0:0
-            // and can't pick the correct map / hint sheet.
+            // SetProgramInfo handshake with Grid Cartographer carries
+            // the right game sig. GC displays the four hash slots in
+            // reverse, so sig goes in program_hash[3] (i4) to render as
+            // "58C37F8C:0:0:0". The version string isn't published right
+            // now — DetectNoxVersion() returns it for any future consumer
+            // (window title, sidebar header) that wants it.
+            // The Gamelink program name is the canonical id GC matches
+            // against in its profile picker. For Nox Archaist that's
+            // "NOXARCHAIST" (the same string the sidebar profiles use in
+            // meta.name); fall back to the HDV stem for unknown games.
             const std::string version = DetectNoxVersion(hdvPath, FindAssetsDir());
-            const uint32_t    hash    = PackVersionDigits(version);
             const uint32_t    sig     = version.empty() ? 0u : kNoxArchaistSig;
-            const std::string name    = hdvPath.stem().string();
-            GameLink::SetProgramInfo(name, 0, 0, hash, sig);
-            std::fprintf(stderr, "Gamelink: program=\"%s\" version=\"%s\" "
-                                 "hash=0x%08x sig=0x%08x\n",
-                         name.c_str(), version.c_str(), hash, sig);
+            const std::string name    = version.empty()
+                                           ? hdvPath.stem().string()
+                                           : std::string("NOXARCHAIST");
+            GameLink::SetProgramInfo(name, 0, 0, 0, sig);
+            std::fprintf(stderr, "Gamelink: program=\"%s\" version=\"%s\" sig=0x%08x\n",
+                         name.c_str(), version.c_str(), sig);
         }
     }
 
@@ -472,8 +479,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     // Push frame + memory snapshot to Grid Cartographer before we draw.
     // GC reads from the same shared-memory region that backs memmain
-    // (g_externalMemMain), so it sees //e RAM with zero copies; the
-    // Out() call updates the frame metadata + handshake bytes.
+    // (g_externalMemMain), so it sees //e RAM with zero copies.
     if (state->gamelink_up && g_externalMemMain)
     {
         const int fbW = static_cast<int>(video.GetFrameBufferWidth());
@@ -494,11 +500,17 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                         rowBytes);
         }
 
+        // MemGetBankPtr(0) flushes any dirty pages from the CPU's working
+        // page-cache back into memmain, then returns the same pointer.
+        // Without this, GC reads stale RAM — coords / direction lag by a
+        // frame and look swapped on direction changes.
+        const uint8_t* sysmem = MemGetBankPtr(0);
+
         GameLink::Out(static_cast<uint16_t>(fbW), static_cast<uint16_t>(fbH),
                       static_cast<double>(fbW) / static_cast<double>(fbH),
                       /*need_mouse*/ false,
                       flipped.data(),
-                      g_externalMemMain);
+                      sysmem);
     }
 
     state->renderer.BeginFrame();

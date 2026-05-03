@@ -52,18 +52,21 @@ void Sidebar::LoadProfilesFromDir(const std::filesystem::path& profileDir)
             nlohmann::json j;
             f >> j;
 
-            // Display key: "<version-dir> / <profile-name>" — same JSON
-            // profile name appears in every version directory, so prefix
-            // with the directory path relative to profileDir to keep them
-            // distinct in the picker.
-            const std::string baseName = j.value("/meta/name"_json_pointer, std::string{});
-            if (baseName.empty()) continue;
+            // Display key: "<version-dir> / <file-stem>". Multiple profile
+            // .json files in the same directory all have meta.name =
+            // "NOXARCHAIST" (Solo, Full, Full Six Party, ...), so we'd
+            // collide them down to a single entry if we keyed by meta.name
+            // alone. The file stem disambiguates and tells the user what
+            // party shape the profile is wired for.
+            if (j.value("/meta/name"_json_pointer, std::string{}).empty())
+                continue;
 
             const auto rel    = std::filesystem::relative(entry.path(), profileDir);
             const auto parent = rel.parent_path();
-            const std::string key = parent.empty()
-                ? baseName
-                : parent.string() + " / " + baseName;
+            const std::string stem = entry.path().stem().string();
+            const std::string key  = parent.empty()
+                ? stem
+                : parent.string() + " / " + stem;
             m_profiles[key] = std::move(j);
         }
         catch (const std::exception& e)
