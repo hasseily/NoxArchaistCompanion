@@ -220,12 +220,41 @@ Acceptance: `cmake --build` produces `nac.app`; emulator + sidebar work.
 Commit: "macOS .app bundle; Gamelink disabled per project policy".
 
 ## Phase 11 — cleanup
-- Delete `d3dx12.h`, `ATGColors.h`, `FindMedia.h`, `ReadData.h`,
-  `StepTimer.h`, `DeviceResources.{cpp,h}` once nothing references them.
-- Delete `NoxArchaistCompanion.vcxproj{,.user,.filters}` and `.sln`.
-- Delete `DirectXTK12-feb2023/`, `packages/`, `packages.config`.
-- Delete every `#include <Windows.h>` outside `Gamelink_win32.cpp`.
+✅ VS / DXTK / superseded-frontend cleanup done.
 
-Final tree matches `docs/architecture.md`.
+Deleted:
+* `NoxArchaistCompanion.sln` and the `NoxArchaistCompanion.vcxproj{,.user,.filters}`
+  + `.filters` / `.user` siblings.
+* `DirectXTK12-feb2023/`, `packages/`, `packages.config` — DX12 toolkit
+  and NuGet leftovers from the old build.
+* `pch.{cpp,h}`, `d3dx12.h`, `ATGColors.h`, `FindMedia.h`, `ReadData.h`,
+  `StepTimer.h`, `DeviceResources.{cpp,h}`, `resource.aps/.h/.rc`,
+  `settings.manifest`, `targetver.h`, `NoxArchaistCompanion.ico`.
+* The frontend modules that already have SDL3/ImGui replacements:
+  `Sidebar.{cpp,h}`, `SidebarContent.{cpp,h}`, `SidebarManager.{cpp,h}`,
+  `Main.cpp`.
 
-Commit: "drop DX12 / Win32-only scaffolding".
+Kept under `NoxArchaistCompanion/` as reference material for phases that
+haven't ported them yet:
+* `Game.{cpp,h}` — emulator init template (used during Phase 5 wiring).
+* `LogWindow.{cpp,h}` — template for the future ImGui combat-log panel
+  (CPU Fetch trap deferred patch).
+* `HackWindow.{cpp,h}` — template for a future hack/debug ImGui panel.
+* `NonVolatile.{cpp,h}` — settings persistence; needs porting once
+  there's a settings-bearing UI.
+* `HAUtils.{cpp,h}` — small string helpers; relevant bits already
+  inlined where needed.
+* `RemoteControl/RemoteControlManager.{cpp,h}` — DIK→VK keyboard table
+  for the deferred Phase 8 GC-input rewrite.
+
+Each of these gets a delete commit when the corresponding phase ships
+its SDL3/ImGui replacement.
+
+Remaining `#include <windows.h>` references live in `src/Renderer.cpp`
+(Windows OpenGL function table), `Emulator/StdAfx.h` (cross-platform
+Win32-types pulldown for the emulator core, plus the libwindows shim
+on POSIX) and `Emulator/minizip/iowin32.h` (Win32-only file for the
+vendored ZIP library). All justified — none of them are the old
+DX12-frontend Windows.h pollution the roadmap was worried about.
+
+Commit: "drop DX12 / VS scaffolding and superseded frontend modules".
