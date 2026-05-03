@@ -90,6 +90,7 @@ add_executable(nac WIN32
     src/Frame.cpp
     src/AudioOutput.cpp
     src/Sidebar.cpp
+    src/RemoteInput.cpp
     ${GAMELINK_SOURCES}
 )
 

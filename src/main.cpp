@@ -17,6 +17,7 @@
 #include "Renderer.h"
 #include "Frame.h"
 #include "Sidebar.h"
+#include "RemoteInput.h"
 #include "RemoteControl/Gamelink.h"
 
 #include "Emulator/CardManager.h"
@@ -453,6 +454,11 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     uint32_t cycles = (uint32_t)(deltaNs * kClockHz * 1e-9);
     if (cycles == 0)        cycles = 1;
     if (cycles > 17030 * 4) cycles = 17030 * 4;
+
+    // Pull any Grid Cartographer keypresses (DIK scancodes over Gamelink
+    // shared memory) into the //e keyboard latch before we run cycles,
+    // so the CPU sees them this batch.
+    if (state->gamelink_up) nac::RemoteInputPump();
 
     // Mirror upstream's CommonFrame::ExecuteOneFrame: split the run into
     // ~1 ms batches and tick the cards + speaker after each batch, so
