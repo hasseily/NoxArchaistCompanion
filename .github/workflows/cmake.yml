@@ -1,0 +1,60 @@
+name: CMake
+
+on:
+  push:
+    branches: [master, sdl3-multiplatform]
+  pull_request:
+    branches: [master, sdl3-multiplatform]
+
+# Cancel in-flight runs for the same branch / PR when a new commit lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            generator: Ninja
+          - os: windows-latest
+            generator: "Visual Studio 17 2022"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # SDL3 is built from source via FetchContent, so the CI runner needs
+      # the X11 / Wayland / audio / GL dev headers SDL's CMake probes for.
+      # Without these, SDL's configure picks a degenerate backend set and
+      # the resulting libSDL3.so is missing video/audio symbols nac links.
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+            libxfixes-dev libxi-dev libxss-dev libxkbcommon-dev \
+            libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev \
+            libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
+            libibus-1.0-dev
+
+      - name: Configure
+        run: cmake -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      # Sanity check: the binary exists and links cleanly.
+      - name: Show build output
+        if: runner.os == 'Linux'
+        run: file build/nac
+      - name: Show build output
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Get-Item build/Release/nac.exe
