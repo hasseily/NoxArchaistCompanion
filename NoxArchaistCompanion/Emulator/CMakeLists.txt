@@ -50,14 +50,13 @@ set(EMU_DISK_IO
     Harddisk.cpp
     DiskImage.cpp
     DiskImageHelper.cpp
-    Joystick.cpp
     LanguageCard.cpp
     NoSlotClock.cpp
 )
 if(WIN32)
-    list(APPEND EMU_DISK_IO Keyboard.cpp)
+    list(APPEND EMU_DISK_IO Keyboard.cpp Joystick.cpp)
 else()
-    list(APPEND EMU_DISK_IO Keyboard_posix.cpp)
+    list(APPEND EMU_DISK_IO Keyboard_posix.cpp Joystick_posix.cpp)
 endif()
 
 # ---------------------------------------------------------------------------
