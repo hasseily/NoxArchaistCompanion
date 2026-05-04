@@ -51,10 +51,14 @@ set(EMU_DISK_IO
     DiskImage.cpp
     DiskImageHelper.cpp
     Joystick.cpp
-    Keyboard.cpp
     LanguageCard.cpp
     NoSlotClock.cpp
 )
+if(WIN32)
+    list(APPEND EMU_DISK_IO Keyboard.cpp)
+else()
+    list(APPEND EMU_DISK_IO Keyboard_posix.cpp)
+endif()
 
 # ---------------------------------------------------------------------------
 # libyaml — vendored under Emulator/libyaml/, built as a small static lib.
