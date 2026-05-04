@@ -122,6 +122,29 @@ if(MSVC)
 endif()
 
 # ---------------------------------------------------------------------------
+# libwindows: Win32 API shim for non-Windows targets. AppleWin's StdAfx.h
+# does `#include "windows.h"` on !_WIN32 expecting this local shim. Vendored
+# verbatim from upstream AppleWin's source/linux/libwindows/.
+# ---------------------------------------------------------------------------
+if(NOT WIN32)
+    set(LIBWIN_SOURCES
+        libwindows/dmusicc.cpp
+        libwindows/fileapi.cpp
+        libwindows/guiddef.cpp
+        libwindows/winhandles.cpp
+        libwindows/misc.cpp
+        libwindows/strsafe.cpp
+        libwindows/winstrings.cpp
+        libwindows/timeapi.cpp
+        libwindows/winbase.cpp
+        libwindows/winnls.cpp
+        libwindows/winuser.cpp
+    )
+    add_library(libwindows STATIC ${LIBWIN_SOURCES})
+    target_include_directories(libwindows PUBLIC libwindows)
+endif()
+
+# ---------------------------------------------------------------------------
 # nac_emulator static lib. Files are added in sub-commit groups.
 # ---------------------------------------------------------------------------
 add_library(nac_emulator STATIC
@@ -144,4 +167,6 @@ if(WIN32)
         dxguid
         strmiids   # CLSID_SystemClock used by SoundCore.cpp
     )
+else()
+    target_link_libraries(nac_emulator PUBLIC libwindows)
 endif()
