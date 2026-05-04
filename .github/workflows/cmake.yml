@@ -25,7 +25,7 @@ jobs:
             generator: "Visual Studio 17 2022"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # SDL3 is built from source via FetchContent, so the CI runner needs
       # the X11 / Wayland / audio / GL dev headers SDL's CMake probes for.
