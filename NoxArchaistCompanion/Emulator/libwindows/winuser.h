@@ -64,6 +64,11 @@ void WINAPI PostQuitMessage(INT);
 #define VK_F11 0x7A
 #define VK_F12 0x7B
 
+#define VK_LWIN    0x5B
+#define VK_RWIN    0x5C
+#define VK_APPS    0x5D
+
+#define VK_NUMLOCK 0x90
 #define VK_SCROLL  0x91
 #define VK_LMENU   0xA4
 #define VK_RMENU   0xA5
