@@ -67,6 +67,33 @@ target_link_libraries(imgui PUBLIC SDL3::SDL3 OpenGL::GL)
 add_subdirectory(NoxArchaistCompanion/Emulator)
 
 # ---------------------------------------------------------------------------
+# nac_pp: vendored AppleWin pp-branch postprocessor (CRT shaders, presets,
+# bezels, ImGui settings panel). Source under Emulator/pp/, third-party
+# deps (glad, glm, stb_image, ImGuiFileDialog) under third_party/.
+# ---------------------------------------------------------------------------
+add_library(nac_pp STATIC
+    NoxArchaistCompanion/Emulator/pp/postprocessor.cpp
+    NoxArchaistCompanion/Emulator/pp/shader.cpp
+    third_party/glad/glad.cpp
+    third_party/extras/ImGuiFileDialog.cpp
+)
+target_include_directories(nac_pp PUBLIC
+    NoxArchaistCompanion/Emulator/pp
+    third_party
+    third_party/stb
+)
+target_link_libraries(nac_pp PUBLIC SDL3::SDL3 OpenGL::GL imgui)
+target_compile_features(nac_pp PUBLIC cxx_std_17)
+if(MSVC)
+    target_compile_options(nac_pp PRIVATE /wd4244 /wd4267 /wd4305 /wd4458)
+    target_compile_definitions(nac_pp PRIVATE
+        _CRT_SECURE_NO_WARNINGS
+        NOMINMAX
+        _USE_MATH_DEFINES   # M_PI / M_PI_2 etc. in <cmath> on MSVC
+    )
+endif()
+
+# ---------------------------------------------------------------------------
 # Gamelink: platform-neutral protocol layer + one per-platform backend.
 # ---------------------------------------------------------------------------
 set(GAMELINK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/NoxArchaistCompanion/RemoteControl)
@@ -103,6 +130,7 @@ target_include_directories(nac PRIVATE
 
 target_link_libraries(nac PRIVATE
     nac_emulator
+    nac_pp
     imgui
     SDL3::SDL3
     OpenGL::GL
@@ -122,3 +150,22 @@ if(WIN32 AND TARGET SDL3::SDL3-shared)
             $<TARGET_FILE_DIR:nac>
     )
 endif()
+
+# Stage runtime data next to nac.exe so SDL_GetBasePath()-relative loads
+# (post-processor presets / shaders / bezels, Apple //e ROMs, sidebar
+# profiles, Versions.json) all resolve when the exe is launched from the
+# build dir.
+add_custom_command(TARGET nac POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets/pp/assets   $<TARGET_FILE_DIR:nac>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets/pp/presets  $<TARGET_FILE_DIR:nac>/presets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets/pp/shaders  $<TARGET_FILE_DIR:nac>/shaders
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Assets    $<TARGET_FILE_DIR:nac>/Assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Profiles  $<TARGET_FILE_DIR:nac>/Profiles
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Emulator/Resources  $<TARGET_FILE_DIR:nac>/Resources
+)

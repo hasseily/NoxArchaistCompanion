@@ -39,9 +39,12 @@ Renderer::~Renderer()
 
 bool Renderer::Init(const char* title, int width, int height)
 {
-    // Phase 5: compatibility profile + immediate-mode quads. Phase 6 swaps
-    // to 3.3 core with shaders + glad when the post-processor lands.
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+    // GL 4.1 Core — what the vendored postprocessor's GLSL targets
+    // (#version 410). 4.1 is the highest macOS supports, so portable.
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
@@ -75,7 +78,7 @@ bool Renderer::Init(const char* title, int width, int height)
     // window layout / docking persists across sessions. nullptr disables.
     ImGui::StyleColorsDark();
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glctx);
-    ImGui_ImplOpenGL3_Init("#version 130");
+    ImGui_ImplOpenGL3_Init("#version 410");
 
     glGenTextures(1, &m_framebufferTex);
     glBindTexture(GL_TEXTURE_2D, m_framebufferTex);

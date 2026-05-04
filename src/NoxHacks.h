@@ -33,6 +33,11 @@ public:
     // flips a flush flag for the next Render to consume.
     void  Append(char ch, bool flush);
 
+    bool& OpenRef()           { return m_open; }
+    bool& AutoScrollRef()     { return m_autoScroll; }
+    bool& IncludeCombatRef()  { return m_includeCombat; }
+    void  ApplyIncludeCombat();   // re-syncs g_noxLogIncludeCombat after load
+
 private:
     bool        m_open       = false;
     bool        m_autoScroll = true;
@@ -48,6 +53,10 @@ class HackPanel
 public:
     bool* OpenFlag() { return &m_open; }
     void  Render();
+
+    bool& OpenRef()      { return m_open; }
+    bool& HexRef()       { return m_hex; }
+    int&  PokeAddrRef()  { return m_pokeAddr; }
 
 private:
     bool m_open      = false;

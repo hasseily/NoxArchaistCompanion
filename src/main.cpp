@@ -21,6 +21,9 @@
 #include "NoxHacks.h"
 #include "RemoteControl/Gamelink.h"
 
+#include "pp/postprocessor.h"
+#include "pp/shader.h"
+
 #include "Emulator/CardManager.h"
 #include "Emulator/Card.h"
 #include "Emulator/Common.h"
@@ -65,9 +68,106 @@ struct AppState
     nac::HackPanel        hackPanel;
     bool                  gamelink_up   = false;
     bool                  apple_open    = true;
+    bool                  pp_enabled    = true;
+    int                   window_w      = 0; // 0 = use default
+    int                   window_h      = 0;
     std::string           imgui_ini_path;   // outlives ImGui's IO struct
+    std::filesystem::path pref_dir;         // SDL pref dir, for nac.json + pp_state.json
     std::filesystem::path hdv_path;          // optional HDV from argv[1]
 };
+
+// Persisted NAC-side settings (post-processor state has its own file).
+// Stored as JSON next to imgui.ini under SDL_GetPrefPath().
+constexpr const char* kSettingsFilename = "nac.json";
+constexpr const char* kPpStateFilename  = "pp_state.json";
+
+// Read just the host window size from nac.json so we can pass it to
+// Renderer::Init before the GL context exists. The full LoadSettings()
+// runs later (after PP is up) and re-reads the same file.
+void LoadWindowSizeOnly(AppState& s)
+{
+    if (s.pref_dir.empty()) return;
+    const auto path = s.pref_dir / kSettingsFilename;
+    if (!std::filesystem::exists(path)) return;
+    try
+    {
+        std::ifstream f(path);
+        nlohmann::json j; f >> j;
+        s.window_w = j.value("window_w", 0);
+        s.window_h = j.value("window_h", 0);
+    }
+    catch (...) {}
+}
+
+void SaveSettings(const AppState& s)
+{
+    if (s.pref_dir.empty()) return;
+    nlohmann::json j;
+    int curW = 0, curH = 0;
+    if (s.renderer.Window())
+        SDL_GetWindowSize(s.renderer.Window(), &curW, &curH);
+    j["window_w"]        = curW > 0 ? curW : s.window_w;
+    j["window_h"]        = curH > 0 ? curH : s.window_h;
+    j["apple_open"]      = s.apple_open;
+    j["pp_enabled"]      = s.pp_enabled;
+    j["combat_log_open"] = const_cast<nac::CombatLogPanel&>(s.combatLog).OpenRef();
+    j["combat_log_auto_scroll"]    = const_cast<nac::CombatLogPanel&>(s.combatLog).AutoScrollRef();
+    j["combat_log_include_combat"] = const_cast<nac::CombatLogPanel&>(s.combatLog).IncludeCombatRef();
+    j["hack_open"]       = const_cast<nac::HackPanel&>(s.hackPanel).OpenRef();
+    j["hack_hex"]        = const_cast<nac::HackPanel&>(s.hackPanel).HexRef();
+    j["hack_poke_addr"]  = const_cast<nac::HackPanel&>(s.hackPanel).PokeAddrRef();
+    j["pp_settings_open"] = sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen;
+    j["sidebar_profile"]  = s.sidebar.ActiveProfileName();
+
+    try
+    {
+        std::ofstream f(s.pref_dir / kSettingsFilename);
+        f << j.dump(2);
+    }
+    catch (...) {}
+
+    try
+    {
+        sa2::PostProcessor::GetInstance()->SaveState((s.pref_dir / kPpStateFilename).string());
+    }
+    catch (...) {}
+}
+
+void LoadSettings(AppState& s)
+{
+    if (s.pref_dir.empty()) return;
+
+    // PP state — restore quietly if file exists.
+    const auto ppPath = s.pref_dir / kPpStateFilename;
+    if (std::filesystem::exists(ppPath))
+    {
+        try { sa2::PostProcessor::GetInstance()->LoadState(ppPath.string()); }
+        catch (...) {}
+    }
+
+    const auto settingsPath = s.pref_dir / kSettingsFilename;
+    if (!std::filesystem::exists(settingsPath)) return;
+    try
+    {
+        std::ifstream f(settingsPath);
+        nlohmann::json j; f >> j;
+        s.apple_open  = j.value("apple_open",  s.apple_open);
+        s.pp_enabled  = j.value("pp_enabled",  s.pp_enabled);
+        s.combatLog.OpenRef()           = j.value("combat_log_open", false);
+        s.combatLog.AutoScrollRef()     = j.value("combat_log_auto_scroll", true);
+        s.combatLog.IncludeCombatRef()  = j.value("combat_log_include_combat", false);
+        s.combatLog.ApplyIncludeCombat();
+        s.hackPanel.OpenRef()      = j.value("hack_open", false);
+        s.hackPanel.HexRef()       = j.value("hack_hex",  false);
+        s.hackPanel.PokeAddrRef()  = j.value("hack_poke_addr", 0x6CEC);
+        sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen =
+            j.value("pp_settings_open", false);
+        sa2::PostProcessor::GetInstance()->SetActive(s.pp_enabled);
+        const std::string profile = j.value("sidebar_profile", std::string{});
+        if (!profile.empty()) s.sidebar.SetActiveProfile(profile);
+    }
+    catch (...) {}
+}
 
 // 128 KiB matches the //e main+aux footprint. Sized once and shared between
 // the Gamelink shared-memory region and the emulator's memmain/memaux
@@ -299,20 +399,36 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     if (argc >= 2)
         state->hdv_path = argv[1];
 
-    if (!state->renderer.Init("Nox Archaist Companion", kWindowWidth, kWindowHeight))
+    // Need the pref-dir BEFORE the renderer comes up so we can restore
+    // the saved host-window size. Set imgui_ini_path here too.
+    if (const char* pref = SDL_GetPrefPath("Asseily", "NoxArchaistCompanion"))
+    {
+        state->pref_dir       = pref;
+        state->imgui_ini_path = std::string(pref) + "imgui.ini";
+        SDL_free((void*)pref);
+    }
+    LoadWindowSizeOnly(*state);
+
+    const int initW = state->window_w > 0 ? state->window_w : kWindowWidth;
+    const int initH = state->window_h > 0 ? state->window_h : kWindowHeight;
+    if (!state->renderer.Init("Nox Archaist Companion", initW, initH))
     {
         return SDL_APP_FAILURE;
     }
 
-    // Persist ImGui window layout / docking under the user's pref dir so
-    // it survives across sessions. The string lives in AppState so the
-    // pointer ImGuiIO holds stays valid.
-    if (const char* pref = SDL_GetPrefPath("Asseily", "NoxArchaistCompanion"))
+    // Bring up glad against the GL context the renderer just made so the
+    // post-processor can call core-profile entry points.
+    if (!PP_InitGL(reinterpret_cast<PP_GL_GetProcAddr>(SDL_GL_GetProcAddress)))
     {
-        state->imgui_ini_path = std::string(pref) + "imgui.ini";
-        SDL_free((void*)pref);
-        ImGui::GetIO().IniFilename = state->imgui_ini_path.c_str();
+        std::fprintf(stderr, "PP_InitGL failed\n");
+        return SDL_APP_FAILURE;
     }
+    sa2::PostProcessor::GetInstance()->SetActive(true);
+
+    // ImGui's IO struct only exists after Renderer::Init() created the
+    // GL context — point it at the same imgui.ini we resolved earlier.
+    if (!state->imgui_ini_path.empty())
+        ImGui::GetIO().IniFilename = state->imgui_ini_path.c_str();
 
     SDL_StartTextInput(state->renderer.Window());
 
@@ -339,8 +455,10 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     state->sidebar.LoadProfilesFromDir(FindProfilesDir());
     // Don't pick a default — every Nox version has a profile with the same
     // "NOXARCHAIST" meta-name and reading the wrong one against live RAM
-    // produces garbage that flickers as values shift. Wait for the user
-    // to pick from the Profile menu.
+    // produces garbage that flickers as values shift. The settings load
+    // below will restore whichever profile the user picked last session.
+
+    LoadSettings(*state);
 
     *appstate = state.release();
     return SDL_APP_CONTINUE;
@@ -352,7 +470,13 @@ namespace
 // Control chars the //e firmware reads as ASCII (Win32 routes these via
 // WM_CHAR, not WM_KEYDOWN). SDL3 SDL_EVENT_TEXT_INPUT doesn't fire for
 // control chars, so we send them from KEY_DOWN through the ASCII path.
-BYTE SdlKeyToAscii(SDL_Keycode k)
+//
+// Also handles printable ASCII (letters / digits / common punctuation):
+// ImGui's SDL3 backend calls SDL_StopTextInput every frame when no
+// ImGui text widget is focused, which kills TEXT_INPUT events for the
+// //e. We re-derive the character from KEY_DOWN + Shift mod state so
+// typing keeps working regardless of ImGui's text-input toggling.
+BYTE SdlKeyToAscii(SDL_Keycode k, SDL_Keymod mod)
 {
     switch (k)
     {
@@ -360,8 +484,27 @@ BYTE SdlKeyToAscii(SDL_Keycode k)
     case SDLK_BACKSPACE:                  return 0x08;
     case SDLK_TAB:                        return 0x09;
     case SDLK_ESCAPE:                     return 0x1B;
-    default:                              return 0;
+    case SDLK_SPACE:                      return ' ';
+    default:                              break;
     }
+
+    if (k >= 'a' && k <= 'z')
+        return (mod & SDL_KMOD_SHIFT) ? (BYTE)(k - 'a' + 'A') : (BYTE)k;
+
+    // Digits and basic ASCII punctuation pass through. Shift-modified
+    // symbols (e.g. ! @ # ...) follow a US-layout convention; for
+    // non-US keyboards the TEXT_INPUT path (when not stomped) catches
+    // the right character.
+    if (k >= '0' && k <= '9')
+    {
+        if (mod & SDL_KMOD_SHIFT)
+        {
+            static const char shifted[] = ")!@#$%^&*(";   // 0..9
+            return (BYTE)shifted[k - '0'];
+        }
+        return (BYTE)k;
+    }
+    return 0;
 }
 
 // Map SDL3 keycodes for non-printable keys to the Win32 VK_* codes that
@@ -428,9 +571,10 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
         KeybUpdateCtrlShiftStatus();
 
-        // Return / Backspace / Tab / Esc come in via the ASCII path —
-        // that's how the //e firmware reads them.
-        if (BYTE ascii = SdlKeyToAscii(event->key.key))
+        // Return / Backspace / Tab / Esc + printable ASCII go through
+        // the ASCII path. We derive from KEY_DOWN + Shift mod so this
+        // works even when ImGui's backend has stopped TEXT_INPUT.
+        if (BYTE ascii = SdlKeyToAscii(event->key.key, event->key.mod))
         {
             KeybQueueKeypress(ascii, ASCII);
             break;
@@ -445,15 +589,10 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
     }
 
     case SDL_EVENT_TEXT_INPUT:
-    {
-        for (const char* p = event->text.text; p && *p; ++p)
-        {
-            const unsigned char c = static_cast<unsigned char>(*p);
-            if (c < 0x80)
-                KeybQueueKeypress(c, ASCII);
-        }
+        // Intentionally ignored — KEY_DOWN above already covers
+        // letters/digits/punctuation. Routing TEXT_INPUT here too would
+        // double-fire each keystroke into the //e keyboard latch.
         break;
-    }
 
     default:
         break;
@@ -505,22 +644,21 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     GetFrame().VideoRedrawScreen();
 
     Video& video = GetVideo();
+    const int fbW = static_cast<int>(video.GetFrameBufferWidth());
+    const int fbH = static_cast<int>(video.GetFrameBufferHeight());
 
-    // Push frame + memory snapshot to Grid Cartographer before we draw.
-    // GC reads from the same shared-memory region that backs memmain
-    // (g_externalMemMain), so it sees //e RAM with zero copies.
+    // The Apple //e framebuffer is BGRA stored bottom-up (Windows BMP
+    // convention). The post-processor was developed against this same
+    // convention upstream, so we leave the GL upload bottom-up and just
+    // flip V at the ImGui::Image draw step.
+    //
+    // Grid Cartographer expects top-down, so the GameLink::Out path gets
+    // its own one-shot flip into a static scratch.
     if (state->gamelink_up && g_externalMemMain)
     {
-        const int fbW = static_cast<int>(video.GetFrameBufferWidth());
-        const int fbH = static_cast<int>(video.GetFrameBufferHeight());
-
-        // The Apple //e framebuffer is BGRA stored bottom-up (Windows BMP
-        // convention). GC expects top-down, so reverse scanlines into a
-        // static scratch buffer before handing it over.
         static std::vector<uint8_t> flipped;
         const size_t rowBytes = (size_t)fbW * 4;
-        const size_t bytes    = rowBytes * (size_t)fbH;
-        flipped.resize(bytes);
+        flipped.resize(rowBytes * (size_t)fbH);
         const uint8_t* src = video.GetFrameBuffer();
         for (int y = 0; y < fbH; ++y)
         {
@@ -543,9 +681,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     }
 
     state->renderer.BeginFrame();
-    state->renderer.UploadFramebuffer(video.GetFrameBuffer(),
-                                      static_cast<int>(video.GetFrameBufferWidth()),
-                                      static_cast<int>(video.GetFrameBufferHeight()));
+    state->renderer.UploadFramebuffer(video.GetFrameBuffer(), fbW, fbH);
 
     state->renderer.BeginImGui();
 
@@ -563,6 +699,11 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
             ImGui::MenuItem("Combat log", nullptr, state->combatLog.OpenFlag());
             ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
+            ImGui::Separator();
+            if (ImGui::MenuItem("Post-processor", nullptr, &state->pp_enabled))
+                sa2::PostProcessor::GetInstance()->SetActive(state->pp_enabled);
+            ImGui::MenuItem("Post-processor settings", nullptr,
+                            &sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen);
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Profile"))
@@ -587,30 +728,51 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     // Apple //e screen as a regular dockable ImGui window. Resizable so
     // the user can scale it however they like; the framebuffer texture
     // letterboxes inside the available content area to preserve aspect.
+    // When the post-processor is active we route the //e framebuffer
+    // through PostProcessor::Render and display its output texture
+    // instead of the raw upload.
     if (state->apple_open)
     {
-        const int fbW = state->renderer.FramebufferWidth();
-        const int fbH = state->renderer.FramebufferHeight();
+        const int rfbW = state->renderer.FramebufferWidth();
+        const int rfbH = state->renderer.FramebufferHeight();
         ImGui::SetNextWindowSize(ImVec2(640, 480), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Apple //e", &state->apple_open, ImGuiWindowFlags_NoCollapse))
         {
             const ImVec2 avail = ImGui::GetContentRegionAvail();
-            if (fbW > 0 && fbH > 0 && avail.x > 0 && avail.y > 0)
+            if (rfbW > 0 && rfbH > 0 && avail.x > 0 && avail.y > 0)
             {
-                const float aspect = float(fbW) / float(fbH);
+                const float aspect = float(rfbW) / float(rfbH);
                 float w = avail.x, h = avail.x / aspect;
                 if (h > avail.y) { h = avail.y; w = avail.y * aspect; }
                 ImGui::SetCursorPos(ImVec2(
                     ImGui::GetCursorPosX() + (avail.x - w) * 0.5f,
                     ImGui::GetCursorPosY() + (avail.y - h) * 0.5f));
-                // Framebuffer is BGRA stored bottom-up — flip V via uv0/uv1.
-                const ImTextureID texId =
-                    static_cast<ImTextureID>(state->renderer.FramebufferTexId());
+
+                // Texture upload is bottom-up; both raw and PP-output
+                // need V flipped at draw time. (PP keeps the input
+                // orientation in its FBO.)
+                auto* pp = sa2::PostProcessor::GetInstance();
+                ImTextureID texId;
+                if (pp->IsActive())
+                {
+                    pp->Render((int)w, (int)h,
+                               state->renderer.FramebufferTexId(),
+                               (uint32_t)rfbW, (uint32_t)rfbH);
+                    texId = static_cast<ImTextureID>(pp->GetTextureId());
+                }
+                else
+                {
+                    texId = static_cast<ImTextureID>(state->renderer.FramebufferTexId());
+                }
                 ImGui::Image(texId, ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
             }
         }
         ImGui::End();
     }
+
+    // PostProcessor settings window — its own ImGui::Begin internally.
+    if (sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen)
+        sa2::PostProcessor::GetInstance()->RenderImGuiWindow();
 
     state->sidebar.Render();
     state->combatLog.Render();
@@ -627,6 +789,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult /*result*/)
     auto* state = static_cast<AppState*>(appstate);
     if (state)
     {
+        SaveSettings(*state);
         ShutdownEmulator();
         if (state->gamelink_up) GameLink::Term();
         state->renderer.Shutdown();

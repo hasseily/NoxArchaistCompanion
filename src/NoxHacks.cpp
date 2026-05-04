@@ -70,6 +70,11 @@ CombatLogPanel::CombatLogPanel()
     g_noxLogIncludeCombat = false;
 }
 
+void CombatLogPanel::ApplyIncludeCombat()
+{
+    g_noxLogIncludeCombat = m_includeCombat;
+}
+
 void CombatLogPanel::Append(char ch, bool /*flush*/)
 {
     // Cap the buffer so a long session doesn't eat all our RAM. Drop the
