@@ -132,7 +132,7 @@ work on Linux.
 Commit: "route framebuffer through post-processor".
 
 ## Phase 7 — port the sidebar
-⏳ ImGui + sidebar profile loader done. `src/Sidebar.{cpp,h}` reads the
+✅ Done. `src/Sidebar.{cpp,h}` reads the
 JSON profiles under `NoxArchaistCompanion/Profiles/`, supports the same
 var types as the old `SidebarContent` (ascii, ascii_high, int_*, lookup),
 and renders each sidebar as an ImGui window anchored to the host window
@@ -178,7 +178,8 @@ Commits:
 * "key sidebar profiles by file stem so Solo / Full all show up".
 
 ## Phase 8 — port keyboard / mouse / gamepad input
-⏳ Keyboard done. `src/main.cpp::SDL_AppEvent` translates SDL3 events into
+✅ Done (mouse-as-paddle and gamepad both deferred indefinitely as
+out-of-scope for Nox). `src/main.cpp::SDL_AppEvent` translates SDL3 events into
 the emulator's `KeybQueueKeypress(key, ASCII | NOT_ASCII)` API:
 * `SDL_EVENT_TEXT_INPUT` → ASCII path for printable chars (UTF-8 → 7-bit).
 * `SDL_EVENT_KEY_DOWN` for control chars (Return, Backspace, Tab, Esc) →
@@ -235,35 +236,15 @@ Acceptance: `cmake --build` produces `nac.app`; emulator + sidebar work.
 Commit: "macOS .app bundle; Gamelink disabled per project policy".
 
 ## Phase 11 — cleanup
-✅ VS / DXTK / superseded-frontend cleanup done.
-
-Deleted:
-* `NoxArchaistCompanion.sln` and the `NoxArchaistCompanion.vcxproj{,.user,.filters}`
-  + `.filters` / `.user` siblings.
-* `DirectXTK12-feb2023/`, `packages/`, `packages.config` — DX12 toolkit
-  and NuGet leftovers from the old build.
-* `pch.{cpp,h}`, `d3dx12.h`, `ATGColors.h`, `FindMedia.h`, `ReadData.h`,
-  `StepTimer.h`, `DeviceResources.{cpp,h}`, `resource.aps/.h/.rc`,
-  `settings.manifest`, `targetver.h`, `NoxArchaistCompanion.ico`.
-* The frontend modules that already have SDL3/ImGui replacements:
-  `Sidebar.{cpp,h}`, `SidebarContent.{cpp,h}`, `SidebarManager.{cpp,h}`,
-  `Main.cpp`.
-
-Kept under `NoxArchaistCompanion/` as reference material for phases that
-haven't ported them yet:
-* `Game.{cpp,h}` — emulator init template (used during Phase 5 wiring).
-* `LogWindow.{cpp,h}` — template for the future ImGui combat-log panel
-  (CPU Fetch trap deferred patch).
-* `HackWindow.{cpp,h}` — template for a future hack/debug ImGui panel.
-* `NonVolatile.{cpp,h}` — settings persistence; needs porting once
-  there's a settings-bearing UI.
-* `HAUtils.{cpp,h}` — small string helpers; relevant bits already
-  inlined where needed.
-* `RemoteControl/RemoteControlManager.{cpp,h}` — DIK→VK keyboard table
-  for the deferred Phase 8 GC-input rewrite.
-
-Each of these gets a delete commit when the corresponding phase ships
-its SDL3/ImGui replacement.
+✅ Done. The Win32 / DX12 scaffolding (`.sln`, `.vcxproj*`, `DirectXTK12-feb2023/`,
+`packages/`, `pch.*`, `d3dx12.h`, `ATGColors.h`, `FindMedia.h`, `ReadData.h`,
+`StepTimer.h`, `DeviceResources.*`, `resource.{aps,h,rc}`, `settings.manifest`,
+`targetver.h`, `NoxArchaistCompanion.ico`) and the superseded frontend modules
+(`Sidebar.*`, `SidebarContent.*`, `SidebarManager.*`, `Main.cpp`) were dropped
+in the Phase-11 commit. The reference files we kept around as templates for
+later phases (`Game.*`, `HackWindow.*`, `LogWindow.*`, `NonVolatile.*`,
+`HAUtils.*`, `RemoteControl/RemoteControlManager.*`) were deleted in a
+follow-up cleanup pass once their SDL3/ImGui replacements all shipped.
 
 Remaining `#include <windows.h>` references live in `src/Renderer.cpp`
 (Windows OpenGL function table), `Emulator/StdAfx.h` (cross-platform
@@ -271,5 +252,3 @@ Win32-types pulldown for the emulator core, plus the libwindows shim
 on POSIX) and `Emulator/minizip/iowin32.h` (Win32-only file for the
 vendored ZIP library). All justified — none of them are the old
 DX12-frontend Windows.h pollution the roadmap was worried about.
-
-Commit: "drop DX12 / VS scaffolding and superseded frontend modules".

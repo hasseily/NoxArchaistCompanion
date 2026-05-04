@@ -77,11 +77,3 @@ reset" behaviour (`lParam == 1`).
 * The shared region is `shm_unlink`'d on shutdown so a clean exit doesn't
   leave `/dev/shm/DWD_GAMELINK_MMAP_R4` behind.
 * Linking requires `-lrt -lpthread` (built into the CMake target on Linux).
-
-## What's deferred
-
-`RemoteControlManager.cpp` still uses Win32 (`UINT`, `LPARAM`, `VK_*`,
-`GetTickCount64`, virtual-key translation tables). It's compiled only on
-Windows today; a follow-up pass alongside the SDL3 conversion will replace
-the keyboard-state translation with `SDL_Scancode` and the timing helpers
-with `SDL_GetTicks`.
