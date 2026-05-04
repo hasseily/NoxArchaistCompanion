@@ -42,6 +42,7 @@ private:
     bool        m_open       = false;
     bool        m_autoScroll = true;
     bool        m_includeCombat = false;
+    bool        m_pendingBreak = false;   // sentence-break heuristic state
     std::string m_buf;
 };
 

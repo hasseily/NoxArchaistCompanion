@@ -81,7 +81,59 @@ void CombatLogPanel::Append(char ch, bool /*flush*/)
     // first ~25% in one go when we hit 64 KiB so we don't realloc per char.
     if (m_buf.size() > 64 * 1024)
         m_buf.erase(0, 16 * 1024);
+
+    // Apple //e text uses CR; normalise so all our newline logic only
+    // has to deal with '\n'.
+    if (ch == '\r') ch = '\n';
+
+    // Defer the break we'd insert after a sentence-end ('.' / '!' / '?')
+    // when the *next* character is a closing '"' — keeps `."` glued
+    // together instead of splitting into `.\n"`.
+    const bool isSentenceEnd = (ch == '.' || ch == '!' || ch == '?');
+    if (m_pendingBreak && !isSentenceEnd && ch != '"')
+    {
+        m_buf.push_back('\n');
+        m_pendingBreak = false;
+    }
+
+    // Skip whitespace right after a newline so the eaten-space from a
+    // sentence-end break (or any pre-existing newline) doesn't leave a
+    // leading space at the start of the next line.
+    if (ch == ' ' && !m_buf.empty() && m_buf.back() == '\n')
+        return;
+
+    // Collapse runs of newlines down to at most one blank line so the
+    // PRINTSTR-boundary flush + the heuristic don't compound.
+    if (ch == '\n')
+    {
+        const size_t n = m_buf.size();
+        if (n >= 2 && m_buf[n - 1] == '\n' && m_buf[n - 2] == '\n') return;
+        m_buf.push_back('\n');
+        m_pendingBreak = false;
+        return;
+    }
+
     m_buf.push_back(ch);
+
+    if (isSentenceEnd)
+    {
+        m_pendingBreak = true;
+    }
+    else if (ch == '"' && m_pendingBreak)
+    {
+        // Closing quote glued to a sentence end (`."`, `?"`, `!"`) — break
+        // *after* the quote so the punctuation stays with the sentence.
+        m_buf.push_back('\n');
+        m_pendingBreak = false;
+    }
+    else if (ch == '>')
+    {
+        // Nox prompt char — paragraph break so each player exchange is
+        // visually separated from the next.
+        m_buf.push_back('\n');
+        m_buf.push_back('\n');
+        m_pendingBreak = false;
+    }
 }
 
 void CombatLogPanel::Render()
