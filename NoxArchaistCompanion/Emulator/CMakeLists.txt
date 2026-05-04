@@ -9,7 +9,6 @@ set(EMU_CORE
     SynchronousEventManager.cpp
     YamlHelper.cpp
     Log.cpp
-    Registry.cpp
     Core.cpp
     FrameBase.cpp
     CmdLine.cpp
@@ -19,6 +18,11 @@ set(EMU_CORE
     Card.cpp
     CardManager.cpp
 )
+if(WIN32)
+    list(APPEND EMU_CORE Registry.cpp)
+else()
+    list(APPEND EMU_CORE Registry_posix.cpp)
+endif()
 
 set(EMU_VIDEO
     Video.cpp
