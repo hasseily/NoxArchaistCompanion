@@ -22,6 +22,17 @@ struct noxcpuconstants
 };
 extern noxcpuconstants cpuconstants;
 
+// Optional frontend callback for the Nox Archaist combat-log trap. The
+// emulator calls this from CPU::Fetch() with each character the game's
+// COUT routine emits to the right scroll panel; flush=true is a hint
+// that this is a line break and the log can commit. Off until the
+// frontend sets it.
+typedef void (*NoxLogCallbackFn)(char ch, bool flush);
+extern NoxLogCallbackFn g_noxLogCallback;
+// If true, the trap also captures text emitted during combat (the
+// frontend's "include combat" toggle).
+extern bool g_noxLogIncludeCombat;
+
 struct regsrec
 {
   BYTE a;   // accumulator

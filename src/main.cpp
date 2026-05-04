@@ -18,6 +18,7 @@
 #include "Frame.h"
 #include "Sidebar.h"
 #include "RemoteInput.h"
+#include "NoxHacks.h"
 #include "RemoteControl/Gamelink.h"
 
 #include "Emulator/CardManager.h"
@@ -60,7 +61,11 @@ struct AppState
 {
     nac::Renderer         renderer;
     nac::Sidebar          sidebar;
-    bool                  gamelink_up = false;
+    nac::CombatLogPanel   combatLog;        // installs the Fetch-trap callback
+    nac::HackPanel        hackPanel;
+    bool                  gamelink_up   = false;
+    bool                  apple_open    = true;
+    std::string           imgui_ini_path;   // outlives ImGui's IO struct
     std::filesystem::path hdv_path;          // optional HDV from argv[1]
 };
 
@@ -245,14 +250,21 @@ void InitEmulator(const std::filesystem::path& hdvPath)
             // against in its profile picker. For Nox Archaist that's
             // "NOXARCHAIST" (the same string the sidebar profiles use in
             // meta.name); fall back to the HDV stem for unknown games.
-            const std::string version = DetectNoxVersion(hdvPath, FindAssetsDir());
-            const uint32_t    sig     = version.empty() ? 0u : kNoxArchaistSig;
-            const std::string name    = version.empty()
-                                           ? hdvPath.stem().string()
-                                           : std::string("NOXARCHAIST");
+            const auto        assetsDir = FindAssetsDir();
+            const std::string version   = DetectNoxVersion(hdvPath, assetsDir);
+            const uint32_t    sig       = version.empty() ? 0u : kNoxArchaistSig;
+            const std::string name      = version.empty()
+                                             ? hdvPath.stem().string()
+                                             : std::string("NOXARCHAIST");
             GameLink::SetProgramInfo(name, 0, 0, 0, sig);
             std::fprintf(stderr, "Gamelink: program=\"%s\" version=\"%s\" sig=0x%08x\n",
                          name.c_str(), version.c_str(), sig);
+
+            // Populate noxcpuconstants for the combat-log Fetch trap and
+            // the hack panel's party-stats peek/poke. Quietly no-ops for
+            // non-Nox HDVs (version is empty, callback gated off).
+            if (nac::LoadNoxConstants(assetsDir, version))
+                std::fprintf(stderr, "Nox v%s: cpuconstants loaded\n", version.c_str());
         }
     }
 
@@ -290,6 +302,16 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     if (!state->renderer.Init("Nox Archaist Companion", kWindowWidth, kWindowHeight))
     {
         return SDL_APP_FAILURE;
+    }
+
+    // Persist ImGui window layout / docking under the user's pref dir so
+    // it survives across sessions. The string lives in AppState so the
+    // pointer ImGuiIO holds stays valid.
+    if (const char* pref = SDL_GetPrefPath("Asseily", "NoxArchaistCompanion"))
+    {
+        state->imgui_ini_path = std::string(pref) + "imgui.ini";
+        SDL_free((void*)pref);
+        ImGui::GetIO().IniFilename = state->imgui_ini_path.c_str();
     }
 
     SDL_StartTextInput(state->renderer.Window());
@@ -377,13 +399,14 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
     ImGui_ImplSDL3_ProcessEvent(event);
 
-    // When ImGui captures input (mouse over a window or focused text field),
-    // swallow that event so the //e doesn't also receive it.
+    // Always forward keystrokes to the //e — except when an ImGui text
+    // input widget actually has focus (e.g. a peek/poke address field).
+    // WantTextInput is true only for active text editors, unlike
+    // WantCaptureKeyboard which is also true whenever any ImGui window
+    // is hovered or has nav focus.
     const ImGuiIO& io = ImGui::GetIO();
-    if (event->type == SDL_EVENT_KEY_DOWN && io.WantCaptureKeyboard)
-        return SDL_APP_CONTINUE;
-    if (event->type == SDL_EVENT_TEXT_INPUT && io.WantCaptureKeyboard)
-        return SDL_APP_CONTINUE;
+    if (event->type == SDL_EVENT_KEY_DOWN  && io.WantTextInput) return SDL_APP_CONTINUE;
+    if (event->type == SDL_EVENT_TEXT_INPUT && io.WantTextInput) return SDL_APP_CONTINUE;
 
     switch (event->type)
     {
@@ -523,11 +546,25 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     state->renderer.UploadFramebuffer(video.GetFrameBuffer(),
                                       static_cast<int>(video.GetFrameBufferWidth()),
                                       static_cast<int>(video.GetFrameBufferHeight()));
-    state->renderer.DrawFramebuffer();
 
     state->renderer.BeginImGui();
+
+    // Invisible dockspace covering the whole host window so the user can
+    // dock the Apple //e and any panel into the main area, splits, etc.
+    // PassthruCentralNode lets the GL clear (black background) show
+    // through any unsplit area, so an empty layout still looks clean.
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
+                                 ImGuiDockNodeFlags_PassthruCentralNode);
+
     if (ImGui::BeginMainMenuBar())
     {
+        if (ImGui::BeginMenu("View"))
+        {
+            ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
+            ImGui::MenuItem("Combat log", nullptr, state->combatLog.OpenFlag());
+            ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Profile"))
         {
             const auto names = state->sidebar.ProfileNames();
@@ -546,7 +583,38 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         }
         ImGui::EndMainMenuBar();
     }
+
+    // Apple //e screen as a regular dockable ImGui window. Resizable so
+    // the user can scale it however they like; the framebuffer texture
+    // letterboxes inside the available content area to preserve aspect.
+    if (state->apple_open)
+    {
+        const int fbW = state->renderer.FramebufferWidth();
+        const int fbH = state->renderer.FramebufferHeight();
+        ImGui::SetNextWindowSize(ImVec2(640, 480), ImGuiCond_FirstUseEver);
+        if (ImGui::Begin("Apple //e", &state->apple_open, ImGuiWindowFlags_NoCollapse))
+        {
+            const ImVec2 avail = ImGui::GetContentRegionAvail();
+            if (fbW > 0 && fbH > 0 && avail.x > 0 && avail.y > 0)
+            {
+                const float aspect = float(fbW) / float(fbH);
+                float w = avail.x, h = avail.x / aspect;
+                if (h > avail.y) { h = avail.y; w = avail.y * aspect; }
+                ImGui::SetCursorPos(ImVec2(
+                    ImGui::GetCursorPosX() + (avail.x - w) * 0.5f,
+                    ImGui::GetCursorPosY() + (avail.y - h) * 0.5f));
+                // Framebuffer is BGRA stored bottom-up — flip V via uv0/uv1.
+                const ImTextureID texId =
+                    static_cast<ImTextureID>(state->renderer.FramebufferTexId());
+                ImGui::Image(texId, ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
+            }
+        }
+        ImGui::End();
+    }
+
     state->sidebar.Render();
+    state->combatLog.Render();
+    state->hackPanel.Render();
     state->renderer.EndImGui();
 
     state->renderer.EndFrame();

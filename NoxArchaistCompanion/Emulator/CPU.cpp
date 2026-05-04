@@ -111,6 +111,12 @@ static BYTE benchopcode[BENCHOPCODES] = {
 };
 
 noxcpuconstants cpuconstants;
+
+NoxLogCallbackFn g_noxLogCallback = nullptr;
+bool             g_noxLogIncludeCombat = false;
+static bool      g_noxInCombat   = false;
+static bool      g_noxInPrintRight = false;
+
 regsrec regs;
 unsigned __int64 g_nCumulativeCycles = 0;
 
@@ -291,6 +297,46 @@ static void DebugHddEntrypoint(const USHORT PC)
 }
 #endif
 
+// Nox Archaist combat-log trap: fires from each Fetch when a frontend
+// has installed g_noxLogCallback and populated cpuconstants. Watches the
+// PC for Nox's PRINTSTR / COUT / CARRIAGE_RETURN entry points and ferries
+// printed characters out to the frontend. Tiny enough to inline; bails
+// fast when the callback isn't installed.
+static __forceinline void NoxFetchTrap(USHORT PC)
+{
+	if (!g_noxLogCallback || cpuconstants.PC_PRINTSTR == 0)
+		return;
+
+	if (PC == cpuconstants.PC_INITIATE_COMBAT) g_noxInCombat = true;
+	if (PC == cpuconstants.PC_END_COMBAT)      g_noxInCombat = false;
+
+	if (PC == cpuconstants.PC_PRINTSTR)
+	{
+		// Each PRINTSTR begins a new block. Close the previous one with
+		// a newline so consecutive right-panel sessions don't run into
+		// each other in the log.
+		if (g_noxInPrintRight)
+			g_noxLogCallback('\n', true);
+		g_noxInPrintRight = false;
+		if (regs.a == cpuconstants.A_PRINT_RIGHT &&
+		    (!g_noxInCombat || g_noxLogIncludeCombat))
+		{
+			g_noxInPrintRight = true;
+		}
+	}
+
+	if (g_noxInPrintRight && PC == cpuconstants.PC_COUT)
+	{
+		// Nox stores ASCII with the high bit set; strip for the log.
+		g_noxLogCallback((char)(regs.a & 0x7F), false);
+	}
+	if (g_noxInPrintRight && g_noxInCombat &&
+	    (PC == cpuconstants.PC_CARRIAGE_RETURN1 || PC == cpuconstants.PC_CARRIAGE_RETURN2))
+	{
+		g_noxLogCallback('\n', true);
+	}
+}
+
 static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 {
 	const USHORT PC = regs.pc;
@@ -303,6 +349,7 @@ static __forceinline void Fetch(BYTE& iOpcode, ULONG uExecutedCycles)
 	    ? IORead[(PC>>4) & 0xFF](PC,PC,0,0,uExecutedCycles)	// Fetch opcode from I/O memory, but params are still from mem[]
 		: *(mem+PC);
 
+	NoxFetchTrap(PC);
 	regs.pc++;
 }
 
@@ -316,6 +363,7 @@ static __forceinline void Fetch_alt(BYTE& iOpcode, ULONG uExecutedCycles)
 
 	iOpcode = _READ_ALT(regs.pc);
 
+	NoxFetchTrap(PC);
 	regs.pc++;
 }
 

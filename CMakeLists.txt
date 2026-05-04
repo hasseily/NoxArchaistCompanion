@@ -91,6 +91,7 @@ add_executable(nac WIN32
     src/AudioOutput.cpp
     src/Sidebar.cpp
     src/RemoteInput.cpp
+    src/NoxHacks.cpp
     ${GAMELINK_SOURCES}
 )
 

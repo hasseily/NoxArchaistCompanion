@@ -24,12 +24,18 @@ public:
 
     void BeginFrame();
     void UploadFramebuffer(const void* bgra, int w, int h);
-    void DrawFramebuffer();
-    void BeginImGui();   // call between DrawFramebuffer and EndFrame
+    void BeginImGui();
     void EndImGui();
     void EndFrame();
 
-    SDL_Window*   Window() const  { return m_window; }
+    // Expose the framebuffer texture so an ImGui window can draw it via
+    // ImGui::Image. Texture is BGRA stored bottom-up — flip V at draw
+    // time with uv0=(0,1) uv1=(1,0).
+    unsigned int FramebufferTexId() const  { return m_framebufferTex; }
+    int          FramebufferWidth() const  { return m_texWidth; }
+    int          FramebufferHeight() const { return m_texHeight; }
+
+    SDL_Window*   Window() const    { return m_window; }
     SDL_GLContext GLContext() const { return m_glctx; }
 
 private:

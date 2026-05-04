@@ -70,7 +70,9 @@ bool Renderer::Init(const char* title, int width, int height)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.IniFilename = nullptr;          // don't litter the cwd with imgui.ini
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // imgui.ini is set externally by main.cpp (under SDL_GetPrefPath) so
+    // window layout / docking persists across sessions. nullptr disables.
     ImGui::StyleColorsDark();
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glctx);
     ImGui_ImplOpenGL3_Init("#version 130");
@@ -141,55 +143,6 @@ void Renderer::UploadFramebuffer(const void* bgra, int w, int h)
                         GL_BGRA_EXT, GL_UNSIGNED_BYTE, bgra);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-void Renderer::DrawFramebuffer()
-{
-    if (!m_framebufferTex || m_texWidth == 0) return;
-
-    int winW = 0, winH = 0;
-    SDL_GetWindowSizeInPixels(m_window, &winW, &winH);
-
-    // Letterbox / pillarbox to preserve the framebuffer's aspect ratio.
-    const float texAspect = float(m_texWidth) / float(m_texHeight);
-    const float winAspect = float(winW)       / float(winH);
-
-    float drawW = float(winW), drawH = float(winH);
-    if (winAspect > texAspect)
-    {
-        drawW = float(winH) * texAspect;
-    }
-    else
-    {
-        drawH = float(winW) / texAspect;
-    }
-    const float x0 = (float(winW) - drawW) * 0.5f;
-    const float y0 = (float(winH) - drawH) * 0.5f;
-
-    // Map pixel coords into normalized device coords.
-    auto px = [&](float p) { return (p / float(winW)) * 2.0f - 1.0f; };
-    auto py = [&](float p) { return 1.0f - (p / float(winH)) * 2.0f; }; // flip Y
-
-    const float left   = px(x0);
-    const float right  = px(x0 + drawW);
-    const float top    = py(y0);
-    const float bottom = py(y0 + drawH);
-
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, m_framebufferTex);
-
-    // The emulator framebuffer follows the Windows BMP convention (origin at
-    // bottom-left, scanlines stored bottom-up), so flip V to put the top of
-    // the image at the top of the window.
-    glBegin(GL_TRIANGLE_STRIP);
-        glTexCoord2f(0.0f, 1.0f); glVertex2f(left,  top);
-        glTexCoord2f(1.0f, 1.0f); glVertex2f(right, top);
-        glTexCoord2f(0.0f, 0.0f); glVertex2f(left,  bottom);
-        glTexCoord2f(1.0f, 0.0f); glVertex2f(right, bottom);
-    glEnd();
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glDisable(GL_TEXTURE_2D);
 }
 
 void Renderer::BeginImGui()

@@ -279,8 +279,12 @@ std::string Sidebar::FormatBlockText(int blockKey, const nlohmann::json& block)
 
 void Sidebar::DrawSidebar(int sidebarIndex, const nlohmann::json& sidebar, const char* anchor)
 {
+    // Initial position/size is anchored to the host window edge; after
+    // first use the user can drag the window around (and ImGui persists
+    // it via imgui.ini). The window is non-resizable on purpose — its
+    // content has a fixed shape.
     const ImGuiViewport* vp = ImGui::GetMainViewport();
-    const float menuH = ImGui::GetFrameHeight();   // top main-menu bar
+    const float menuH = ImGui::GetFrameHeight();
 
     ImVec2 pos, size;
     if (std::strcmp(anchor, "Right") == 0)
@@ -304,15 +308,12 @@ void Sidebar::DrawSidebar(int sidebarIndex, const nlohmann::json& sidebar, const
         pos  = ImVec2(vp->WorkPos.x, vp->WorkPos.y + vp->WorkSize.y - size.y);
     }
 
-    ImGui::SetNextWindowPos(pos);
-    ImGui::SetNextWindowSize(size);
+    ImGui::SetNextWindowPos(pos,  ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(size, ImGuiCond_FirstUseEver);
 
     char title[128];
-    std::snprintf(title, sizeof(title), "##nac_sidebar_%s", anchor);
-    const ImGuiWindowFlags flags =
-        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove     | ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoSavedSettings;
+    std::snprintf(title, sizeof(title), "Sidebar %s##nac_sidebar_%d", anchor, sidebarIndex);
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 
     if (!ImGui::Begin(title, nullptr, flags))
     {
