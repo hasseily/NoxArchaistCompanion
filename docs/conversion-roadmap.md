@@ -217,14 +217,31 @@ Commits:
 * "SDL3 keyboard input — typing works at the BASIC prompt"
 * "wire Grid Cartographer keyboard input through Gamelink shared mem".
 
-## Phase 9 — verify on Windows
-Switch the Windows build to CMake, validate end-to-end (Visual Studio
-generator produces a working .exe), update `.github/workflows/`.
+## Phase 9 — verify on Windows + Linux
+✅ Done. `.github/workflows/cmake.yml` runs a matrix CMake build:
+`ubuntu-latest` with Ninja, `windows-latest` with the VS 17 2022
+generator. Both build SDL3 + ImGui from source via FetchContent.
+Linux's apt step installs the X11 / Wayland / audio / GL dev headers
+SDL3's CMake probes for.
 
-Acceptance: GitHub Actions Windows workflow passes; Linux workflow
-passes.
+Cross-platform plumbing landed alongside CI:
+* `Emulator/libwindows/` vendored from upstream AppleWin — small
+  shim that provides the Win32 types / handles / time / GDI / dsound
+  decls the emulator core's StdAfx pulls in on `!_WIN32`.
+* `Registry_posix.cpp` — stub for the Win32 registry surface; NAC
+  persists its own settings via SDL_GetPrefPath.
+* `Keyboard_posix.cpp` — simple queue replacement; NAC's frontend
+  feeds it via SDL3 in `src/main.cpp`, so the upstream Win32
+  GetKeyState / clipboard / AltGr / Pravets paths aren't needed.
+* `Joystick_posix.cpp` — stubs every paddle/button read as
+  "no joystick" (Nox is a keyboard game; gamepad was already deferred
+  in Phase 8).
+* libwindows VK constant table expanded to cover the codes NAC's
+  `RemoteInput` and main key handler reference.
 
-Commit: "Windows build via CMake; CI green on Win+Linux".
+Commit: "Phase 9: GitHub Actions CMake build on Windows + Linux"
+plus a handful of small follow-ups for each compile error the first
+Linux run surfaced.
 
 ## Phase 10 — macOS
 Disable Gamelink (`#define NAC_GAMELINK_ENABLED 0` for macOS), wire up
