@@ -7,6 +7,7 @@
 
 #include "StdAfx.h"
 #include "Registry.h"
+#include "Common.h"   // REG_CONFIG / REG_CONFIG_SLOT* / REGVALUE_CARD_TYPE / SLOT_AUX
 
 BOOL RegLoadString(LPCTSTR /*section*/, LPCTSTR /*key*/, BOOL /*peruser*/,
                    LPTSTR /*buffer*/, uint32_t /*chars*/)
