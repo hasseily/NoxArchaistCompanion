@@ -89,8 +89,7 @@ void CombatLogPanel::Render()
     if (!m_open) return;
 
     ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Nox combat log", &m_open,
-                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
+    if (!ImGui::Begin("Nox combat log", &m_open, ImGuiWindowFlags_NoCollapse))
     {
         ImGui::End();
         return;
@@ -192,9 +191,8 @@ void HackPanel::Render()
 {
     if (!m_open) return;
 
-    ImGui::SetNextWindowSize(ImVec2(360, 280), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Nox hack", &m_open,
-                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
+    ImGui::SetNextWindowSize(ImVec2(360, 460), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Nox hack", &m_open, ImGuiWindowFlags_NoCollapse))
     {
         ImGui::End();
         return;
@@ -217,6 +215,42 @@ void HackPanel::Render()
     DragU16("Gold",    cpuconstants.MEM_GOLD,    65535);
     DragU8 ("Torches", cpuconstants.MEM_TORCHES);
     DragU8 ("Picks",   cpuconstants.MEM_PICKS);
+
+    // Per-character editor. Party block is six 0x80-byte slots starting at
+    // MEM_PARTY; per-member field offsets match the Windows hack dialog.
+    if (cpuconstants.MEM_PARTY)
+    {
+        ImGui::Separator();
+        ImGui::TextUnformatted("Character");
+
+        // Pull names (high-ASCII, NUL-terminated) at offset 0x4b of each slot.
+        // Six fixed slots — show "(empty)" for any with a zero first byte.
+        char  names[6][17] = {};
+        const char* items[6] = {};
+        for (int k = 0; k < 6; ++k)
+        {
+            uint32_t base = cpuconstants.MEM_PARTY + (uint32_t)k * 0x80;
+            for (int i = 0; i < 16; ++i)
+            {
+                uint8_t c = (uint8_t)Read8(base + 0x4b + i);
+                if (c == 0) { names[k][i] = 0; break; }
+                names[k][i] = (char)(c & 0x7F);
+            }
+            names[k][16] = 0;
+            items[k] = names[k][0] ? names[k] : "(empty)";
+        }
+        if (m_member < 0 || m_member > 5) m_member = 0;
+        ImGui::Combo("Member", &m_member, items, 6);
+
+        const uint32_t cb = cpuconstants.MEM_PARTY + (uint32_t)m_member * 0x80;
+        DragU8 ("Level",    cb + 0x01);
+        DragU16("Exp",      cb + 0x05, 65535);
+        DragU8 ("Melee",    cb + 0x19);
+        DragU8 ("Ranged",   cb + 0x1c);
+        DragU8 ("Dodge",    cb + 0x1f);
+        DragU8 ("Crit",     cb + 0x22);
+        DragU8 ("Lockpick", cb + 0x25);
+    }
 
     ImGui::Separator();
     ImGui::TextUnformatted("Peek / poke");

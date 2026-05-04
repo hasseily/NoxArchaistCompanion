@@ -692,6 +692,16 @@ void UpdateHiResRGBCell(int x, int y, uint16_t addr, bgra_t* pVideoAddress)
 	uint32_t chck1 =  0x0140; //  00|000001 0|1000000
 	uint32_t chck2 =  0x0080; //  00|000000 1|0000000
 
+	// Text-fringe suppression: a 0 pixel sandwiched between two whites on
+	// each side (pattern 11 0 11) would otherwise be rendered as the
+	// surrounding color, which produces the rainbow halo around HGR text.
+	// Forcing it to black keeps glyphs sharp without altering true colour
+	// mix patterns. See commit 16041c7 — patch lives here, not behind a
+	// flag, because picking "Text-Optimized RGB" *is* selecting the RGB
+	// videocard renderer (VT_COLOR_VIDEOCARD_RGB).
+	uint32_t mask0  = 0x03E0;   // 0000 0011 1110 0000
+	uint32_t chck01 = 0x0360;   // 0000 0011 0110 0000
+
 	// HIRES render in RGB works on a pixel-basis (1-bit data in framebuffer)
 	// The pixel can be 'color', if it makes a 101 or 010 pattern with the two neighbour bits
 	// In all other cases, it's black if 0 and white if 1
@@ -708,7 +718,15 @@ void UpdateHiResRGBCell(int x, int y, uint16_t addr, bgra_t* pVideoAddress)
 
 	for (int i = xoffset; i < xoffset+7; i++)
 	{
-		if (((dwordval & mask) == chck1) || ((dwordval & mask) == chck2))
+		if ((dwordval & mask0) == chck01)
+		{
+			// 11 0 11 → render the centre pixel as black to kill the
+			// chroma fringe around white HGR text.
+			*(pDst) = bw[0];
+			*(pDst + 1) = *(pDst);
+			pDst += 2;
+		}
+		else if (((dwordval & mask) == chck1) || ((dwordval & mask) == chck2))
 		{
 			// Color pixel
 			*(pDst) = colors[i];

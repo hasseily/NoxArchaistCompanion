@@ -5,6 +5,7 @@
 
 #define SDL_MAIN_USE_CALLBACKS 1
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_dialog.h>
 #include <SDL3/SDL_main.h>
 
 #include <imgui.h>
@@ -33,10 +34,15 @@
 #include "Emulator/Interface.h"
 #include "Emulator/Keyboard.h"
 #include "Emulator/Memory.h"
+#include "Emulator/Mockingboard.h"
+#include "Emulator/MockingboardCardManager.h"
 #include "Emulator/NTSC.h"
 #include "Emulator/RGBMonitor.h"
 #include "Emulator/Speaker.h"
+#include "Emulator/SoundCore.h"
 #include "Emulator/Video.h"
+
+#include <SDL3/SDL_dialog.h>
 
 
 #include <nlohmann/json.hpp>
@@ -54,11 +60,52 @@ namespace
 constexpr int kWindowWidth  = 800;
 constexpr int kWindowHeight = 600;
 
-// 1.02 MHz Apple //e clock — used to convert elapsed wall-clock time
-// into cycles to feed CpuExecute. Pacing by real time (not by SDL_AppIterate
-// invocation count) keeps the //e at native speed regardless of the host
-// monitor's refresh rate.
-constexpr double kClockHz = 1020484.45;
+// Base //e clock; the speed preset multiplies this. Wall-clock pacing
+// in SDL_AppIterate converts elapsed time into cycles at the active
+// rate so display + game logic stay in sync regardless of host vsync.
+constexpr double kBaseClockHz = 1020484.45;
+
+// Speed presets, in CPU cycles/second multiples of the base 1.02 MHz.
+// Indices match the "Speed" submenu order.
+struct SpeedPreset { const char* label; double cyclesPerSecond; };
+constexpr SpeedPreset kSpeedPresets[] = {
+    { "Sloth (0.5x)",     510242.225 },
+    { "Retro (1x)",      1020484.45  },
+    { "Turbo (2x)",      2040968.9   },
+    { "Ford GT (4x)",    4081937.8   },
+    { "MiG-31 (6x)",     6122906.7   },
+    { "Pro (8x)",        8163875.6   },
+    { "Demigod (max)",   2.0e8       },
+};
+constexpr int kSpeedDefault = 1;   // Retro 1x
+
+// Color video preset → VideoType. Picked from the Color submenu.
+struct VideoPreset { const char* label; VideoType_e type; };
+constexpr VideoPreset kVideoPresets[] = {
+    { "Idealized",          VT_COLOR_IDEALIZED },
+    { "Text-Optimized RGB", VT_COLOR_VIDEOCARD_RGB },
+    { "Composite Monitor",  VT_COLOR_MONITOR_NTSC },
+    { "TV Screen",          VT_COLOR_TV },
+};
+
+// Monochrome submenu — 0 means "off, use the color preset". Otherwise the
+// VT_MONO_* type overrides the color preset until the user picks Off again.
+struct MonoPreset { const char* label; VideoType_e type; };
+constexpr MonoPreset kMonoPresets[] = {
+    { "Off",   VT_COLOR_IDEALIZED },   // type unused when mono is off
+    { "White", VT_MONO_WHITE },
+    { "Amber", VT_MONO_AMBER },
+    { "Green", VT_MONO_GREEN },
+};
+
+// Old NAC's "off / soft / medium / loud / extreme" 5-step volume scale.
+// Values are *attenuations* (0=loudest, kVolumeMax=silent) — matches the
+// upstream NewVolume() / DirectSound semantics that SpkrSetVolume calls
+// through to.
+constexpr uint32_t kVolumeMax = 99;
+constexpr const char* kVolumeLabels[] = { "Off", "Soft", "Medium", "Loud", "Extreme" };
+constexpr uint32_t kSpkrAtten[5] = { kVolumeMax, kVolumeMax*40/100, kVolumeMax*30/100, kVolumeMax*25/100, 5 };
+constexpr uint32_t kMBAtten[5]   = { kVolumeMax, kVolumeMax*35/100, kVolumeMax*25/100, kVolumeMax*15/100, 0 };
 
 struct AppState
 {
@@ -66,14 +113,21 @@ struct AppState
     nac::Sidebar          sidebar;
     nac::CombatLogPanel   combatLog;        // installs the Fetch-trap callback
     nac::HackPanel        hackPanel;
-    bool                  gamelink_up   = false;
-    bool                  apple_open    = true;
-    bool                  pp_enabled    = true;
-    int                   window_w      = 0; // 0 = use default
-    int                   window_h      = 0;
-    std::string           imgui_ini_path;   // outlives ImGui's IO struct
-    std::filesystem::path pref_dir;         // SDL pref dir, for nac.json + pp_state.json
-    std::filesystem::path hdv_path;          // optional HDV from argv[1]
+    bool                  gamelink_up      = false;
+    bool                  apple_open       = true;
+    bool                  pp_enabled       = true;
+    bool                  paused           = false;
+    bool                  gamelink_enabled = true;       // user-facing toggle (vs gamelink_up which means GameLink::Init succeeded)
+    int                   speed_idx        = kSpeedDefault;
+    int                   video_idx        = 0;          // 0..3 color preset
+    int                   mono_idx         = 0;          // 0=off, 1=white, 2=amber, 3=green
+    int                   vol_speaker      = 3;          // 0..4 (Loud)
+    int                   vol_mb           = 3;
+    int                   window_w         = 0;          // 0 = use default
+    int                   window_h         = 0;
+    std::string           imgui_ini_path;               // outlives ImGui's IO struct
+    std::filesystem::path pref_dir;                     // SDL pref dir
+    std::filesystem::path hdv_path;                     // current HDV (argv[1] or last opened)
 };
 
 // Persisted NAC-side settings (post-processor state has its own file).
@@ -106,10 +160,18 @@ void SaveSettings(const AppState& s)
     int curW = 0, curH = 0;
     if (s.renderer.Window())
         SDL_GetWindowSize(s.renderer.Window(), &curW, &curH);
-    j["window_w"]        = curW > 0 ? curW : s.window_w;
-    j["window_h"]        = curH > 0 ? curH : s.window_h;
-    j["apple_open"]      = s.apple_open;
-    j["pp_enabled"]      = s.pp_enabled;
+    j["window_w"]            = curW > 0 ? curW : s.window_w;
+    j["window_h"]            = curH > 0 ? curH : s.window_h;
+    j["apple_open"]          = s.apple_open;
+    j["pp_enabled"]          = s.pp_enabled;
+    j["paused"]              = s.paused;
+    j["gamelink_enabled"]    = s.gamelink_enabled;
+    j["speed_idx"]           = s.speed_idx;
+    j["video_idx"]           = s.video_idx;
+    j["mono_idx"]            = s.mono_idx;
+    j["vol_speaker"]         = s.vol_speaker;
+    j["vol_mb"]              = s.vol_mb;
+    j["hdv_path"]            = s.hdv_path.string();
     j["combat_log_open"] = const_cast<nac::CombatLogPanel&>(s.combatLog).OpenRef();
     j["combat_log_auto_scroll"]    = const_cast<nac::CombatLogPanel&>(s.combatLog).AutoScrollRef();
     j["combat_log_include_combat"] = const_cast<nac::CombatLogPanel&>(s.combatLog).IncludeCombatRef();
@@ -151,8 +213,18 @@ void LoadSettings(AppState& s)
     {
         std::ifstream f(settingsPath);
         nlohmann::json j; f >> j;
-        s.apple_open  = j.value("apple_open",  s.apple_open);
-        s.pp_enabled  = j.value("pp_enabled",  s.pp_enabled);
+        s.apple_open       = j.value("apple_open",       s.apple_open);
+        s.pp_enabled       = j.value("pp_enabled",       s.pp_enabled);
+        s.gamelink_enabled = j.value("gamelink_enabled", s.gamelink_enabled);
+        s.speed_idx   = j.value("speed_idx",   s.speed_idx);
+        s.video_idx   = j.value("video_idx",   s.video_idx);
+        s.mono_idx    = j.value("mono_idx",    s.mono_idx);
+        s.vol_speaker = j.value("vol_speaker", s.vol_speaker);
+        s.vol_mb      = j.value("vol_mb",      s.vol_mb);
+        // Don't restore "paused" — wake up running.
+        const std::string lastHdv = j.value("hdv_path", std::string{});
+        if (s.hdv_path.empty() && !lastHdv.empty() && std::filesystem::exists(lastHdv))
+            s.hdv_path = lastHdv;
         s.combatLog.OpenRef()           = j.value("combat_log_open", false);
         s.combatLog.AutoScrollRef()     = j.value("combat_log_auto_scroll", true);
         s.combatLog.IncludeCombatRef()  = j.value("combat_log_include_combat", false);
@@ -291,6 +363,67 @@ uint32_t PackVersionDigits(const std::string& s)
 
 constexpr uint32_t kNoxArchaistSig = 0x58C37F8C;
 
+void ApplyVideoSettings(int videoIdx, int monoIdx)
+{
+    Video& video = GetVideo();
+    const VideoType_e t = (monoIdx > 0) ? kMonoPresets[monoIdx].type
+                                        : kVideoPresets[videoIdx].type;
+    video.SetVideoType(t);
+    // Scan lines are handled by the post-processor, so we keep this style
+    // bit clear. VS_COLOR_VERTICAL_BLEND only affects color modes — leaving
+    // it on for mono types is harmless.
+    video.SetVideoStyle(VS_COLOR_VERTICAL_BLEND);
+    // SetVideoType only flips a flag; the NTSC pixel-function tables and
+    // RGB videocard palette are still wired to whatever was active at init.
+    // VideoReinitialize rebuilds them so the new mode actually takes effect
+    // (without this, e.g. switching to VT_COLOR_VIDEOCARD_RGB at runtime
+    // keeps the previous renderer's text fringing, and switching to a
+    // composite mode after a mono boot stays stuck in mono). Mid-run
+    // changes pass false here — matching Win32Frame::ApplyVideoModeChange.
+    video.VideoReinitialize(false);
+    GetFrame().VideoRedrawScreen();
+}
+
+void ApplySpeedSetting(int speedIdx)
+{
+    g_fCurrentCLK6502 = kSpeedPresets[speedIdx].cyclesPerSecond;
+    SpkrReinitialize();
+}
+
+void ApplyVolumeSettings(int volSpeaker, int volMb)
+{
+    SpkrSetVolume(kSpkrAtten[volSpeaker], kVolumeMax);
+    GetCardMgr().GetMockingboardCardMgr().SetVolume(kMBAtten[volMb], kVolumeMax);
+}
+
+void EmulatorPause(AppState& s, bool paused)
+{
+    s.paused = paused;
+    g_nAppMode = paused ? MODE_PAUSED : MODE_RUNNING;
+    if (paused) { Spkr_Mute(); GetCardMgr().GetMockingboardCardMgr().MuteControl(true); }
+    else        { Spkr_Unmute(); GetCardMgr().GetMockingboardCardMgr().MuteControl(false); }
+    if (s.gamelink_up) GameLink::SetPaused(paused);
+}
+
+void EmulatorReboot()
+{
+    // Mirrors the old NAC EmulatorReboot. Power-cycle reset of the //e:
+    // memory + CPU + video state + cards + sound. Order matters — Mem
+    // before Card so MemReset re-initialises CpuInitialize first.
+    g_nAppMode = MODE_RUNNING;
+    g_bFullSpeed = false;
+    MemReset();
+    GetVideo().VideoResetState();
+    KeybReset();
+    GetCardMgr().Reset(/*powerCycle*/ true);
+    SpkrReset();
+    SetActiveCpu(GetMainCpu());
+    GetFrame().VideoRedrawScreen();
+}
+
+// Defined further below — forward-declare so InitEmulator can pre-flight.
+void LoadHDV(AppState& state, const std::filesystem::path& path);
+
 void InitEmulator(const std::filesystem::path& hdvPath)
 {
     // NAC has no logo / pause / debug UI; the //e runs continuously from
@@ -337,7 +470,7 @@ void InitEmulator(const std::filesystem::path& hdvPath)
         {
             std::fprintf(stderr, "HD_Insert failed for %s\n", hdvPath.string().c_str());
         }
-        else
+        else if (hdc)
         {
             // Detect the Nox Archaist version from the HDV bytes so the
             // SetProgramInfo handshake with Grid Cartographer carries
@@ -380,6 +513,51 @@ void ShutdownEmulator()
 {
     MemDestroy();
     GetFrame().Destroy();
+}
+
+// Mid-session HDV change — unload anything currently inserted, load the
+// new image, refresh the program-info handshake + cpuconstants, then
+// reboot the //e so the game boots cleanly.
+void LoadHDV(AppState& state, const std::filesystem::path& path)
+{
+    auto* hdc = static_cast<HarddiskInterfaceCard*>(GetCardMgr().GetObj(SLOT7));
+    if (!hdc) return;
+    hdc->Unplug(HARDDISK_1);
+    if (!hdc->Insert(HARDDISK_1, path.string()))
+    {
+        std::fprintf(stderr, "HD_Insert failed for %s\n", path.string().c_str());
+        return;
+    }
+    state.hdv_path = path;
+
+    const auto        assetsDir = FindAssetsDir();
+    const std::string version   = DetectNoxVersion(path, assetsDir);
+    const uint32_t    sig       = version.empty() ? 0u : kNoxArchaistSig;
+    const std::string name      = version.empty() ? path.stem().string()
+                                                  : std::string("NOXARCHAIST");
+    GameLink::SetProgramInfo(name, 0, 0, 0, sig);
+    nac::LoadNoxConstants(assetsDir, version);
+    EmulatorReboot();
+}
+
+void SDLCALL HdvDialogCallback(void* userdata, const char* const* filelist, int /*filter*/)
+{
+    auto* state = static_cast<AppState*>(userdata);
+    if (!filelist || !filelist[0]) return;   // user cancelled
+    LoadHDV(*state, std::filesystem::path(filelist[0]));
+}
+
+void OpenHdvDialog(AppState& state)
+{
+    static const SDL_DialogFileFilter kFilters[] = {
+        { "Hard disk image (*.hdv)", "hdv" },
+        { "All files",                "*"   },
+    };
+    SDL_ShowOpenFileDialog(&HdvDialogCallback, &state, state.renderer.Window(),
+                           kFilters, (int)(sizeof(kFilters)/sizeof(kFilters[0])),
+                           state.hdv_path.empty() ? nullptr
+                                                  : state.hdv_path.parent_path().string().c_str(),
+                           /*allow_many*/ false);
 }
 
 } // namespace
@@ -450,15 +628,17 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
         }
     }
 
-    InitEmulator(state->hdv_path);
-
     state->sidebar.LoadProfilesFromDir(FindProfilesDir());
     // Don't pick a default — every Nox version has a profile with the same
     // "NOXARCHAIST" meta-name and reading the wrong one against live RAM
-    // produces garbage that flickers as values shift. The settings load
-    // below will restore whichever profile the user picked last session.
+    // produces garbage. Settings load picks up last session's choice.
 
+    // LoadSettings before InitEmulator so we can carry forward the saved
+    // hdv_path and audio volumes into the first init.
     LoadSettings(*state);
+    InitEmulator(state->hdv_path);
+    ApplyVideoSettings(state->video_idx, state->mono_idx);
+    ApplyVolumeSettings(state->vol_speaker, state->vol_mb);
 
     *appstate = state.release();
     return SDL_APP_CONTINUE;
@@ -562,6 +742,18 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         if (event->key.key == SDLK_F4 && (event->key.mod & SDL_KMOD_ALT))
             return SDL_APP_SUCCESS;
 
+        // Ctrl+P toggles pause; Alt+R reboots.
+        if (event->key.key == SDLK_P && (event->key.mod & SDL_KMOD_CTRL))
+        {
+            EmulatorPause(*state, !state->paused);
+            break;
+        }
+        if (event->key.key == SDLK_R && (event->key.mod & SDL_KMOD_ALT))
+        {
+            EmulatorReboot();
+            break;
+        }
+
         // Caps Lock toggles the //e's emulated caps state.
         if (event->key.key == SDLK_CAPSLOCK)
         {
@@ -613,35 +805,41 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     const uint64_t  deltaNs = nowNs - lastNs;
     lastNs = nowNs;
 
-    uint32_t cycles = (uint32_t)(deltaNs * kClockHz * 1e-9);
-    if (cycles == 0)        cycles = 1;
-    if (cycles > 17030 * 4) cycles = 17030 * 4;
-
-    // Pull any Grid Cartographer keypresses (DIK scancodes over Gamelink
-    // shared memory) into the //e keyboard latch before we run cycles,
-    // so the CPU sees them this batch.
-    if (state->gamelink_up) nac::RemoteInputPump();
-
-    // Mirror upstream's CommonFrame::ExecuteOneFrame: split the run into
-    // ~1 ms batches and tick the cards + speaker after each batch, so
-    // SpkrUpdate / Mockingboard / SSI263 land samples in their ring
-    // buffers at the right rate.
-    const uint32_t cyclesPerMs = (uint32_t)(g_fCurrentCLK6502 * 1e-3);
-    const UINT     cyclesPerFrame = NTSC_GetCyclesPerFrame();
-    uint32_t totalExecuted = 0;
-    do
+    // While paused, skip CPU + audio + GC out, but still render ImGui so
+    // the user can interact with menus / panels and see the last frame.
+    if (!state->paused)
     {
-        const uint32_t batch = (cyclesPerMs < cycles - totalExecuted) ? cyclesPerMs : cycles - totalExecuted;
-        const uint32_t executed = CpuExecute(batch, /*bVideoUpdate*/ true);
-        totalExecuted += executed;
+        const double rateHz = kSpeedPresets[state->speed_idx].cyclesPerSecond;
+        uint32_t cycles = (uint32_t)(deltaNs * rateHz * 1e-9);
+        if (cycles == 0)             cycles = 1;
+        if (cycles > 17030u * 16)    cycles = 17030u * 16;   // cap catch-up
 
-        GetCardMgr().Update(executed);
-        SpkrUpdate(executed);
+        // Pull any Grid Cartographer keypresses (DIK scancodes over Gamelink
+        // shared memory) into the //e keyboard latch before we run cycles,
+        // so the CPU sees them this batch.
+        if (state->gamelink_up) nac::RemoteInputPump();
 
-        g_dwCyclesThisFrame = (g_dwCyclesThisFrame + executed) % cyclesPerFrame;
-    } while (totalExecuted < cycles);
+        // Mirror upstream's CommonFrame::ExecuteOneFrame: split the run into
+        // ~1 ms batches and tick the cards + speaker after each batch, so
+        // SpkrUpdate / Mockingboard / SSI263 land samples in their ring
+        // buffers at the right rate.
+        const uint32_t cyclesPerMs = (uint32_t)(g_fCurrentCLK6502 * 1e-3);
+        const UINT     cyclesPerFrame = NTSC_GetCyclesPerFrame();
+        uint32_t totalExecuted = 0;
+        do
+        {
+            const uint32_t batch = (cyclesPerMs < cycles - totalExecuted) ? cyclesPerMs : cycles - totalExecuted;
+            const uint32_t executed = CpuExecute(batch, /*bVideoUpdate*/ true);
+            totalExecuted += executed;
 
-    GetFrame().VideoRedrawScreen();
+            GetCardMgr().Update(executed);
+            SpkrUpdate(executed);
+
+            g_dwCyclesThisFrame = (g_dwCyclesThisFrame + executed) % cyclesPerFrame;
+        } while (totalExecuted < cycles);
+
+        GetFrame().VideoRedrawScreen();
+    }
 
     Video& video = GetVideo();
     const int fbW = static_cast<int>(video.GetFrameBufferWidth());
@@ -694,6 +892,86 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     if (ImGui::BeginMainMenuBar())
     {
+        if (ImGui::BeginMenu("Emulator"))
+        {
+            if (ImGui::MenuItem("Open HDV...")) OpenHdvDialog(*state);
+            ImGui::Separator();
+            if (ImGui::MenuItem(state->paused ? "Resume" : "Pause", "Ctrl+P"))
+                EmulatorPause(*state, !state->paused);
+            if (ImGui::MenuItem("Reboot", "Alt+R")) EmulatorReboot();
+            ImGui::Separator();
+            if (ImGui::BeginMenu("Speed"))
+            {
+                for (int i = 0; i < (int)(sizeof(kSpeedPresets)/sizeof(kSpeedPresets[0])); ++i)
+                {
+                    if (ImGui::MenuItem(kSpeedPresets[i].label, nullptr, state->speed_idx == i))
+                    {
+                        state->speed_idx = i;
+                        ApplySpeedSetting(i);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Color"))
+            {
+                const bool monoOn = state->mono_idx > 0;
+                for (int i = 0; i < (int)(sizeof(kVideoPresets)/sizeof(kVideoPresets[0])); ++i)
+                {
+                    // Greyed out while a monochrome mode is active.
+                    if (ImGui::MenuItem(kVideoPresets[i].label, nullptr,
+                                        !monoOn && state->video_idx == i,
+                                        !monoOn))
+                    {
+                        state->video_idx = i;
+                        ApplyVideoSettings(i, state->mono_idx);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Monochrome"))
+            {
+                for (int i = 0; i < (int)(sizeof(kMonoPresets)/sizeof(kMonoPresets[0])); ++i)
+                {
+                    if (ImGui::MenuItem(kMonoPresets[i].label, nullptr, state->mono_idx == i))
+                    {
+                        state->mono_idx = i;
+                        ApplyVideoSettings(state->video_idx, i);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Volume (Speaker)"))
+            {
+                for (int i = 0; i < 5; ++i)
+                {
+                    if (ImGui::MenuItem(kVolumeLabels[i], nullptr, state->vol_speaker == i))
+                    {
+                        state->vol_speaker = i;
+                        ApplyVolumeSettings(i, state->vol_mb);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Volume (Music)"))
+            {
+                for (int i = 0; i < 5; ++i)
+                {
+                    if (ImGui::MenuItem(kVolumeLabels[i], nullptr, state->vol_mb == i))
+                    {
+                        state->vol_mb = i;
+                        ApplyVolumeSettings(state->vol_speaker, i);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Grid Cartographer link", nullptr, state->gamelink_enabled))
+            {
+                state->gamelink_enabled = !state->gamelink_enabled;
+                GameLink::SetGameLinkEnabled(state->gamelink_enabled);
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("View"))
         {
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);

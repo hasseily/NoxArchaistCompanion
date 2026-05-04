@@ -63,6 +63,7 @@ private:
     bool m_hex       = false;
     int  m_pokeAddr  = 0x6CEC;
     int  m_pokeValue = 0;
+    int  m_member    = 0;     // 0..5, current party member in the per-character editor
 };
 
 } // namespace nac
