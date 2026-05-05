@@ -244,13 +244,43 @@ plus a handful of small follow-ups for each compile error the first
 Linux run surfaced.
 
 ## Phase 10 — macOS
-Disable Gamelink (`#define NAC_GAMELINK_ENABLED 0` for macOS), wire up
-`.app` bundle (Info.plist + icon + asset copying like the AppleWin
-`pp` branch does for sa2).
+✅ Done. `cmake --build` on macOS produces `build-mac/nac.app` with the
+standard bundle layout (`Contents/MacOS/nac`, `Contents/Info.plist`,
+`Contents/Resources/nac.icns`, plus the staged runtime data directories
+the app loads via `SDL_GetBasePath()`).
 
-Acceptance: `cmake --build` produces `nac.app`; emulator + sidebar work.
+* **Gamelink** — Grid Cartographer doesn't run on macOS. Instead of
+  threading `#ifdef`s through the protocol layer, `Gamelink_disabled.cpp`
+  ships a no-op backend (`create_mutex` returns false, etc.). The macOS
+  link picks it instead of `Gamelink_posix.cpp`; `GameLink::Init()`
+  returns 0 so `gamelink_up` stays cleared and every shared-memory code
+  path is skipped at runtime.
 
-Commit: "macOS .app bundle; Gamelink disabled per project policy".
+* **Bundle** — `add_executable(nac WIN32 MACOSX_BUNDLE ...)` + an
+  `Info.plist.in` template under `assets/macos/` (CFBundleIdentifier
+  `com.asseily.NoxArchaistCompanion`, LSMinimumSystemVersion 11.0,
+  HDV declared as a viewable document type). The icon (`assets/macos/
+  nac.icns`) was generated from the historical `NoxArchaistCompanion.ico`
+  via `sips` + `iconutil` — replace with a high-res original when
+  someone has time.
+
+* **Resource staging** — the existing `add_custom_command(... POST_BUILD)`
+  was generalised to copy into `Contents/Resources/` on macOS and next
+  to the binary on Windows / Linux. `FindResourcesDir`/`FindProfilesDir`/
+  `FindAssetsDir` already walk up from `SDL_GetBasePath()` looking for
+  `Resources/`, `Profiles/`, `Assets/Versions.json` — those resolve
+  against `nac.app/Contents/Resources/{Resources,Profiles,assets}/`
+  with no source change.
+
+* **GL deprecation** — Apple deprecated OpenGL in 10.14. We're sticking
+  with GL for cross-platform parity, so `GL_SILENCE_DEPRECATION` is set
+  on `nac` + `nac_pp`.
+
+* **zlib** — gzguts.h declares `_POSIX_C_SOURCE 200112L` before pulling
+  in `<fcntl.h>`, which on Apple Clang hides `read()`/`close()`.
+  Force-included `<unistd.h>` for the `nac_zlib` build on Apple.
+
+Commit: "Phase 10: macOS .app bundle; Gamelink disabled per project policy".
 
 ## Phase 11 — cleanup
 ✅ Done. The Win32 / DX12 scaffolding (`.sln`, `.vcxproj*`, `DirectXTK12-feb2023/`,

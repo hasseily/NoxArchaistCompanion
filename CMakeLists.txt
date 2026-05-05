@@ -101,17 +101,22 @@ set(GAMELINK_SOURCES ${GAMELINK_DIR}/Gamelink.cpp)
 
 if(WIN32)
     list(APPEND GAMELINK_SOURCES ${GAMELINK_DIR}/Gamelink_win32.cpp)
-elseif(NOT APPLE)
+elseif(APPLE)
+    # Grid Cartographer doesn't run on macOS — no-op backend keeps the
+    # protocol layer linkable while leaving gamelink_up cleared at runtime.
+    list(APPEND GAMELINK_SOURCES ${GAMELINK_DIR}/Gamelink_disabled.cpp)
+else()
     list(APPEND GAMELINK_SOURCES ${GAMELINK_DIR}/Gamelink_posix.cpp)
 endif()
 
 # ---------------------------------------------------------------------------
-# nac executable.
-# Phase 4: SDL3 main loop + GL context. The emulator framebuffer is wired
-# in during Phase 5 — for now we just open a black window and shut down
-# cleanly to prove SDL3 + OpenGL + the emulator static lib all link.
+# nac executable. WIN32 keeps the Windows build a GUI app (no console);
+# MACOSX_BUNDLE turns the macOS build into nac.app with the Info.plist /
+# icon / staged resources hung off it below.
 # ---------------------------------------------------------------------------
-add_executable(nac WIN32
+set(NAC_ICON_FILE ${CMAKE_SOURCE_DIR}/assets/macos/nac.icns)
+
+add_executable(nac WIN32 MACOSX_BUNDLE
     src/main.cpp
     src/Renderer.cpp
     src/Frame.cpp
@@ -120,6 +125,7 @@ add_executable(nac WIN32
     src/RemoteInput.cpp
     src/NoxHacks.cpp
     ${GAMELINK_SOURCES}
+    $<$<BOOL:${APPLE}>:${NAC_ICON_FILE}>
 )
 
 target_include_directories(nac PRIVATE
@@ -138,6 +144,10 @@ target_link_libraries(nac PRIVATE
 
 if(APPLE)
     target_link_libraries(nac PRIVATE pthread)
+    # Apple deprecated OpenGL in 10.14 in favour of Metal. We're sticking
+    # with GL for cross-platform parity — silence the per-call warnings.
+    target_compile_definitions(nac    PRIVATE GL_SILENCE_DEPRECATION)
+    target_compile_definitions(nac_pp PRIVATE GL_SILENCE_DEPRECATION)
 elseif(NOT WIN32)
     target_link_libraries(nac PRIVATE rt pthread)
 endif()
@@ -151,21 +161,39 @@ if(WIN32 AND TARGET SDL3::SDL3-shared)
     )
 endif()
 
-# Stage runtime data next to nac.exe so SDL_GetBasePath()-relative loads
-# (post-processor presets / shaders / bezels, Apple //e ROMs, sidebar
-# profiles, Versions.json) all resolve when the exe is launched from the
-# build dir.
+# Stage runtime data next to the nac binary so SDL_GetBasePath()-relative
+# loads (post-processor presets / shaders / bezels, Apple //e ROMs, sidebar
+# profiles, Versions.json) all resolve when launched from the build dir.
+# On macOS the bundle owns Contents/Resources/, and SDL_GetBasePath()
+# returns Contents/Resources/ — copy the data straight in there.
+if(APPLE)
+    set(NAC_RESOURCE_DIR $<TARGET_BUNDLE_DIR:nac>/Contents/Resources)
+    set_source_files_properties(${NAC_ICON_FILE} PROPERTIES
+        MACOSX_PACKAGE_LOCATION Resources)
+    set_target_properties(nac PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST              ${CMAKE_SOURCE_DIR}/assets/macos/Info.plist.in
+        MACOSX_BUNDLE_BUNDLE_NAME             "Nox Archaist Companion"
+        MACOSX_BUNDLE_EXECUTABLE_NAME         nac
+        MACOSX_BUNDLE_GUI_IDENTIFIER          com.asseily.NoxArchaistCompanion
+        MACOSX_BUNDLE_BUNDLE_VERSION          ${PROJECT_VERSION}
+        MACOSX_BUNDLE_SHORT_VERSION_STRING    ${PROJECT_VERSION}
+        MACOSX_BUNDLE_COPYRIGHT               "Copyright © Henri Asseily"
+    )
+else()
+    set(NAC_RESOURCE_DIR $<TARGET_FILE_DIR:nac>)
+endif()
+
 add_custom_command(TARGET nac POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets/pp/assets   $<TARGET_FILE_DIR:nac>/assets
+        ${CMAKE_SOURCE_DIR}/assets/pp/assets   ${NAC_RESOURCE_DIR}/assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets/pp/presets  $<TARGET_FILE_DIR:nac>/presets
+        ${CMAKE_SOURCE_DIR}/assets/pp/presets  ${NAC_RESOURCE_DIR}/presets
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets/pp/shaders  $<TARGET_FILE_DIR:nac>/shaders
+        ${CMAKE_SOURCE_DIR}/assets/pp/shaders  ${NAC_RESOURCE_DIR}/shaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Assets    $<TARGET_FILE_DIR:nac>/Assets
+        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Assets    ${NAC_RESOURCE_DIR}/Assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Profiles  $<TARGET_FILE_DIR:nac>/Profiles
+        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Profiles  ${NAC_RESOURCE_DIR}/Profiles
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Emulator/Resources  $<TARGET_FILE_DIR:nac>/Resources
+        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Emulator/Resources  ${NAC_RESOURCE_DIR}/Resources
 )

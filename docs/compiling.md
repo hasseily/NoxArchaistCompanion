@@ -77,20 +77,33 @@ fallback is skipped — the build is much quicker that way.
 
 ## macOS
 
-Not yet wired up — the Phase 10 commit will add `MACOSX_BUNDLE`,
-`Info.plist`, and asset-copying so `cmake --build` produces `nac.app`.
-
-For development on a Mac today:
+Requires Xcode command-line tools (for clang + the macOS SDK) and
+CMake. Ninja is optional — the default Unix Makefiles generator works
+fine.
 
 ```bash
-brew install cmake ninja sdl3
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+xcode-select --install   # one-off, if not already installed
+brew install cmake       # ninja and sdl3 are optional
+cmake -B build-mac -DCMAKE_BUILD_TYPE=Release
+cmake --build build-mac -j8
+open build-mac/nac.app
 ```
 
+The build produces `build-mac/nac.app` — the staged runtime data
+(post-processor presets / shaders / bezels, Apple //e ROMs, sidebar
+profiles, `Versions.json`) is copied into `Contents/Resources/` so the
+app launches the same whether you run it from the build tree or move
+it to `/Applications`.
+
+If a system SDL3 is installed (`brew install sdl3`),
+`find_package(SDL3 CONFIG)` picks it up and skips the FetchContent
+build — much quicker. Otherwise SDL3 is fetched and built from source
+(adds ~30 s to a clean configure).
+
 Grid Cartographer integration is **off** on macOS (GC doesn't run
-there). `Gamelink_posix.cpp` is excluded from the macOS link, and
-`GameLink::Init` returns false at startup.
+there). The macOS link picks `Gamelink_disabled.cpp` instead of the
+POSIX backend; `GameLink::Init()` returns 0 so the protocol layer
+stays dormant.
 
 ## What gets built
 
