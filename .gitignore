@@ -12,3 +12,6 @@ Debug
 
 # Claude Code working dir
 /.claude/
+
+# macOS Finder metadata
+.DS_Store
