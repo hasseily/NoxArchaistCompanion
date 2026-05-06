@@ -62,16 +62,14 @@ function getTileCustom(x, y) {
     return t.Terrain.Custom;
 }
 
-// GC's Squirrel-flavoured runtime doesn't expose a printf-style format()
-// (proven by EXPORTALL.NUT manually zero-padding via "0" + i.ToString()
-// and MAPMAKER.NUT using .ToInt(16) but never the reverse). Convert a
-// byte to two upper-case hex digits the long way so the script doesn't
-// depend on an optional library function.
+// GC's Squirrel-flavoured runtime exposes neither printf-style format()
+// nor String.slice(). Build hex digits via an array of single-char
+// strings — array indexing is the access pattern MAPMAKER.NUT uses on
+// its tile-data 2D array, so it's known-good against this engine.
+HEX_DIGITS <- ["0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F"];
+
 function hex2(v) {
-    var DIGITS = "0123456789ABCDEF";
-    var hi = (v >> 4) & 0xF;
-    var lo = v & 0xF;
-    return DIGITS.slice(hi, hi + 1) + DIGITS.slice(lo, lo + 1);
+    return HEX_DIGITS[(v >> 4) & 0xF] + HEX_DIGITS[v & 0xF];
 }
 
 function main(args) {
