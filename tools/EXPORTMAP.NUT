@@ -56,10 +56,18 @@ function getFloorBox() {
             b.max_y - b.min_y + 1];
 }
 
+// Tiles without a Custom Terrain set don't carry the slot at all —
+// Squirrel throws "Custom does not exist" on access. Fall back to 0
+// so empty cells round-trip as 0x00 in the output. The packer (and
+// runtime) treat 0 as "blank / no tile".
 function getTileCustom(x, y) {
     GCTile.Select(x, y);
-    var t = GCTile.Get();
-    return t.Terrain.Custom;
+    try {
+        var t = GCTile.Get();
+        return t.Terrain.Custom;
+    } catch (e) {
+        return 0;
+    }
 }
 
 // GC's Squirrel-flavoured runtime exposes neither printf-style format()
@@ -74,12 +82,21 @@ function hex2(v) {
 
 function main(args) {
     GCKernel.SetBlockingMode(true);
-    GCConsole.Print("NAC_MAPS 1\n");
+
+    // Build the entire dump into a memory buffer, then prompt the user
+    // for a save location. Console output isn't viable here — full Nox
+    // is ~200 KB of tile bytes which would scroll forever / hit the
+    // console's history limit. GCBuffer + GCExport.BufferAs is the
+    // pattern MEMDEATH.NUT / MEMSCAN2.NUT use for the same reason.
+    var buf = GCBuffer.Create();
+    GCBuffer.Print(buf, "NAC_MAPS 1\n");
+    GCConsole.Print("Exporting maps...\n");
 
     var iReg = 0;
     while (iReg < GCRegion.Count()) {
         GCRegion.Select(iReg);
         var rname = getRegionName();
+        GCConsole.Print("  " + rname + "\n");
 
         var iFloor = GCFloor.Lowest();
         while (GCFloor.Exists(iFloor)) {
@@ -88,20 +105,23 @@ function main(args) {
             var box   = getFloorBox();
             var ox = box[0], oy = box[1], w = box[2], h = box[3];
 
-            GCConsole.Print("REGION \"" + rname + "\" " + fname +
-                            " " + w + " " + h + " " + ox + " " + oy + "\n");
+            GCBuffer.Print(buf, "REGION \"" + rname + "\" " + fname +
+                                " " + w + " " + h + " " + ox + " " + oy + "\n");
             for (var y = 0; y < h; ++y) {
                 var row = "";
                 for (var x = 0; x < w; ++x) {
                     row += hex2(getTileCustom(ox + x, oy + y)) + " ";
                 }
-                GCConsole.Print(row + "\n");
+                GCBuffer.Print(buf, row + "\n");
             }
             iFloor++;
         }
         iReg++;
     }
+    GCBuffer.Print(buf, "END\n");
 
-    GCConsole.Print("END\n");
+    GCExport.BufferAs(buf, "Save NAC maps export...", "maps", "txt", "Text File");
+    GCBuffer.Destroy(buf);
+    GCConsole.Print("Done.\n");
     GCKernel.SetBlockingMode(false);
 }
