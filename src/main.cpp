@@ -17,7 +17,6 @@
 
 #include "Renderer.h"
 #include "Frame.h"
-#include "Sidebar.h"
 #include "Templates.h"
 #include "RemoteInput.h"
 #include "NoxHacks.h"
@@ -113,7 +112,6 @@ constexpr uint32_t kMBAtten[5]   = { kVolumeMax, kVolumeMax*35/100, kVolumeMax*2
 struct AppState
 {
     nac::Renderer         renderer;
-    nac::Sidebar          sidebar;          // legacy; deleted in the cleanup commit
     nac::TemplateRegistry templates;
     std::vector<std::unique_ptr<nac::TemplateInstance>> instances;
     int                   nextInstanceId = 1;
@@ -306,26 +304,7 @@ std::filesystem::path FindResourcesDir()
     return "Resources";
 }
 
-// NAC's sidebar profiles live in NoxArchaistCompanion/Profiles/ in the
-// repo. Same walk-up logic as FindResourcesDir.
-std::filesystem::path FindProfilesDir()
-{
-    const char* base = SDL_GetBasePath();
-    std::filesystem::path dir = base ? base : ".";
-
-    for (int i = 0; i < 5; ++i)
-    {
-        const auto candidate = dir / "Profiles";
-        if (std::filesystem::is_directory(candidate)) return candidate;
-        const auto nacCandidate = dir / "NoxArchaistCompanion" / "Profiles";
-        if (std::filesystem::is_directory(nacCandidate)) return nacCandidate;
-        dir = dir.parent_path();
-        if (dir.empty()) break;
-    }
-    return "Profiles";
-}
-
-// Same walk-up for Assets/Versions.json (used by Nox version detection).
+// Walk-up for Assets/ (Versions.json, Templates/, nox-tables.json).
 std::filesystem::path FindAssetsDir()
 {
     const char* base = SDL_GetBasePath();

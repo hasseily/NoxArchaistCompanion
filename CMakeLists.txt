@@ -121,7 +121,6 @@ add_executable(nac WIN32 MACOSX_BUNDLE
     src/Renderer.cpp
     src/Frame.cpp
     src/AudioOutput.cpp
-    src/Sidebar.cpp
     src/Templates.cpp
     src/RemoteInput.cpp
     src/NoxHacks.cpp
@@ -193,8 +192,6 @@ add_custom_command(TARGET nac POST_BUILD
         ${CMAKE_SOURCE_DIR}/assets/pp/shaders  ${NAC_RESOURCE_DIR}/shaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Assets    ${NAC_RESOURCE_DIR}/Assets
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Profiles  ${NAC_RESOURCE_DIR}/Profiles
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Emulator/Resources  ${NAC_RESOURCE_DIR}/Resources
 )
