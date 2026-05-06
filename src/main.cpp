@@ -18,6 +18,7 @@
 #include "Renderer.h"
 #include "Frame.h"
 #include "Templates.h"
+#include "Map.h"
 #include "RemoteInput.h"
 #include "NoxHacks.h"
 #include "RemoteControl/Gamelink.h"
@@ -122,6 +123,7 @@ struct AppState
     int                   nextInstanceId = 1;
     nac::CombatLogPanel   combatLog;        // installs the Fetch-trap callback
     nac::HackPanel        hackPanel;
+    nac::MapPanel         mapPanel;
     bool                  gamelink_up      = false;
     bool                  apple_open       = true;
     bool                  pp_enabled       = true;
@@ -192,6 +194,7 @@ void SaveSettings(const AppState& s)
     j["hack_open"]       = const_cast<nac::HackPanel&>(s.hackPanel).OpenRef();
     j["hack_hex"]        = const_cast<nac::HackPanel&>(s.hackPanel).HexRef();
     j["hack_poke_addr"]  = const_cast<nac::HackPanel&>(s.hackPanel).PokeAddrRef();
+    j["map_open"]        = const_cast<nac::MapPanel&>(s.mapPanel).OpenRef();
     j["pp_settings_open"] = sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen;
 
     // Persist open template instances so the user gets the same window
@@ -261,6 +264,7 @@ void LoadSettings(AppState& s)
         s.hackPanel.OpenRef()      = j.value("hack_open", false);
         s.hackPanel.HexRef()       = j.value("hack_hex",  false);
         s.hackPanel.PokeAddrRef()  = j.value("hack_poke_addr", 0x6CEC);
+        s.mapPanel.OpenRef()       = j.value("map_open",  false);
         sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen =
             j.value("pp_settings_open", false);
         sa2::PostProcessor::GetInstance()->SetActive(s.pp_enabled);
@@ -451,6 +455,7 @@ void ResetLayout(AppState& s)
     s.apple_open = true;
     s.combatLog.OpenRef()  = false;
     s.hackPanel.OpenRef()  = false;
+    s.mapPanel.OpenRef()   = false;
     sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen = false;
     ImGui::LoadIniSettingsFromMemory("", 0);   // clears window settings table
     s.reset_layout_pending = true;
@@ -1037,6 +1042,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
             ImGui::MenuItem("Combat log", nullptr, state->combatLog.OpenFlag());
             ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
+            ImGui::MenuItem("Map (debug)", nullptr, state->mapPanel.OpenFlag());
             ImGui::Separator();
             if (ImGui::MenuItem("Post-processor", nullptr, &state->pp_enabled))
                 sa2::PostProcessor::GetInstance()->SetActive(state->pp_enabled);
@@ -1161,6 +1167,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     state->combatLog.Render();
     state->hackPanel.Render();
+    state->mapPanel.Render();
     state->reset_layout_pending = false;   // single-frame condition consumed
     state->renderer.EndImGui();
 
