@@ -117,6 +117,7 @@ struct AppState
     bool                  apple_open       = true;
     bool                  pp_enabled       = true;
     bool                  paused           = false;
+    bool                  fullscreen       = false;
     bool                  gamelink_enabled = true;       // user-facing toggle (vs gamelink_up which means GameLink::Init succeeded)
     int                   speed_idx        = kSpeedDefault;
     int                   video_idx        = 0;          // 0..3 color preset
@@ -165,6 +166,7 @@ void SaveSettings(const AppState& s)
     j["apple_open"]          = s.apple_open;
     j["pp_enabled"]          = s.pp_enabled;
     j["paused"]              = s.paused;
+    j["fullscreen"]          = s.fullscreen;
     j["gamelink_enabled"]    = s.gamelink_enabled;
     j["speed_idx"]           = s.speed_idx;
     j["video_idx"]           = s.video_idx;
@@ -215,6 +217,7 @@ void LoadSettings(AppState& s)
         nlohmann::json j; f >> j;
         s.apple_open       = j.value("apple_open",       s.apple_open);
         s.pp_enabled       = j.value("pp_enabled",       s.pp_enabled);
+        s.fullscreen       = j.value("fullscreen",       s.fullscreen);
         s.gamelink_enabled = j.value("gamelink_enabled", s.gamelink_enabled);
         s.speed_idx   = j.value("speed_idx",   s.speed_idx);
         s.video_idx   = j.value("video_idx",   s.video_idx);
@@ -305,42 +308,17 @@ std::filesystem::path FindAssetsDir()
 }
 
 // Probe an .hdv file for the Nox Archaist version string by reading the
-// few bytes Versions.json says contain it for each candidate. The Apple //e
-// stores ASCII with the high bit set, so we strip 0x80 before comparing.
-// Returns the matching version key (e.g. "1.3.7") or an empty string.
+// Pick the Nox version from the HDV filename. Substring-scan for the
+// known release tags ("137" / "119" / "114") and map to the matching
+// Versions.json key. Anything else falls back to 1.1.4 — old / mislabelled
+// images get reasonable defaults instead of an empty cpuconstants.
 std::string DetectNoxVersion(const std::filesystem::path& hdvPath,
-                             const std::filesystem::path& assetsDir)
+                             const std::filesystem::path& /*assetsDir*/)
 {
-    const auto versionsJsonPath = assetsDir / "Versions.json";
-    std::ifstream jf(versionsJsonPath);
-    if (!jf) return {};
-
-    nlohmann::json versions;
-    try { jf >> versions; }
-    catch (...) { return {}; }
-
-    std::ifstream hdv(hdvPath, std::ios::binary);
-    if (!hdv) return {};
-
-    for (auto it = versions.begin(); it != versions.end(); ++it)
-    {
-        const std::string& key = it.key();
-        if (!it.value().is_object() || !it.value().contains("VERSION")) continue;
-
-        try
-        {
-            const uint32_t off = (uint32_t)std::stoul(
-                it.value()["VERSION"].get<std::string>(), nullptr, 0);
-            hdv.seekg(off);
-            std::string buf(key.size(), '\0');
-            hdv.read(buf.data(), (std::streamsize)key.size());
-            if (!hdv) continue;
-            for (char& c : buf) c &= 0x7F;
-            if (buf == key) return key;
-        }
-        catch (...) {}
-    }
-    return {};
+    const std::string name = hdvPath.filename().string();
+    if (name.find("137") != std::string::npos) return "1.3.7";
+    if (name.find("119") != std::string::npos) return "1.1.9";
+    return "1.1.4";   // includes the explicit "114" case
 }
 
 // Pack the digits of a version string into a uint32. Matches the old NAC
@@ -419,6 +397,17 @@ void EmulatorReboot()
     SpkrReset();
     SetActiveCpu(GetMainCpu());
     GetFrame().VideoRedrawScreen();
+}
+
+// Toggle the host window between windowed and fullscreen-desktop. SDL3's
+// flag form of SDL_SetWindowFullscreen takes a bool — true picks the
+// borderless desktop fullscreen mode (no resolution change), which is
+// what every native Alt+Enter style toggle does.
+void SetFullscreen(AppState& s, bool on)
+{
+    if (!s.renderer.Window()) return;
+    SDL_SetWindowFullscreen(s.renderer.Window(), on);
+    s.fullscreen = on;
 }
 
 // Defined further below — forward-declare so InitEmulator can pre-flight.
@@ -639,6 +628,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     InitEmulator(state->hdv_path);
     ApplyVideoSettings(state->video_idx, state->mono_idx);
     ApplyVolumeSettings(state->vol_speaker, state->vol_mb);
+    if (state->fullscreen) SetFullscreen(*state, true);
 
     *appstate = state.release();
     return SDL_APP_CONTINUE;
@@ -741,6 +731,14 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         // Alt+F4 quits.
         if (event->key.key == SDLK_F4 && (event->key.mod & SDL_KMOD_ALT))
             return SDL_APP_SUCCESS;
+
+        // Alt+Enter toggles fullscreen — universal cross-platform shortcut.
+        if ((event->key.key == SDLK_RETURN || event->key.key == SDLK_KP_ENTER) &&
+            (event->key.mod & SDL_KMOD_ALT))
+        {
+            SetFullscreen(*state, !state->fullscreen);
+            break;
+        }
 
         // Ctrl+P toggles pause; Alt+R reboots.
         if (event->key.key == SDLK_P && (event->key.mod & SDL_KMOD_CTRL))
@@ -974,6 +972,9 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         }
         if (ImGui::BeginMenu("View"))
         {
+            if (ImGui::MenuItem("Fullscreen", "Alt+Enter", state->fullscreen))
+                SetFullscreen(*state, !state->fullscreen);
+            ImGui::Separator();
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
             ImGui::MenuItem("Combat log", nullptr, state->combatLog.OpenFlag());
             ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
