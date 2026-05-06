@@ -1,0 +1,111 @@
+{
+    "kind": "character",
+    "menu_name": "Character (full)",
+    "default_size": [240, 480],
+    "blocks": [
+        {
+            "type": "Header",
+            "template": "{} - Lvl {}",
+            "color": [0.9, 0.9, 0.2, 1.0],
+            "vars": [
+                { "scope": "character", "memstart": "0x4B", "length": 15, "type": "ascii_high" },
+                { "scope": "character", "memstart": "0x01", "length": 1,  "type": "int_bigendian" }
+            ]
+        },
+        { "type": "Empty" },
+        {
+            "type": "Content",
+            "template": "HP: {} / {}",
+            "vars": [
+                { "scope": "character", "memstart": "0x02", "length": 1, "type": "int_bigendian" },
+                { "scope": "character", "memstart": "0x48", "length": 1, "type": "int_bigendian" }
+            ]
+        },
+        {
+            "type": "Content",
+            "template": "MP: {} / {}",
+            "vars": [
+                { "scope": "character", "memstart": "0x04", "length": 1, "type": "int_bigendian" },
+                { "scope": "character", "memstart": "0x12", "length": 1, "type": "int_bigendian" }
+            ]
+        },
+        {
+            "type": "Content",
+            "template": "XP: {} / {}",
+            "vars": [
+                { "scope": "character", "memstart": "0x05", "length": 2, "type": "int_bigendian" },
+                { "scope": "character", "memstart": "0x43", "length": 2, "type": "int_bigendian" }
+            ]
+        },
+        { "type": "Empty" },
+        { "type": "Header", "template": "Attributes" },
+        {
+            "type": "Content",
+            "template": "Strength     : {}",
+            "vars": [{ "scope": "character", "memstart": "0x10", "length": 1, "type": "int_bigendian" }]
+        },
+        {
+            "type": "Content",
+            "template": "Dexterity    : {}",
+            "vars": [{ "scope": "character", "memstart": "0x11", "length": 1, "type": "int_bigendian" }]
+        },
+        {
+            "type": "Content",
+            "template": "Intelligence : {}",
+            "vars": [{ "scope": "character", "memstart": "0x12", "length": 1, "type": "int_bigendian" }]
+        },
+        { "type": "Empty" },
+        { "type": "Header", "template": "Skills" },
+        {
+            "type": "Content",
+            "template": "M{} R{} C{} D{} L{}",
+            "vars": [
+                { "scope": "character", "memstart": "0x19", "length": 1, "type": "int_bigendian" },
+                { "scope": "character", "memstart": "0x1c", "length": 1, "type": "int_bigendian" },
+                { "scope": "character", "memstart": "0x22", "length": 1, "type": "int_bigendian" },
+                { "scope": "character", "memstart": "0x1f", "length": 1, "type": "int_bigendian" },
+                { "scope": "character", "memstart": "0x25", "length": 1, "type": "int_bigendian" }
+            ]
+        },
+        { "type": "Empty" },
+        { "type": "Header", "template": "Equipment" },
+        {
+            "type": "Content",
+            "template": "LH: {}",
+            "vars": [{ "scope": "character", "memstart": "0x5A", "length": 16, "type": "ascii_high" }]
+        },
+        {
+            "type": "Content",
+            "template": "RH: {}",
+            "vars": [{ "scope": "character", "memstart": "0x6D", "length": 16, "type": "ascii_high" }]
+        },
+        {
+            "type": "Content",
+            "template": "Damage LH: {} - RH: {}",
+            "vars": [
+                { "scope": "character", "memstart": "0x09", "length": 1, "type": "int_bigendian" },
+                { "scope": "character", "memstart": "0x0A", "length": 1, "type": "int_bigendian" }
+            ]
+        },
+        {
+            "type": "Content",
+            "template": "Weight       : {}",
+            "vars": [{ "scope": "character", "memstart": "0x46", "length": 1, "type": "int_bigendian" }]
+        },
+        {
+            "type": "Content",
+            "template": "Armor Rating : {}",
+            "vars": [{ "scope": "character", "memstart": "0x07", "length": 1, "type": "int_bigendian" }]
+        },
+        {
+            "type": "Content",
+            "template": "Resist Magic : {}",
+            "vars": [{ "scope": "character", "memstart": "0x0B", "length": 1, "type": "int_bigendian" }]
+        },
+        {
+            "type": "Content",
+            "template": "To Hit       : {}%",
+            "vars": [{ "scope": "character", "memstart": "0x08", "length": 1, "type": "int_bigendian_literal" }]
+        }
+    ]
+}

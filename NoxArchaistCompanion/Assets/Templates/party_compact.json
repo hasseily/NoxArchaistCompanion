@@ -1,0 +1,34 @@
+{
+    "kind": "party",
+    "menu_name": "Party (compact)",
+    "default_size": [240, 160],
+    "blocks": [
+        { "type": "Header", "template": "Inventory", "color": [0.9, 0.9, 0.2, 1.0] },
+        {
+            "type": "Content",
+            "template": "Gold:      {}",
+            "vars": [{ "memstart": "0x7051", "length": 2, "type": "int_bigendian" }]
+        },
+        {
+            "type": "Content",
+            "template": "Food:      {}",
+            "vars": [{ "memstart": "0x704F", "length": 2, "type": "int_bigendian" }]
+        },
+        {
+            "type": "Content",
+            "template": "Torches:   {}",
+            "vars": [{ "memstart": "0x420", "length": 1, "type": "int_bigendian" }]
+        },
+        {
+            "type": "Content",
+            "template": "Lockpicks: {}",
+            "vars": [{ "memstart": "0x421", "length": 1, "type": "int_bigendian" }]
+        },
+        { "type": "Empty" },
+        {
+            "type": "Content",
+            "template": "Location:  {}",
+            "vars": [{ "memstart": "0x7DF", "length": 16, "type": "ascii_high" }]
+        }
+    ]
+}

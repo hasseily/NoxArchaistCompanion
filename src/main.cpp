@@ -18,6 +18,7 @@
 #include "Renderer.h"
 #include "Frame.h"
 #include "Sidebar.h"
+#include "Templates.h"
 #include "RemoteInput.h"
 #include "NoxHacks.h"
 #include "RemoteControl/Gamelink.h"
@@ -51,7 +52,9 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 #include <memory>
+#include <vector>
 #include <string>
 
 namespace
@@ -110,7 +113,10 @@ constexpr uint32_t kMBAtten[5]   = { kVolumeMax, kVolumeMax*35/100, kVolumeMax*2
 struct AppState
 {
     nac::Renderer         renderer;
-    nac::Sidebar          sidebar;
+    nac::Sidebar          sidebar;          // legacy; deleted in the cleanup commit
+    nac::TemplateRegistry templates;
+    std::vector<std::unique_ptr<nac::TemplateInstance>> instances;
+    int                   nextInstanceId = 1;
     nac::CombatLogPanel   combatLog;        // installs the Fetch-trap callback
     nac::HackPanel        hackPanel;
     bool                  gamelink_up      = false;
@@ -181,7 +187,21 @@ void SaveSettings(const AppState& s)
     j["hack_hex"]        = const_cast<nac::HackPanel&>(s.hackPanel).HexRef();
     j["hack_poke_addr"]  = const_cast<nac::HackPanel&>(s.hackPanel).PokeAddrRef();
     j["pp_settings_open"] = sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen;
-    j["sidebar_profile"]  = s.sidebar.ActiveProfileName();
+
+    // Persist open template instances so the user gets the same window
+    // layout on the next launch. ImGui's imgui.ini handles position +
+    // size; we just need the (template, member, instance_id) triples.
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto& inst : s.instances)
+    {
+        if (!inst->IsOpen()) continue;
+        arr.push_back({
+            {"template", inst->TemplateName()},
+            {"member",   inst->MemberIndex()},
+            {"id",       inst->InstanceId()},
+        });
+    }
+    j["instances"] = std::move(arr);
 
     try
     {
@@ -238,8 +258,23 @@ void LoadSettings(AppState& s)
         sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen =
             j.value("pp_settings_open", false);
         sa2::PostProcessor::GetInstance()->SetActive(s.pp_enabled);
-        const std::string profile = j.value("sidebar_profile", std::string{});
-        if (!profile.empty()) s.sidebar.SetActiveProfile(profile);
+
+        // Restore open instances. Skip any whose template has been
+        // removed since the save (registry returns nullptr at render
+        // time anyway, but it's tidier not to spawn the orphan).
+        if (j.contains("instances") && j["instances"].is_array())
+        {
+            for (const auto& inst : j["instances"])
+            {
+                const std::string tn = inst.value("template", std::string{});
+                const int member     = inst.value("member", 0);
+                const int id         = inst.value("id", s.nextInstanceId);
+                if (!s.templates.Find(tn)) continue;
+                s.instances.push_back(std::make_unique<nac::TemplateInstance>(
+                    s.templates, tn, id, member));
+                if (id >= s.nextInstanceId) s.nextInstanceId = id + 1;
+            }
+        }
     }
     catch (...) {}
 }
@@ -617,10 +652,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
         }
     }
 
-    state->sidebar.LoadProfilesFromDir(FindProfilesDir());
-    // Don't pick a default — every Nox version has a profile with the same
-    // "NOXARCHAIST" meta-name and reading the wrong one against live RAM
-    // produces garbage. Settings load picks up last session's choice.
+    state->templates.Load(FindAssetsDir());
 
     // LoadSettings before InitEmulator so we can carry forward the saved
     // hdv_path and audio volumes into the first init.
@@ -985,20 +1017,19 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                             &sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen);
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu("Profile"))
+        if (ImGui::BeginMenu("Window"))
         {
-            const auto names = state->sidebar.ProfileNames();
+            const auto names = state->templates.Names();
             if (names.empty())
-                ImGui::MenuItem("(no profiles found)", nullptr, false, false);
+                ImGui::MenuItem("(no templates found)", nullptr, false, false);
             for (const auto& n : names)
             {
-                const bool active = (n == state->sidebar.ActiveProfileName());
-                if (ImGui::MenuItem(n.c_str(), nullptr, active))
-                    state->sidebar.SetActiveProfile(n);
+                if (ImGui::MenuItem(("New " + n).c_str()))
+                {
+                    state->instances.push_back(std::make_unique<nac::TemplateInstance>(
+                        state->templates, n, state->nextInstanceId++));
+                }
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("(none)", nullptr, state->sidebar.ActiveProfileName().empty()))
-                state->sidebar.SetActiveProfile("");
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
@@ -1053,7 +1084,14 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     if (sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen)
         sa2::PostProcessor::GetInstance()->RenderImGuiWindow();
 
-    state->sidebar.Render();
+    for (auto& inst : state->instances) inst->Render();
+    state->instances.erase(
+        std::remove_if(state->instances.begin(), state->instances.end(),
+                       [](const std::unique_ptr<nac::TemplateInstance>& p) {
+                           return !p->IsOpen();
+                       }),
+        state->instances.end());
+
     state->combatLog.Render();
     state->hackPanel.Render();
     state->renderer.EndImGui();

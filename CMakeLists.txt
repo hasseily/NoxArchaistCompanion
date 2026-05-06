@@ -122,6 +122,7 @@ add_executable(nac WIN32 MACOSX_BUNDLE
     src/Frame.cpp
     src/AudioOutput.cpp
     src/Sidebar.cpp
+    src/Templates.cpp
     src/RemoteInput.cpp
     src/NoxHacks.cpp
     ${GAMELINK_SOURCES}
