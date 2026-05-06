@@ -284,13 +284,13 @@ void TemplateInstance::Render()
     if (!m_open || !m_template) return;
 
     // Stable per-instance ID so ImGui persists position+size separately
-    // for each open window. The visible title shows the selected member
-    // for character windows so the user can tell two character windows
-    // apart at a glance even when minimised.
+    // per window AND survives member changes on character windows. The
+    // triple-hash form means ImGui hashes only the "###..." suffix for
+    // the window ID — the visible title can update freely (name swap on
+    // member change) without ImGui treating it as a brand-new window.
     char title[160];
     if (m_template->kind == "character" && cpuconstants.MEM_PARTY != 0)
     {
-        // Pull the live name (high-ASCII at +0x4b) for the visible title.
         char nm[17] = {};
         for (int i = 0; i < 16; ++i)
         {
@@ -300,14 +300,14 @@ void TemplateInstance::Render()
             if (b == 0) break;
             nm[i] = (char)(b & 0x7F);
         }
-        std::snprintf(title, sizeof(title), "%s — %s##nac_tpl_%d",
+        std::snprintf(title, sizeof(title), "%s — %s###nac_tpl_%d",
                       m_template->name.c_str(),
                       nm[0] ? nm : "(empty)",
                       m_instanceId);
     }
     else
     {
-        std::snprintf(title, sizeof(title), "%s##nac_tpl_%d",
+        std::snprintf(title, sizeof(title), "%s###nac_tpl_%d",
                       m_template->name.c_str(), m_instanceId);
     }
 

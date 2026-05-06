@@ -59,8 +59,13 @@
 namespace
 {
 
-constexpr int kWindowWidth  = 800;
-constexpr int kWindowHeight = 600;
+// Slightly bigger than the //e screen's 640x480 default so the user
+// sees a window that "contains" the //e with margin around it on first
+// launch. Same size used by Reset Layout to restore that look.
+constexpr int kWindowWidth  = 1024;
+constexpr int kWindowHeight = 768;
+constexpr int kAppleWindowWidth  = 640;
+constexpr int kAppleWindowHeight = 480;
 
 // Base //e clock; the speed preset multiplies this. Wall-clock pacing
 // in SDL_AppIterate converts elapsed time into cycles at the active
@@ -124,6 +129,7 @@ struct AppState
     bool                  fullscreen       = false;
     bool                  menubar_visible  = true;       // not persisted — always boots visible
     uint64_t              menubar_hidden_ms = 0;         // wall time we last hid the menu (for the hint overlay)
+    bool                  reset_layout_pending = false;  // one-frame flag set by Reset Layout
     bool                  gamelink_enabled = true;       // user-facing toggle (vs gamelink_up which means GameLink::Init succeeded)
     int                   speed_idx        = kSpeedDefault;
     int                   video_idx        = 0;          // 0..3 color preset
@@ -424,6 +430,30 @@ void SetFullscreen(AppState& s, bool on)
     if (!s.renderer.Window()) return;
     SDL_SetWindowFullscreen(s.renderer.Window(), on);
     s.fullscreen = on;
+}
+
+// Restore the as-shipped layout: default host size, only the //e screen
+// open and centred, all template instances closed. We wipe ImGui's
+// in-memory window settings (positions / sizes / dock state) so the
+// next render lays everything out from scratch instead of restoring
+// stale state from imgui.ini. The Apple //e window itself gets re-
+// positioned via the reset_layout_pending flag (one frame of
+// SetNextWindowPos+Size with Always).
+void ResetLayout(AppState& s)
+{
+    if (s.renderer.Window())
+    {
+        SDL_SetWindowFullscreen(s.renderer.Window(), false);
+        SDL_SetWindowSize(s.renderer.Window(), kWindowWidth, kWindowHeight);
+    }
+    s.fullscreen = false;
+    s.instances.clear();
+    s.apple_open = true;
+    s.combatLog.OpenRef()  = false;
+    s.hackPanel.OpenRef()  = false;
+    sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen = false;
+    ImGui::LoadIniSettingsFromMemory("", 0);   // clears window settings table
+    s.reset_layout_pending = true;
 }
 
 // Defined further below — forward-declare so InitEmulator can pre-flight.
@@ -1001,6 +1031,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         {
             if (ImGui::MenuItem("Fullscreen", "Alt+Enter", state->fullscreen))
                 SetFullscreen(*state, !state->fullscreen);
+            if (ImGui::MenuItem("Reset Layout"))
+                ResetLayout(*state);
             ImGui::Separator();
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
             ImGui::MenuItem("Combat log", nullptr, state->combatLog.OpenFlag());
@@ -1069,7 +1101,18 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     {
         const int rfbW = state->renderer.FramebufferWidth();
         const int rfbH = state->renderer.FramebufferHeight();
-        ImGui::SetNextWindowSize(ImVec2(640, 480), ImGuiCond_FirstUseEver);
+        // Reset Layout: force-centre the //e window inside the host on
+        // the next frame, then drop back to FirstUseEver so the user can
+        // freely move/resize it again.
+        const ImGuiCond appleCond = state->reset_layout_pending
+            ? ImGuiCond_Always : ImGuiCond_FirstUseEver;
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        const ImVec2 appleSize(kAppleWindowWidth, kAppleWindowHeight);
+        const ImVec2 applePos(
+            vp->WorkPos.x + (vp->WorkSize.x - appleSize.x) * 0.5f,
+            vp->WorkPos.y + (vp->WorkSize.y - appleSize.y) * 0.5f);
+        ImGui::SetNextWindowSize(appleSize, appleCond);
+        ImGui::SetNextWindowPos(applePos,  appleCond);
         if (ImGui::Begin("Apple //e", &state->apple_open, ImGuiWindowFlags_NoCollapse))
         {
             const ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -1118,6 +1161,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     state->combatLog.Render();
     state->hackPanel.Render();
+    state->reset_layout_pending = false;   // single-frame condition consumed
     state->renderer.EndImGui();
 
     state->renderer.EndFrame();
