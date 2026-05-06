@@ -122,6 +122,8 @@ struct AppState
     bool                  pp_enabled       = true;
     bool                  paused           = false;
     bool                  fullscreen       = false;
+    bool                  menubar_visible  = true;       // not persisted — always boots visible
+    uint64_t              menubar_hidden_ms = 0;         // wall time we last hid the menu (for the hint overlay)
     bool                  gamelink_enabled = true;       // user-facing toggle (vs gamelink_up which means GameLink::Init succeeded)
     int                   speed_idx        = kSpeedDefault;
     int                   video_idx        = 0;          // 0..3 color preset
@@ -737,6 +739,20 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
     case SDL_EVENT_QUIT:
         return SDL_APP_SUCCESS;
 
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        // Right-click toggles the menu bar. While the bar is visible we
+        // defer to ImGui when it wants the mouse (DragInt / Combo right-
+        // click context menus are useful in the Hack panel). While hidden
+        // we always toggle, so the user can never get stuck.
+        if (event->button.button == SDL_BUTTON_RIGHT)
+        {
+            if (state->menubar_visible && io.WantCaptureMouse) break;
+            state->menubar_visible = !state->menubar_visible;
+            if (!state->menubar_visible) state->menubar_hidden_ms = SDL_GetTicks();
+            break;
+        }
+        break;
+
     case SDL_EVENT_KEY_DOWN:
     {
         // Alt+F4 quits.
@@ -899,7 +915,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(),
                                  ImGuiDockNodeFlags_PassthruCentralNode);
 
-    if (ImGui::BeginMainMenuBar())
+    if (state->menubar_visible && ImGui::BeginMainMenuBar())
     {
         if (ImGui::BeginMenu("Emulator"))
         {
@@ -1012,6 +1028,35 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
+    }
+
+    // Hint overlay: when the menu bar has just been hidden, show a
+    // centred non-interactive label for a few seconds so the user knows
+    // how to bring it back. Without this the right-click toggle would
+    // be a one-way trap if forgotten.
+    if (!state->menubar_visible)
+    {
+        constexpr uint64_t kHintMs = 4000;
+        const uint64_t since = SDL_GetTicks() - state->menubar_hidden_ms;
+        if (since < kHintMs)
+        {
+            const ImGuiViewport* vp = ImGui::GetMainViewport();
+            const char* msg = "Menu bar hidden — right-click to show";
+            const ImVec2 textSize = ImGui::CalcTextSize(msg);
+            const ImVec2 pad(12, 6);
+            const ImVec2 pos(vp->WorkPos.x + (vp->WorkSize.x - textSize.x) * 0.5f - pad.x,
+                             vp->WorkPos.y + 12);
+            ImGui::SetNextWindowPos(pos);
+            ImGui::SetNextWindowBgAlpha(0.55f);
+            const ImGuiWindowFlags flags =
+                ImGuiWindowFlags_NoDecoration  | ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
+                ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoInputs |
+                ImGuiWindowFlags_AlwaysAutoResize;
+            if (ImGui::Begin("##menubar_hint", nullptr, flags))
+                ImGui::TextUnformatted(msg);
+            ImGui::End();
+        }
     }
 
     // Apple //e screen as a regular dockable ImGui window. Resizable so
