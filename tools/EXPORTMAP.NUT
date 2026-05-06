@@ -62,6 +62,18 @@ function getTileCustom(x, y) {
     return t.Terrain.Custom;
 }
 
+// GC's Squirrel-flavoured runtime doesn't expose a printf-style format()
+// (proven by EXPORTALL.NUT manually zero-padding via "0" + i.ToString()
+// and MAPMAKER.NUT using .ToInt(16) but never the reverse). Convert a
+// byte to two upper-case hex digits the long way so the script doesn't
+// depend on an optional library function.
+function hex2(v) {
+    var DIGITS = "0123456789ABCDEF";
+    var hi = (v >> 4) & 0xF;
+    var lo = v & 0xF;
+    return DIGITS.slice(hi, hi + 1) + DIGITS.slice(lo, lo + 1);
+}
+
 function main(args) {
     GCKernel.SetBlockingMode(true);
     GCConsole.Print("NAC_MAPS 1\n");
@@ -83,9 +95,7 @@ function main(args) {
             for (var y = 0; y < h; ++y) {
                 var row = "";
                 for (var x = 0; x < w; ++x) {
-                    var v = getTileCustom(ox + x, oy + y);
-                    if (v < 16) row += "0";
-                    row += format("%X ", v);
+                    row += hex2(getTileCustom(ox + x, oy + y)) + " ";
                 }
                 GCConsole.Print(row + "\n");
             }
