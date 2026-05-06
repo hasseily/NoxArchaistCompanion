@@ -123,6 +123,7 @@ struct AppState
     int                   nextInstanceId = 1;
     nac::CombatLogPanel   combatLog;        // installs the Fetch-trap callback
     nac::HackPanel        hackPanel;
+    nac::MapTranslator    mapTranslator;
     nac::MapPanel         mapPanel;
     bool                  gamelink_up      = false;
     bool                  apple_open       = true;
@@ -669,6 +670,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     }
 
     state->templates.Load(FindAssetsDir());
+    state->mapTranslator.Load(FindAssetsDir());
 
     // LoadSettings before InitEmulator so we can carry forward the saved
     // hdv_path and audio volumes into the first init.
@@ -1167,7 +1169,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     state->combatLog.Render();
     state->hackPanel.Render();
-    state->mapPanel.Render();
+    state->mapPanel.Render(state->mapTranslator);
     state->reset_layout_pending = false;   // single-frame condition consumed
     state->renderer.EndImGui();
 

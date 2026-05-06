@@ -1,0 +1,1669 @@
+{
+  "regions": {
+    "1": {
+      "name": "Depths of Vacous",
+      "width": 16,
+      "height": 16
+    },
+    "2": {
+      "name": "Suurtheld",
+      "width": 64,
+      "height": 80
+    },
+    "3": {
+      "name": "Nourtheld",
+      "width": 64,
+      "height": 80
+    },
+    "4": {
+      "name": "Shrine",
+      "width": 48,
+      "height": 48
+    },
+    "5": {
+      "name": "Shipwreck",
+      "width": 42,
+      "height": 42
+    },
+    "11": {
+      "name": "Ezel'dyv",
+      "width": 42,
+      "height": 42
+    },
+    "12": {
+      "name": "Knomewaer",
+      "width": 42,
+      "height": 42
+    },
+    "13": {
+      "name": "Freebooter's Cove",
+      "width": 42,
+      "height": 42
+    },
+    "14": {
+      "name": "Ghrodwir",
+      "width": 42,
+      "height": 42
+    },
+    "15": {
+      "name": "Bayport",
+      "width": 80,
+      "height": 80
+    },
+    "16": {
+      "name": "Maldac",
+      "width": 42,
+      "height": 42
+    },
+    "17": {
+      "name": "Swanmouth",
+      "width": 42,
+      "height": 42
+    },
+    "18": {
+      "name": "Everton",
+      "width": 42,
+      "height": 42
+    },
+    "19": {
+      "name": "Alef's Knoll",
+      "width": 42,
+      "height": 42
+    },
+    "20": {
+      "name": "Knaerwood",
+      "width": 42,
+      "height": 42
+    },
+    "21": {
+      "name": "Calbreath",
+      "width": 42,
+      "height": 42
+    },
+    "51": {
+      "name": "Nystul's Maze",
+      "width": 128,
+      "height": 128
+    },
+    "52": {
+      "name": "Ruination",
+      "width": 32,
+      "height": 64
+    },
+    "101": {
+      "name": "Grymvi's Keep",
+      "width": 42,
+      "height": 42
+    },
+    "102": {
+      "name": "Er-Thuath Keep",
+      "width": 42,
+      "height": 42
+    },
+    "103": {
+      "name": "Praevoc Keep",
+      "width": 42,
+      "height": 42
+    },
+    "104": {
+      "name": "Uharad Keep",
+      "width": 42,
+      "height": 42
+    },
+    "105": {
+      "name": "Foolery",
+      "width": 42,
+      "height": 42
+    },
+    "106": {
+      "name": "Veylan Keep",
+      "width": 42,
+      "height": 42
+    },
+    "256": {
+      "name": "Wynmar",
+      "width": 16,
+      "height": 16
+    },
+    "666": {
+      "name": "Shadow Plane",
+      "width": 16,
+      "height": 16
+    }
+  },
+  "rules": [
+    {
+      "region": 256,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 0,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 1,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 97,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 1,
+      "floor": "B2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 98,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 1,
+      "floor": "B3",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 99,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 1,
+      "floor": "B4",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 100,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 1,
+      "floor": "B5",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 101,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 2,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 14,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 23,
+      "ymin": 1,
+      "ymax": 8,
+      "dx": 0,
+      "dy": -2
+    },
+    {
+      "region": 2,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 14,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 8,
+      "xmax": 15,
+      "ymin": 9,
+      "ymax": 17,
+      "dx": 0,
+      "dy": -2
+    },
+    {
+      "region": 2,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 11,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 2,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 12,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 2,
+      "floor": "F3",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 13,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 2,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 15,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 2,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 16,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 2,
+      "floor": "F3",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 17,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 2,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 14,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 3,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 60,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 10,
+      "xmax": 18,
+      "ymin": 10,
+      "ymax": 25,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 3,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 57,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 8,
+      "ymin": 8,
+      "ymax": 24,
+      "dx": 20,
+      "dy": -2
+    },
+    {
+      "region": 3,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 57,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 40,
+      "xmax": 48,
+      "ymin": 8,
+      "ymax": 24,
+      "dx": -10,
+      "dy": -2
+    },
+    {
+      "region": 3,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 78,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 40,
+      "xmax": 44,
+      "ymin": 0,
+      "ymax": 7,
+      "dx": -30,
+      "dy": -34
+    },
+    {
+      "region": 3,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 57,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 7,
+      "ymin": 24,
+      "ymax": 32,
+      "dx": 19,
+      "dy": -10
+    },
+    {
+      "region": 3,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 57,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 40,
+      "xmax": 46,
+      "ymin": 24,
+      "ymax": 32,
+      "dx": -12,
+      "dy": -10
+    },
+    {
+      "region": 3,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 57,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 8,
+      "xmax": 39,
+      "ymin": 38,
+      "ymax": 46,
+      "dx": 2,
+      "dy": -7
+    },
+    {
+      "region": 3,
+      "floor": "F3",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 78,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 33,
+      "xmax": 40,
+      "ymin": 30,
+      "ymax": 39,
+      "dx": 0,
+      "dy": -40
+    },
+    {
+      "region": 3,
+      "floor": "F3",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 78,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 10,
+      "xmax": 34,
+      "ymin": 0,
+      "ymax": 4,
+      "dx": -5,
+      "dy": -71
+    },
+    {
+      "region": 3,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 54,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 3,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 55,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 3,
+      "floor": "F3",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 56,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 3,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 78,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -41
+    },
+    {
+      "region": 3,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 58,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 3,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 59,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 3,
+      "floor": "F3",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 60,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 3,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 57,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 4,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 65,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 4,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 69,
+          "op": "EQ"
+        },
+        {
+          "offset": 4,
+          "value": 38,
+          "op": "GTE"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 5,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 7,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 11,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 45,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 17,
+      "xmax": 27,
+      "ymin": 19,
+      "ymax": 28,
+      "dx": -11,
+      "dy": 11
+    },
+    {
+      "region": 11,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 45,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 31,
+      "xmax": 40,
+      "ymin": 7,
+      "ymax": 16,
+      "dx": -13,
+      "dy": -1
+    },
+    {
+      "region": 11,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 45,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 8,
+      "xmax": 16,
+      "ymin": 7,
+      "ymax": 17,
+      "dx": 21,
+      "dy": -1
+    },
+    {
+      "region": 11,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 44,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 11,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 45,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 12,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 76,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 12,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 77,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 13,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 41,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 14,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 38,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 14,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 39,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 15,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 49,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 29,
+      "dy": -29
+    },
+    {
+      "region": 15,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 53,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 29,
+      "dy": -29
+    },
+    {
+      "region": 15,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 47,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 29,
+      "dy": 0
+    },
+    {
+      "region": 15,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 48,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 15,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 52,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 15,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 46,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 15,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 50,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": -29
+    },
+    {
+      "region": 16,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 35,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 16,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 36,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 17,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 74,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 18,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 9,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 19,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 18,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 20,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 28,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 20,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 29,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 21,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 75,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 51,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 104,
+          "op": "EQ"
+        },
+        {
+          "offset": 4,
+          "value": 176,
+          "op": "LT"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": -50,
+      "dy": -25
+    },
+    {
+      "region": 52,
+      "floor": "B2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 104,
+          "op": "EQ"
+        },
+        {
+          "offset": 4,
+          "value": 176,
+          "op": "GTE"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": -126,
+      "dy": 174
+    },
+    {
+      "region": 101,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 62,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 101,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 63,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 101,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 64,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 101,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 61,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 102,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 30,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 102,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 31,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 102,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 32,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 102,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 33,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 103,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 67,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 103,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 68,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 103,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 69,
+          "op": "EQ"
+        },
+        {
+          "offset": 4,
+          "value": 38,
+          "op": "LT"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 104,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 23,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 7,
+      "ymin": 14,
+      "ymax": 22,
+      "dx": 0,
+      "dy": 12
+    },
+    {
+      "region": 104,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 23,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 9,
+      "xmax": 16,
+      "ymin": 0,
+      "ymax": 8,
+      "dx": 0,
+      "dy": -2
+    },
+    {
+      "region": 104,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 23,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 16,
+      "xmax": 23,
+      "ymin": 7,
+      "ymax": 15,
+      "dx": 2,
+      "dy": 5
+    },
+    {
+      "region": 104,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 23,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 104,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 24,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 104,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 25,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 104,
+      "floor": "F3",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 26,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 105,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 71,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 105,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 72,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 105,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 73,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 105,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 70,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 106,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 20,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 106,
+      "floor": "F1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 21,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 106,
+      "floor": "F2",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 22,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 106,
+      "floor": "B1",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 19,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": 0,
+      "dy": 0
+    },
+    {
+      "region": 666,
+      "floor": "G",
+      "checks": [
+        {
+          "offset": 0,
+          "value": 8,
+          "op": "EQ"
+        }
+      ],
+      "xmin": 0,
+      "xmax": 255,
+      "ymin": 0,
+      "ymax": 255,
+      "dx": -78,
+      "dy": 115
+    }
+  ]
+}
