@@ -6,9 +6,16 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
+
+// On the nac executable target NOMINMAX isn't defined, so windows.h
+// (pulled in via StdAfx.h) leaves min / max as macros. Wrapping the
+// std calls in extra parens prevents the macro expansion at the call
+// site without affecting the resulting code.
 
 namespace nac
 {
@@ -32,10 +39,6 @@ bool CheckOp(int sample, int rhs, const std::string& op)
     return false;
 }
 
-// translation.json `<check offset>` indexes into the original 5-element
-// peek list from the GC profile (mapID, region, maptype, xpos, ypos).
-// We only end up reading three of those slots; the others are unused
-// by every shipped rule.
 int SampleAtPeekOffset(int peekOffset, uint8_t mapID, uint8_t xpos, uint8_t ypos)
 {
     switch (peekOffset)
@@ -43,8 +46,24 @@ int SampleAtPeekOffset(int peekOffset, uint8_t mapID, uint8_t xpos, uint8_t ypos
     case 0: return mapID;
     case 3: return xpos;
     case 4: return ypos;
-    default: return -1;   // intentionally fails any check
+    default: return -1;
     }
+}
+
+// Deterministic colour-from-tile-id. Phase D placeholder: distinct
+// IDs get distinct colours so terrain shape is legible without the
+// real tileset PNG (Phase E delivers that). Tile 0 is transparent —
+// FindBound includes empty cells outside the drawn area for sparsely
+// populated floors.
+ImU32 ColorForTile(uint8_t id)
+{
+    if (id == 0) return 0;                                        // transparent
+    uint32_t h = id * 0x9E3779B1u + 0xBF58476Du;
+    h ^= h >> 16;
+    uint8_t r = 60 + ((h >> 0)  & 0xFF) * 180 / 255;
+    uint8_t g = 60 + ((h >> 8)  & 0xFF) * 180 / 255;
+    uint8_t b = 60 + ((h >> 16) & 0xFF) * 180 / 255;
+    return IM_COL32(r, g, b, 255);
 }
 
 } // namespace
@@ -80,7 +99,6 @@ std::optional<MapLocation> MapTranslator::Resolve(uint8_t mapID,
 
     for (const auto& rule : m_data["rules"])
     {
-        // Range gate first — cheaper than walking the checks array.
         const int xmin = rule.value("xmin", 0);
         const int xmax = rule.value("xmax", 0xFF);
         const int ymin = rule.value("ymin", 0);
@@ -125,49 +143,185 @@ std::optional<MapLocation> MapTranslator::Resolve(uint8_t mapID,
 }
 
 // ---------------------------------------------------------------------------
+// MapData
+// ---------------------------------------------------------------------------
+
+void MapData::Load(const std::filesystem::path& assetsDir)
+{
+    m_blob.clear();
+    m_index.clear();
+
+    const auto path = assetsDir / "maps" / "maps.bin";
+    if (!std::filesystem::exists(path))
+    {
+        std::fprintf(stderr, "MapData: %s not found\n", path.string().c_str());
+        return;
+    }
+
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) return;
+    const auto size = f.tellg();
+    f.seekg(0);
+    m_blob.resize((size_t)size);
+    f.read(reinterpret_cast<char*>(m_blob.data()), size);
+
+    if (m_blob.size() < 12 || std::memcmp(m_blob.data(), "NMAP", 4) != 0)
+    {
+        std::fprintf(stderr, "MapData: bad magic / too short\n");
+        m_blob.clear();
+        return;
+    }
+
+    const uint32_t version = *reinterpret_cast<const uint32_t*>(m_blob.data() + 4);
+    const uint32_t count   = *reinterpret_cast<const uint32_t*>(m_blob.data() + 8);
+    if (version != 1)
+    {
+        std::fprintf(stderr, "MapData: unsupported version %u\n", version);
+        m_blob.clear();
+        return;
+    }
+
+    constexpr size_t kHeaderSize = 12;
+    constexpr size_t kRecordSize = 20;
+    if (m_blob.size() < kHeaderSize + (size_t)count * kRecordSize)
+    {
+        std::fprintf(stderr, "MapData: truncated record table\n");
+        m_blob.clear();
+        return;
+    }
+
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const uint8_t* p = m_blob.data() + kHeaderSize + i * kRecordSize;
+        FloorRecord r;
+        r.region_id = *reinterpret_cast<const uint16_t*>(p + 0);
+        // floor_name: zero-padded ASCII in 4 bytes
+        char fbuf[5] = {};
+        std::memcpy(fbuf, p + 2, 4);
+        r.floor    = fbuf;
+        r.width    = *reinterpret_cast<const uint16_t*>(p + 6);
+        r.height   = *reinterpret_cast<const uint16_t*>(p + 8);
+        r.origin_x = *reinterpret_cast<const int16_t* >(p + 10);
+        r.origin_y = *reinterpret_cast<const int16_t* >(p + 12);
+        const uint32_t doff = *reinterpret_cast<const uint32_t*>(p + 14);
+        const size_t need = (size_t)r.width * (size_t)r.height;
+        if (doff + need > m_blob.size())
+        {
+            std::fprintf(stderr, "MapData: record %u tile data out of bounds\n", i);
+            continue;
+        }
+        r.tiles = m_blob.data() + doff;
+        m_index[{r.region_id, r.floor}] = r;
+    }
+}
+
+const FloorRecord* MapData::Find(int region_id, const std::string& floor) const
+{
+    auto it = m_index.find({region_id, floor});
+    return it == m_index.end() ? nullptr : &it->second;
+}
+
+// ---------------------------------------------------------------------------
 // MapPanel
 // ---------------------------------------------------------------------------
 
-void MapPanel::Render(const MapTranslator& tx)
+void MapPanel::Render(const MapTranslator& tx, const MapData& md)
 {
     if (!m_open) return;
 
-    ImGui::SetNextWindowSize(ImVec2(280, 220), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Map (debug)", &m_open, ImGuiWindowFlags_NoCollapse))
+    ImGui::SetNextWindowSize(ImVec2(640, 480), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Map", &m_open, ImGuiWindowFlags_NoCollapse))
     {
         ImGui::End();
         return;
     }
 
-    const uint8_t mapID   = Peek(0x2AF9);
-    const uint8_t region  = Peek(0x0000);
-    const uint8_t maptype = Peek(0x267D);
-    const uint8_t xpos    = Peek(0x6CEC);
-    const uint8_t ypos    = Peek(0x6CED);
+    const uint8_t mapID = Peek(0x2AF9);
+    const uint8_t xpos  = Peek(0x6CEC);
+    const uint8_t ypos  = Peek(0x6CED);
 
-    ImGui::Text("mapID    $2AF9 = $%02X (%u)", mapID,   mapID);
-    ImGui::Text("region   $0000 = $%02X (%u)", region,  region);
-    ImGui::Text("maptype  $267D = $%02X (%u)", maptype, maptype);
-    ImGui::Text("xpos     $6CEC = $%02X (%u)", xpos, xpos);
-    ImGui::Text("ypos     $6CED = $%02X (%u)", ypos, ypos);
+    // Status header — keeps the raw-byte readout from Phase A so we can
+    // still spot RAM oddities, but compact (one line).
+    ImGui::Text("mapID $%02X  xpos $%02X  ypos $%02X", mapID, xpos, ypos);
+
+    auto loc = tx.Resolve(mapID, xpos, ypos);
+    if (!loc)
+    {
+        ImGui::TextDisabled("(no rule matched — likely on the BASIC prompt)");
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Text("Region %d (%s) — Floor %s — Tile %d, %d",
+                loc->region, loc->region_name.c_str(),
+                loc->floor.c_str(), loc->x, loc->y);
+
+    const FloorRecord* fr = md.Find(loc->region, loc->floor);
+    if (!fr)
+    {
+        ImGui::TextDisabled("(no map data for this region/floor)");
+        ImGui::End();
+        return;
+    }
 
     ImGui::Separator();
-    if (!tx.Loaded())
+
+    // Tile size: auto-fit on first render, slider afterwards. 6 px is a
+    // sweet spot for 80×80 floors at the default window size; user
+    // bumps it for small maps, drops it for huge ones (Wynmar 256×256).
+    static int s_tilePx = 6;
+    ImGui::SliderInt("Tile px", &s_tilePx, 2, 24);
+    ImGui::SameLine();
+    if (ImGui::Button("Fit"))
     {
-        ImGui::TextDisabled("translation.json not loaded");
-    }
-    else if (auto loc = tx.Resolve(mapID, xpos, ypos))
-    {
-        ImGui::Text("Region: %d (%s)", loc->region, loc->region_name.c_str());
-        ImGui::Text("Floor:  %s", loc->floor.c_str());
-        ImGui::Text("Tile:   %d, %d  of  %d x %d",
-                    loc->x, loc->y, loc->width, loc->height);
-    }
-    else
-    {
-        ImGui::TextDisabled("(no rule matched)");
+        const ImVec2 avail = ImGui::GetContentRegionAvail();
+        const int byW = (int)(avail.x / fr->width);
+        const int byH = (int)((avail.y - 30) / fr->height);
+        s_tilePx = (std::max)(2, (std::min)(24, (std::min)(byW, byH)));
     }
 
+    // Drawing surface: scrollable child so big floors pan, with a
+    // border so the map's edge is visible.
+    ImGui::BeginChild("##map_canvas", ImVec2(0, 0),
+                      ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
+
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+
+    for (int ty = 0; ty < fr->height; ++ty)
+    {
+        for (int tx = 0; tx < fr->width; ++tx)
+        {
+            const uint8_t id = fr->tiles[ty * fr->width + tx];
+            const ImU32 col = ColorForTile(id);
+            if ((col & IM_COL32_A_MASK) == 0) continue;       // transparent
+
+            const ImVec2 a(origin.x + tx * (float)s_tilePx,
+                           origin.y + ty * (float)s_tilePx);
+            const ImVec2 b(a.x + s_tilePx, a.y + s_tilePx);
+            dl->AddRectFilled(a, b, col);
+        }
+    }
+
+    // Player marker — translate logical floor coords into tile cells.
+    const int px = loc->x - fr->origin_x;
+    const int py = loc->y - fr->origin_y;
+    if (px >= 0 && px < fr->width && py >= 0 && py < fr->height)
+    {
+        const ImVec2 c(origin.x + (px + 0.5f) * s_tilePx,
+                       origin.y + (py + 0.5f) * s_tilePx);
+        const float r = (std::max)(2.0f, s_tilePx * 0.45f);
+        dl->AddCircleFilled(c, r,           IM_COL32(255, 60, 60, 255));
+        dl->AddCircle      (c, r + 1.5f,    IM_COL32(0, 0, 0, 255), 0, 1.5f);
+    }
+
+    // Reserve the canvas area so the scroll bars sit at the right
+    // extents — without this, ImGui treats the child as empty and
+    // there's nothing to scroll past.
+    ImGui::Dummy(ImVec2((float)fr->width  * s_tilePx,
+                        (float)fr->height * s_tilePx));
+
+    ImGui::EndChild();
     ImGui::End();
 }
 

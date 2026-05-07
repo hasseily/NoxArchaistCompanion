@@ -2,38 +2,34 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace nac
 {
 
-// Resolved location: which logical region/floor the player is on, and
-// the (x, y) within that floor's grid (after any per-rule dx/dy shift).
 struct MapLocation
 {
-    int         region = 0;        // region id from translation.json
-    std::string region_name;       // human-readable
-    std::string floor;             // "G", "F1", "F2", "F3", "B1", ...
+    int         region = 0;
+    std::string region_name;
+    std::string floor;
     int         x = 0;
     int         y = 0;
-    int         width  = 0;        // floor grid dims (from regions table)
-    int         height = 0;
+    int         width  = 0;       // logical region width  (from translation.json)
+    int         height = 0;       // logical region height
 };
 
-// Loads Assets/maps/translation.json (the C++-side derivation of the
-// Grid Cartographer profile XML) once at startup, then walks its rule
-// list each frame to translate (mapID, xpos, ypos) into a MapLocation.
 class MapTranslator
 {
 public:
     void Load(const std::filesystem::path& assetsDir);
     bool Loaded() const { return !m_data.is_null(); }
 
-    // Returns nullopt if no rule matches (e.g. the player is in a map
-    // the profile didn't cover — happens on the BASIC prompt before a
-    // game is loaded, or in unmapped scratch areas).
     std::optional<MapLocation> Resolve(uint8_t mapID,
                                        uint8_t xpos,
                                        uint8_t ypos) const;
@@ -42,22 +38,40 @@ private:
     nlohmann::json m_data;
 };
 
-// Internal automap. Phase A+B: a debug window that reads the five RAM
-// bytes and (if loaded) shows the resolved (region, floor, x, y).
-//
-// Raw bytes (1 each, all CPU-visible — read through memshadow so soft
-// switches are honoured):
-//   $2AF9  mapID
-//   $0000  region   (peeked but not used by any translation rule)
-//   $267D  maptype  (peeked but not used by any translation rule)
-//   $6CEC  xpos
-//   $6CED  ypos
+// One floor's geometry + tile bytes, decoded out of maps.bin.
+struct FloorRecord
+{
+    int            region_id = 0;
+    std::string    floor;            // "G", "F1", "B1", ...
+    int            width    = 0;
+    int            height   = 0;
+    int            origin_x = 0;     // FindBound's top-left in floor coords
+    int            origin_y = 0;
+    const uint8_t* tiles    = nullptr;   // points into MapData::m_blob
+};
+
+// Loads Assets/maps/maps.bin (produced by tools/pack_maps.py from
+// EXPORTMAP.NUT's output) and indexes it by (region_id, floor) for
+// cheap lookup each frame.
+class MapData
+{
+public:
+    void Load(const std::filesystem::path& assetsDir);
+    bool Loaded() const { return !m_index.empty(); }
+
+    const FloorRecord* Find(int region_id, const std::string& floor) const;
+
+private:
+    std::vector<uint8_t>                            m_blob;     // whole file
+    std::map<std::pair<int, std::string>, FloorRecord> m_index;
+};
+
 class MapPanel
 {
 public:
     bool* OpenFlag()    { return &m_open; }
     bool& OpenRef()     { return m_open; }
-    void  Render(const MapTranslator& tx);
+    void  Render(const MapTranslator& tx, const MapData& md);
 
 private:
     bool m_open = false;

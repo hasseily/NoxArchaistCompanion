@@ -124,6 +124,7 @@ struct AppState
     nac::CombatLogPanel   combatLog;        // installs the Fetch-trap callback
     nac::HackPanel        hackPanel;
     nac::MapTranslator    mapTranslator;
+    nac::MapData          mapData;
     nac::MapPanel         mapPanel;
     bool                  gamelink_up      = false;
     bool                  apple_open       = true;
@@ -671,6 +672,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     state->templates.Load(FindAssetsDir());
     state->mapTranslator.Load(FindAssetsDir());
+    state->mapData.Load(FindAssetsDir());
 
     // LoadSettings before InitEmulator so we can carry forward the saved
     // hdv_path and audio volumes into the first init.
@@ -1044,7 +1046,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
             ImGui::MenuItem("Combat log", nullptr, state->combatLog.OpenFlag());
             ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
-            ImGui::MenuItem("Map (debug)", nullptr, state->mapPanel.OpenFlag());
+            ImGui::MenuItem("Map", nullptr, state->mapPanel.OpenFlag());
             ImGui::Separator();
             if (ImGui::MenuItem("Post-processor", nullptr, &state->pp_enabled))
                 sa2::PostProcessor::GetInstance()->SetActive(state->pp_enabled);
@@ -1169,7 +1171,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     state->combatLog.Render();
     state->hackPanel.Render();
-    state->mapPanel.Render(state->mapTranslator);
+    state->mapPanel.Render(state->mapTranslator, state->mapData);
     state->reset_layout_pending = false;   // single-frame condition consumed
     state->renderer.EndImGui();
 
