@@ -5,11 +5,15 @@
 namespace nac
 {
 
-// 128 KiB latched snapshot of CPU-visible RAM, taken at PC_PRINTSTR
-// (Nox's print routine entry — after all game-state writes have
-// landed). Panels read from here instead of live memshadow / memaux
-// so non-atomic multi-byte updates (xpos/ypos pairs, party stats,
-// sidebar buffers) can't show as flicker.
+// 128 KiB latched snapshot of the //e's underlying main + aux backing
+// stores (NOT the soft-switch-mapped CPU-visible space — see
+// RamSnapshot.cpp for why). Taken at PC_PRINTSTR so multi-byte
+// writes have settled. Panels read from here so:
+//   * RAMRD / RAMWRT / STORE80 / PAGE2 toggles can't flip the bank
+//     out from under the read (the source of the visible flicker on
+//     hires-affected pages like $29 / $2A where mapID lives),
+//   * mid-update fields (xpos/ypos, party stats) never appear half-
+//     written.
 struct RamSnapshot
 {
     uint8_t main[0x10000];   // soft-switch-resolved CPU-visible main bank
