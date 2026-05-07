@@ -58,6 +58,22 @@ def load_name_to_id(path: Path) -> dict:
     return out
 
 
+def normalise_floor(name: str) -> str:
+    """GC's FriendlyName() returns multi-word labels ("Ground Floor",
+    "Floor 2", "Basement 1") but the translation.json rules use the
+    short-code form ("G", "F2", "B1"). Map between them."""
+    s = name.strip()
+    if s == "Ground Floor":
+        return "G"
+    m = re.match(r"^Floor\s+(\d+)$",    s)
+    if m: return "F" + m.group(1)
+    m = re.match(r"^Basement\s*(\d+)?$", s)
+    if m: return "B" + (m.group(1) or "1")
+    # Already a short code (or something we don't recognise) — keep as-is
+    # so the floor name still round-trips even if we missed a label form.
+    return s
+
+
 def parse_text(path: Path, name_to_id: dict):
     """Yields (region_id, floor_name, width, height, ox, oy, tiles[bytes])."""
     with path.open("r", encoding="utf-8") as f:
@@ -73,13 +89,20 @@ def parse_text(path: Path, name_to_id: dict):
             if not stripped.startswith("REGION "):
                 line = f.readline()
                 continue
-            # `REGION "Region Name" G 16 16 0 0` — shlex handles the
-            # quoting around region names that contain spaces / quotes.
+            # `REGION "Region Name" <floor name> w h ox oy`. Floor name
+            # may be multi-word ("Ground Floor"), so peel the last four
+            # ints off the end and join whatever's between the quoted
+            # region and those ints as the floor name.
             tokens = shlex.split(stripped)
-            if len(tokens) != 7:
+            if len(tokens) < 7 or tokens[0] != "REGION":
                 raise SystemExit(f"bad REGION line: {stripped!r}")
-            _, rname, fname, w, h, ox, oy = tokens
-            w, h, ox, oy = int(w), int(h), int(ox), int(oy)
+            try:
+                ox = int(tokens[-2]); oy = int(tokens[-1])
+                w  = int(tokens[-4]); h  = int(tokens[-3])
+            except ValueError:
+                raise SystemExit(f"bad REGION line numbers: {stripped!r}")
+            rname = tokens[1]
+            fname = normalise_floor(" ".join(tokens[2:-4]))
             if rname not in name_to_id:
                 print(f"warning: region {rname!r} not in translation.json — skipping",
                       file=sys.stderr)
