@@ -15,3 +15,7 @@ Debug
 
 # macOS Finder metadata
 .DS_Store
+
+# EXPORTMAP.NUT intermediate — regenerate from the .gct via GC; only the
+# packed maps.bin is checked in.
+/tools/maps.txt
