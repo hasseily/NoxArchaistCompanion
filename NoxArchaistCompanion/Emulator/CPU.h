@@ -33,6 +33,15 @@ extern NoxLogCallbackFn g_noxLogCallback;
 // frontend's "include combat" toggle).
 extern bool g_noxLogIncludeCombat;
 
+// Optional frontend callback fired when the CPU is at a known-safe
+// Nox-state-settled point (PC_PRINTSTR entry — the print routine).
+// Multi-byte game-state writes (xpos/ypos, party stats, ...) have
+// completed by the time Nox calls into PRINTSTR, so a snapshot taken
+// here doesn't catch the CPU mid-update. Off until the frontend sets
+// it; doesn't fire when cpuconstants are zero.
+typedef void (*NoxSampleCallbackFn)(void);
+extern NoxSampleCallbackFn g_noxSampleCallback;
+
 struct regsrec
 {
   BYTE a;   // accumulator

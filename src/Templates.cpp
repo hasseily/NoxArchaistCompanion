@@ -4,6 +4,7 @@
 
 #include "Emulator/CPU.h"
 #include "Emulator/Memory.h"
+#include "RamSnapshot.h"
 
 #include <imgui.h>
 
@@ -27,27 +28,15 @@ ImVec4 ParseColor(const nlohmann::json& block,
                   c.size() >= 4 ? c[3].get<float>() : 1.0f);
 }
 
-// Map an absolute //e address to the right RAM page. CPU-visible space
-// (<0x10000) goes through memshadow[] so STORE80 / RAMRD / ALTZP soft
-// switches are honoured at read time. The literal aux half (>= 0x10000)
-// goes straight to MemGetAuxPtr — that's the 64 KiB aux bank addressed
-// independently of any soft switch.
+// All Nox-state reads come from the PC_PRINTSTR-latched RAM snapshot
+// (see RamSnapshot.h). The snapshot is captured at a known-stable
+// CPU phase, so multi-byte fields (xpos/ypos pairs, party stats, name
+// strings) never appear half-written.
 bool ReadByte(uint32_t off, uint8_t& out)
 {
-    if (off < 0x10000u)
-    {
-        const uint8_t* page = memshadow[off >> 8];
-        if (!page) return false;
-        out = page[off & 0xFF];
-        return true;
-    }
-    if (off < 0x20000u)
-    {
-        const uint8_t* aux = reinterpret_cast<const uint8_t*>(MemGetAuxPtr(0));
-        if (!aux) return false;
-        out = aux[off - 0x10000u];
-        return true;
-    }
+    if (!g_ramSnapshot.valid)  return false;
+    if (off < 0x10000u)        { out = g_ramSnapshot.main[off];               return true; }
+    if (off < 0x20000u)        { out = g_ramSnapshot.aux [off - 0x10000u];    return true; }
     return false;
 }
 

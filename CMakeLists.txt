@@ -125,6 +125,7 @@ add_executable(nac WIN32 MACOSX_BUNDLE
     src/RemoteInput.cpp
     src/NoxHacks.cpp
     src/Map.cpp
+    src/RamSnapshot.cpp
     ${GAMELINK_SOURCES}
     $<$<BOOL:${APPLE}>:${NAC_ICON_FILE}>
 )

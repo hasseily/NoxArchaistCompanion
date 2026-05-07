@@ -19,6 +19,7 @@
 #include "Frame.h"
 #include "Templates.h"
 #include "Map.h"
+#include "RamSnapshot.h"
 #include "RemoteInput.h"
 #include "NoxHacks.h"
 #include "RemoteControl/Gamelink.h"
@@ -473,6 +474,12 @@ void InitEmulator(const std::filesystem::path& hdvPath)
     // MODE_RUNNING before any CpuExecute call.
     g_nAppMode = MODE_RUNNING;
 
+    // Snapshot RAM at every PC_PRINTSTR — Nox has finished its
+    // multi-byte game-state writes by then, so reads from the snapshot
+    // never catch the CPU mid-update. Panels (Map, Templates) read
+    // through SnapshotPeek instead of touching memshadow live.
+    g_noxSampleCallback = &nac::TakeRamSnapshot;
+
     // SDL3 audio: Frame::CreateSoundBuffer hands back an AudioOutput
     // (LinuxSoundBuffer + SDL_AudioStream on the default playback device).
     SpkrInitialize();
@@ -899,27 +906,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             GetCardMgr().Update(executed);
             SpkrUpdate(executed);
 
-            g_dwCyclesThisFrame += executed;
+            g_dwCyclesThisFrame = (g_dwCyclesThisFrame + executed) % cyclesPerFrame;
         } while (totalExecuted < cycles);
-
-        // Run a short tail until the CPU lands past a frame boundary AND
-        // out of VBL. Same guard the original NAC's ContinueExecution
-        // uses around VideoRefreshScreen — guarantees the //e isn't
-        // mid-update of any RAM region, so panel reads (Templates / Map
-        // / Hack) immediately after this iterate see consistent game
-        // state. Without this, mapID / xpos / ypos / party stats all
-        // flicker because each iterate samples at a different CPU phase.
-        Video& video = GetVideo();
-        while (!(g_dwCyclesThisFrame >= cyclesPerFrame &&
-                 !video.VideoGetVblBarEx(g_dwCyclesThisFrame)))
-        {
-            const uint32_t batch = 256;     // ~250 µs at //e clock
-            const uint32_t executed = CpuExecute(batch, /*bVideoUpdate*/ true);
-            GetCardMgr().Update(executed);
-            SpkrUpdate(executed);
-            g_dwCyclesThisFrame += executed;
-        }
-        g_dwCyclesThisFrame -= cyclesPerFrame;
 
         GetFrame().VideoRedrawScreen();
     }

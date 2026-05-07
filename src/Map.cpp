@@ -3,6 +3,7 @@
 #include "Map.h"
 
 #include "Emulator/Memory.h"
+#include "RamSnapshot.h"
 
 #include <imgui.h>
 
@@ -23,10 +24,11 @@ namespace nac
 namespace
 {
 
+// All Nox-state reads route through the PC_PRINTSTR-latched snapshot
+// instead of live memshadow — see RamSnapshot.h for the rationale.
 uint8_t Peek(uint16_t addr)
 {
-    const uint8_t* page = memshadow[addr >> 8];
-    return page ? page[addr & 0xFF] : 0;
+    return SnapshotPeek(addr);
 }
 
 bool CheckOp(int sample, int rhs, const std::string& op)

@@ -112,10 +112,11 @@ static BYTE benchopcode[BENCHOPCODES] = {
 
 noxcpuconstants cpuconstants;
 
-NoxLogCallbackFn g_noxLogCallback = nullptr;
-bool             g_noxLogIncludeCombat = false;
-static bool      g_noxInCombat   = false;
-static bool      g_noxInPrintRight = false;
+NoxLogCallbackFn    g_noxLogCallback    = nullptr;
+NoxSampleCallbackFn g_noxSampleCallback = nullptr;
+bool                g_noxLogIncludeCombat = false;
+static bool         g_noxInCombat   = false;
+static bool         g_noxInPrintRight = false;
 
 regsrec regs;
 unsigned __int64 g_nCumulativeCycles = 0;
@@ -304,7 +305,18 @@ static void DebugHddEntrypoint(const USHORT PC)
 // fast when the callback isn't installed.
 static __forceinline void NoxFetchTrap(USHORT PC)
 {
-	if (!g_noxLogCallback || cpuconstants.PC_PRINTSTR == 0)
+	if (cpuconstants.PC_PRINTSTR == 0)
+		return;
+
+	// Frontend RAM-snapshot trigger fires at every PRINTSTR — Nox has
+	// finished any multi-byte game-state writes by the time control
+	// reaches the print routine, so reads taken from this point don't
+	// catch the CPU mid-update of xpos/ypos pairs, sidebar buffers,
+	// party stats etc.
+	if (g_noxSampleCallback && PC == cpuconstants.PC_PRINTSTR)
+		g_noxSampleCallback();
+
+	if (!g_noxLogCallback)
 		return;
 
 	if (PC == cpuconstants.PC_INITIATE_COMBAT) g_noxInCombat = true;
