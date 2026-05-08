@@ -482,9 +482,10 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
 
     if (img.tex == 0)
     {
-        ImGui::TextDisabled("(no PNG for %s / %s — drop one into Assets/maps/floors/)",
-                            loc->region_name.c_str(),
-                            FriendlyFromShort(loc->floor).c_str());
+        ImGui::TextDisabled(
+            "(missing NoxArchaistCompanion/Assets/maps/floors/%s_%s.png)",
+            loc->region_name.c_str(),
+            FriendlyFromShort(loc->floor).c_str());
     }
     else
     {
