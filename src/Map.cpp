@@ -437,11 +437,21 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
         return;
     }
 
+    // Nox lays the player position out as:
+    //   $6CEC  Y axis (live, rows down)
+    //   $6CED  X axis but a one-step-lagged display mirror (don't use)
+    //   $6CEF  X axis (live, cols right)
+    // The GC profile XML originally peeked $6CEC/$6CED and labelled them
+    // "xpos"/"ypos"; both labels and the second address were wrong. We
+    // keep the XML's offset-3 / offset-4 calling convention into Resolve
+    // (so the auto-generated translation rules' xmin/xmax/dx/dy still
+    // apply against the right value) but feed the live X from $6CEF
+    // instead of the lagged $6CED.
     const uint8_t mapID = Peek(0x2AF9);
-    const uint8_t xpos  = Peek(0x6CEC);
-    const uint8_t ypos  = Peek(0x6CED);
+    const uint8_t xpos  = Peek(0x6CEC);   // rule slot 3 — Nox Y
+    const uint8_t ypos  = Peek(0x6CEF);   // rule slot 4 — Nox X (live)
 
-    ImGui::Text("mapID $%02X  xpos $%02X  ypos $%02X", mapID, xpos, ypos);
+    ImGui::Text("mapID $%02X  X=%u  Y=%u", mapID, ypos, xpos);
 
     // Diagnostic: scan a small window around the candidate addresses
     // on both banks. Walk one step in a known direction and watch
