@@ -17,12 +17,20 @@ void TakeRamSnapshot()
     // memshadow[p] follows the //e's RAMRD / RAMWRT / STORE80 / PAGE2
     // soft switches, so on hires-affected pages it flips between the
     // main and aux backing every time the CPU toggles PAGE2 (which Nox
-    // does often — that's the source of the flicker we see on $2AF9
-    // mapID etc.). The underlying memmain / memaux stores are 64 KiB
-    // each and never move; reading them directly gives the canonical
-    // value regardless of what soft switches are set to.
-    const uint8_t* main = reinterpret_cast<const uint8_t*>(MemGetMainPtr(0));
-    const uint8_t* aux  = reinterpret_cast<const uint8_t*>(MemGetAuxPtr(0));
+    // does often — that's the source of the flicker we used to see on
+    // $2AF9 mapID etc.).
+    //
+    // MemGetBankPtr (NOT MemGetMainPtr/MemGetAuxPtr) is the right call
+    // here. The plain MemGet*Ptr calls return either the `mem` working
+    // cache or the canonical bank depending on shadowing — without
+    // flushing first. So a Nox write to $6CEC may live in the cache
+    // unflushed when we sample, and reading raw memmain misses it.
+    // MemGetBankPtr calls BackMainImage() which copies every dirty
+    // page from `mem` back to its shadow target before returning, so
+    // memmain/memaux are guaranteed current. This is what the original
+    // NAC's RemoteControlManager used (GameLink::Out(MemGetBankPtr(0))).
+    const uint8_t* main = reinterpret_cast<const uint8_t*>(MemGetBankPtr(0));
+    const uint8_t* aux  = reinterpret_cast<const uint8_t*>(MemGetBankPtr(1));
     if (!main || !aux) return;   // not yet initialised
     std::memcpy(g_ramSnapshot.main, main, sizeof(g_ramSnapshot.main));
     std::memcpy(g_ramSnapshot.aux,  aux,  sizeof(g_ramSnapshot.aux));
