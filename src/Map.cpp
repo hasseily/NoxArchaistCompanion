@@ -487,12 +487,12 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
         return;
     }
 
-    // Drop a 17×11 reveal each frame the snapshot puts the player on a
-    // valid tile of this floor. Cheap: it only writes when a tile flips
-    // from un-seen to seen.
-    fog.Reveal(loc->region, loc->floor,
-               loc->x - fr->origin_x, loc->y - fr->origin_y,
-               fr->width, fr->height);
+    // Fog bitmap sizes to the full region (loc->width × loc->height per
+    // translation.json), not the FindBound-cropped FloorRecord, so the
+    // bitmap aligns 1:1 with the PNG which covers the full region.
+    const int regionW = (std::max)(1, loc->width);
+    const int regionH = (std::max)(1, loc->height);
+    fog.Reveal(loc->region, loc->floor, loc->x, loc->y, regionW, regionH);
 
     const auto& img = images.Lookup(loc->region_name, loc->floor);
 
@@ -528,38 +528,39 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
 
         ImDrawList* dl = ImGui::GetWindowDrawList();
 
-        // Fog overlay: paint solid dark grey over every undiscovered
-        // tile in the floor record. Drawn AFTER the image so it covers
-        // unrevealed terrain. Rectangles are computed in floor-tile
-        // space and converted to PNG pixel space via the floor's
-        // origin offset and the tileset's 14×16 native tile size.
-        constexpr float kTileW = 14.0f;
-        constexpr float kTileH = 16.0f;
+        // GC exports each region at its own scale, with the PNG covering
+        // the full region (translation.json width × height). Derive
+        // pixel-per-tile from the PNG's actual dims rather than baking
+        // in 14×16 — that hardcoded constant only matched the original
+        // //e tile cell and isn't what GC's PNG export uses.
+        const float pxPerTileX = (float)img.width  / (float)regionW;
+        const float pxPerTileY = (float)img.height / (float)regionH;
         const ImU32 fogCol = IM_COL32(20, 20, 24, 255);
 
-        for (int ty = 0; ty < fr->height; ++ty)
+        for (int ty = 0; ty < regionH; ++ty)
         {
-            for (int tx = 0; tx < fr->width; ++tx)
+            for (int tx = 0; tx < regionW; ++tx)
             {
                 if (fog.IsRevealed(loc->region, loc->floor, tx, ty)) continue;
-                const float px0 = tx * kTileW * s_zoom;
-                const float py0 = ty * kTileH * s_zoom;
-                const float px1 = px0 + kTileW * s_zoom;
-                const float py1 = py0 + kTileH * s_zoom;
+                const float px0 = tx * pxPerTileX * s_zoom;
+                const float py0 = ty * pxPerTileY * s_zoom;
+                const float px1 = px0 + pxPerTileX * s_zoom;
+                const float py1 = py0 + pxPerTileY * s_zoom;
                 dl->AddRectFilled(ImVec2(origin.x + px0, origin.y + py0),
                                   ImVec2(origin.x + px1, origin.y + py1),
                                   fogCol);
             }
         }
 
-        // Player marker.
-        const int px = loc->x - fr->origin_x;
-        const int py = loc->y - fr->origin_y;
-        if (px >= 0 && px < fr->width && py >= 0 && py < fr->height)
+        // Player marker — loc->x / loc->y are already in full-region
+        // coords (translation.json applies dx / dy to put them there),
+        // so they map straight onto the PNG.
+        if (loc->x >= 0 && loc->x < regionW &&
+            loc->y >= 0 && loc->y < regionH)
         {
-            const ImVec2 c(origin.x + (px + 0.5f) * kTileW * s_zoom,
-                           origin.y + (py + 0.5f) * kTileH * s_zoom);
-            const float r = (std::max)(3.0f, kTileW * s_zoom * 0.45f);
+            const ImVec2 c(origin.x + (loc->x + 0.5f) * pxPerTileX * s_zoom,
+                           origin.y + (loc->y + 0.5f) * pxPerTileY * s_zoom);
+            const float r = (std::max)(3.0f, pxPerTileX * s_zoom * 0.45f);
             dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
             dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
         }
