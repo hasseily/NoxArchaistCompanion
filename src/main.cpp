@@ -476,12 +476,6 @@ void InitEmulator(const std::filesystem::path& hdvPath)
     // MODE_RUNNING before any CpuExecute call.
     g_nAppMode = MODE_RUNNING;
 
-    // Snapshot RAM at every PC_PRINTSTR — Nox has finished its
-    // multi-byte game-state writes by then, so reads from the snapshot
-    // never catch the CPU mid-update. Panels (Map, Templates) read
-    // through SnapshotPeek instead of touching memshadow live.
-    g_noxSampleCallback = &nac::TakeRamSnapshot;
-
     // SDL3 audio: Frame::CreateSoundBuffer hands back an AudioOutput
     // (LinuxSoundBuffer + SDL_AudioStream on the default playback device).
     SpkrInitialize();
@@ -912,6 +906,16 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
             g_dwCyclesThisFrame = (g_dwCyclesThisFrame + executed) % cyclesPerFrame;
         } while (totalExecuted < cycles);
+
+        // Latch the //e's main + aux banks for panel reads. Done after
+        // the CPU has run for this iterate so any state Nox just wrote
+        // (xpos/ypos as the player walks, party stats, sidebar text)
+        // is captured. The internal BackMainImage flush in
+        // MemGetBankPtr makes this safe regardless of where the CPU is
+        // mid-instruction. With raw-bank reads (no memshadow) the
+        // page-flipping flicker on hires-affected pages is also gone,
+        // so we don't need a tighter Nox-PC gate to stay stable.
+        nac::TakeRamSnapshot();
 
         GetFrame().VideoRedrawScreen();
     }
