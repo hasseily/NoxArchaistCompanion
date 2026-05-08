@@ -127,8 +127,16 @@ std::optional<MapLocation> MapTranslator::Resolve(uint8_t mapID,
         MapLocation loc;
         loc.region = rule.value("region", 0);
         loc.floor  = rule.value("floor",  std::string{});
-        loc.x      = xpos + rule.value("dx", 0);
-        loc.y      = ypos + rule.value("dy", 0);
+        // The GC profile XML labels byte $6CEC "xpos" and byte $6CED
+        // "ypos", but Nox actually stores them the other way: $6CEC is
+        // Y (row, increases going south), $6CED is X (col, increases
+        // going east). The rules' xmin/xmax/ymin/ymax + dx/dy were
+        // authored against the XML's labels, so they still gate on the
+        // correct byte (xpos here = byte 3 = $6CEC); we only need to
+        // swap the *meaning* of the rule's adjustment when emitting
+        // loc.x / loc.y. Result: loc.x = east-west, loc.y = north-south.
+        loc.x      = ypos + rule.value("dy", 0);
+        loc.y      = xpos + rule.value("dx", 0);
 
         if (m_data.contains("regions"))
         {
@@ -435,18 +443,18 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
 
     ImGui::Text("mapID $%02X  xpos $%02X  ypos $%02X", mapID, xpos, ypos);
 
-    // Diagnostic: print both banks at the candidate xpos / ypos
-    // addresses so we can see at a glance which one tracks the
-    // player's movement live and which lags. Walk one step at a time
-    // and watch the four numbers — the pair that updates immediately
-    // (and matches the direction you walked) is the right source.
+    // Diagnostic: scan a small window around the candidate addresses
+    // on both banks. Walk one step in a known direction and watch
+    // for the address that increments immediately by 1 (no lag).
+    // That's the live source of truth.
+    if (ImGui::CollapsingHeader("[diag] main / aux scan"))
     {
-        const uint8_t mxc = SnapshotPeek(0x6CEC);
-        const uint8_t mxd = SnapshotPeek(0x6CED);
-        const uint8_t axc = SnapshotPeek(0x10000 + 0x6CEC);
-        const uint8_t axd = SnapshotPeek(0x10000 + 0x6CED);
-        ImGui::Text("[diag] main $6CEC=%3u  $6CED=%3u    aux $6CEC=%3u  $6CED=%3u",
-                    mxc, mxd, axc, axd);
+        for (uint16_t addr = 0x6CE8; addr <= 0x6CF2; ++addr)
+        {
+            const uint8_t m = SnapshotPeek(addr);
+            const uint8_t a = SnapshotPeek(0x10000 + addr);
+            ImGui::Text("$%04X  main=%3u  aux=%3u", addr, m, a);
+        }
     }
 
     auto loc = tx.Resolve(mapID, xpos, ypos);

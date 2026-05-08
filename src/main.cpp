@@ -476,6 +476,14 @@ void InitEmulator(const std::filesystem::path& hdvPath)
     // MODE_RUNNING before any CpuExecute call.
     g_nAppMode = MODE_RUNNING;
 
+    // Snapshot RAM at every PC_PRINTSTR — Nox's print routine runs
+    // after the display fields ($6CED xpos in particular) have just
+    // been updated, so this picks up the fresh value before the next
+    // SDL_AppIterate's tail snapshot would. Per-iterate snapshot
+    // remains as the catch-all for state that updates outside any
+    // print path.
+    g_noxSampleCallback = &nac::TakeRamSnapshot;
+
     // SDL3 audio: Frame::CreateSoundBuffer hands back an AudioOutput
     // (LinuxSoundBuffer + SDL_AudioStream on the default playback device).
     SpkrInitialize();
