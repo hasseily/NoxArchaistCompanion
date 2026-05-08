@@ -435,6 +435,20 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
 
     ImGui::Text("mapID $%02X  xpos $%02X  ypos $%02X", mapID, xpos, ypos);
 
+    // Diagnostic: print both banks at the candidate xpos / ypos
+    // addresses so we can see at a glance which one tracks the
+    // player's movement live and which lags. Walk one step at a time
+    // and watch the four numbers — the pair that updates immediately
+    // (and matches the direction you walked) is the right source.
+    {
+        const uint8_t mxc = SnapshotPeek(0x6CEC);
+        const uint8_t mxd = SnapshotPeek(0x6CED);
+        const uint8_t axc = SnapshotPeek(0x10000 + 0x6CEC);
+        const uint8_t axd = SnapshotPeek(0x10000 + 0x6CED);
+        ImGui::Text("[diag] main $6CEC=%3u  $6CED=%3u    aux $6CEC=%3u  $6CED=%3u",
+                    mxc, mxd, axc, axd);
+    }
+
     auto loc = tx.Resolve(mapID, xpos, ypos);
     if (!loc)
     {
