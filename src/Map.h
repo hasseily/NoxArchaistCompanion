@@ -62,16 +62,14 @@ struct FloorRecord
 // playable tile area is offset from the PNG's edges by a per-floor
 // amount. Loaded from Assets/maps/floors_meta.json; the Map panel
 // edits and writes it back when the user adjusts the sliders.
+// Per-floor render metadata — where (tile 0, 0) sits inside the PNG,
+// in whole tiles (32 px each). Can be negative to shift the grid up
+// / left if the PNG starts before Nox's logical (0, 0). Saved in
+// floors_meta.json keyed by "<region_id>/<floor>" as an [x, y] pair.
 struct FloorMeta
 {
-    int inset_l = 0;
-    int inset_t = 0;
-    int inset_r = 0;
-    int inset_b = 0;
-    // Sub-tile marker nudge (px), to compensate for a per-floor Nox
-    // origin convention. Saved in floors_meta.json alongside insets.
-    int marker_dx = 0;
-    int marker_dy = 0;
+    int offset_x = 0;     // tiles; positive = grid shifted right within PNG
+    int offset_y = 0;
 };
 
 // Loads Assets/maps/maps.bin (produced by tools/pack_maps.py from

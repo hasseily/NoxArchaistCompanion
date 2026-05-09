@@ -244,9 +244,10 @@ void MapData::Load(const std::filesystem::path& assetsDir)
         m_index[{r.region_id, r.floor}] = r;
     }
 
-    // Load floors_meta.json. Two array layouts supported:
-    //   [l, t, r, b]                  — old, marker offsets default to 0
-    //   [l, t, r, b, mdx, mdy]        — current
+    // Load floors_meta.json. Per-floor entry is [offset_x, offset_y]
+    // in tiles. Older [l, t, r, b] / [l, t, r, b, mdx, mdy] layouts
+    // from earlier iterations are silently dropped — they were always
+    // tunable from the UI anyway.
     m_metaPath = assetsDir / "maps" / "floors_meta.json";
     if (std::filesystem::exists(m_metaPath))
     {
@@ -256,22 +257,16 @@ void MapData::Load(const std::filesystem::path& assetsDir)
             nlohmann::json j; f >> j;
             for (auto it = j.begin(); it != j.end(); ++it)
             {
-                if (!it.value().is_array() || it.value().size() < 4) continue;
+                if (!it.value().is_array() || it.value().size() < 2) continue;
+                if (it.value().size() != 2) continue;       // not the new schema
                 const std::string& key = it.key();
                 const auto slash = key.find('/');
                 if (slash == std::string::npos) continue;
                 const int rid = std::stoi(key.substr(0, slash));
                 const std::string fl = key.substr(slash + 1);
                 FloorMeta m;
-                m.inset_l = it.value()[0].get<int>();
-                m.inset_t = it.value()[1].get<int>();
-                m.inset_r = it.value()[2].get<int>();
-                m.inset_b = it.value()[3].get<int>();
-                if (it.value().size() >= 6)
-                {
-                    m.marker_dx = it.value()[4].get<int>();
-                    m.marker_dy = it.value()[5].get<int>();
-                }
+                m.offset_x = it.value()[0].get<int>();
+                m.offset_y = it.value()[1].get<int>();
                 m_meta[{rid, fl}] = m;
             }
         }
@@ -306,12 +301,9 @@ void MapData::SaveMeta() const
     nlohmann::json j = nlohmann::json::object();
     for (const auto& [k, m] : m_meta)
     {
-        if (m.inset_l == 0 && m.inset_t == 0 && m.inset_r == 0 && m.inset_b == 0
-            && m.marker_dx == 0 && m.marker_dy == 0)
-            continue;
+        if (m.offset_x == 0 && m.offset_y == 0) continue;
         const std::string key = std::to_string(k.first) + "/" + k.second;
-        j[key] = nlohmann::json::array({m.inset_l, m.inset_t, m.inset_r, m.inset_b,
-                                        m.marker_dx, m.marker_dy});
+        j[key] = nlohmann::json::array({m.offset_x, m.offset_y});
     }
     try
     {
@@ -660,30 +652,16 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     // would shear the marker grid against the underlying PNG. Stored
     // in pixels in floors_meta.json so the runtime math doesn't have
     // to care about the unit.
+    // Per-floor offset: where (tile 0, 0) sits inside the PNG, in
+    // whole tiles. Range goes ± the full region size so badly-aligned
+    // exports can be slid wherever they need to go.
     FloorMeta& meta = md.Meta(loc->region, loc->floor);
-    if (ImGui::CollapsingHeader("Insets / marker (current floor)"))
+    if (ImGui::CollapsingHeader("Offset (current floor, tiles)"))
     {
-        constexpr int kPx = 32;
-        const int maxTiles = img.width ? (img.width / kPx) / 2 : 8;
-        int l = meta.inset_l / kPx;
-        int t = meta.inset_t / kPx;
-        int r = meta.inset_r / kPx;
-        int b = meta.inset_b / kPx;
-        ImGui::SliderInt("Left  (tiles)",   &l, 0, maxTiles);
-        ImGui::SliderInt("Top   (tiles)",   &t, 0, maxTiles);
-        ImGui::SliderInt("Right (tiles)",   &r, 0, maxTiles);
-        ImGui::SliderInt("Bottom (tiles)",  &b, 0, maxTiles);
-        meta.inset_l = l * kPx;
-        meta.inset_t = t * kPx;
-        meta.inset_r = r * kPx;
-        meta.inset_b = b * kPx;
-
-        // Sub-tile marker nudge — half-tile increments are the most we
-        // typically need to reconcile a Nox-vs-PNG corner-vs-centre
-        // convention drift on a particular floor.
-        ImGui::SliderInt("Marker dX (px)", &meta.marker_dx, -kPx, kPx);
-        ImGui::SliderInt("Marker dY (px)", &meta.marker_dy, -kPx, kPx);
-
+        const int xLim = (std::max)(regionW, 1);
+        const int yLim = (std::max)(regionH, 1);
+        ImGui::SliderInt("Offset X", &meta.offset_x, -xLim, xLim);
+        ImGui::SliderInt("Offset Y", &meta.offset_y, -yLim, yLim);
         if (ImGui::Button("Save")) md.SaveMeta();
     }
 
@@ -706,18 +684,14 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
 
         ImDrawList* dl = ImGui::GetWindowDrawList();
 
-        // Cropped PNGs are exactly tile-aligned at 32 px / tile in
-        // both axes, so we use a fixed scale and just slide the origin
-        // by the inset rect. This way an inset slider step of 1 tile
-        // moves the marker by exactly 32 × s_zoom px (the previous
-        // formula divided innerW by regionW, so insets also shrank
-        // pxPerTile slightly and the marker drifted off integer tile
-        // boundaries).
+        // Cropped PNGs are exactly tile-aligned at 32 px / tile, so we
+        // use a fixed scale and slide the origin by the per-floor
+        // (offset_x, offset_y) tile shift.
         constexpr float kTilePx = 32.0f;
         const float pxPerTileX = kTilePx;
         const float pxPerTileY = kTilePx;
-        const float ox = origin.x + meta.inset_l * s_zoom;
-        const float oy = origin.y + meta.inset_t * s_zoom;
+        const float ox = origin.x + meta.offset_x * kTilePx * s_zoom;
+        const float oy = origin.y + meta.offset_y * kTilePx * s_zoom;
         const ImU32 fogCol = IM_COL32(20, 20, 24, 255);
 
         for (int ty = 0; ty < regionH; ++ty)
@@ -735,26 +709,23 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
             }
         }
 
-        // Player marker — both axes centred in the tile (+0.5) so the
-        // dot sits dead-centre on the avatar's cell, plus the per-floor
-        // marker_dx/dy nudge for any residual Nox-vs-PNG convention
-        // drift.
+        // Player marker — both axes centred (+0.5) on the avatar's
+        // tile cell.
         if (loc->x >= 0 && loc->x < regionW &&
             loc->y >= 0 && loc->y < regionH)
         {
-            const float ax = (loc->x + 0.5f) * pxPerTileX * s_zoom + meta.marker_dx * s_zoom;
-            const float ay = (loc->y + 0.5f) * pxPerTileY * s_zoom + meta.marker_dy * s_zoom;
+            const float ax = (loc->x + 0.5f) * pxPerTileX * s_zoom;
+            const float ay = (loc->y + 0.5f) * pxPerTileY * s_zoom;
             const ImVec2 c(ox + ax, oy + ay);
             const float r = (std::max)(3.0f, pxPerTileX * s_zoom * 0.45f);
             dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
             dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
 
             // Auto-centre the canvas on the avatar each frame. ImGui
-            // clamps out-of-range scroll values so we don't pan past
-            // the map edges.
+            // clamps scroll values so we never pan past the map edges.
             const ImVec2 avail = ImGui::GetContentRegionAvail();
-            const float marker_canvas_x = meta.inset_l * s_zoom + ax;
-            const float marker_canvas_y = meta.inset_t * s_zoom + ay;
+            const float marker_canvas_x = meta.offset_x * kTilePx * s_zoom + ax;
+            const float marker_canvas_y = meta.offset_y * kTilePx * s_zoom + ay;
             ImGui::SetScrollX(marker_canvas_x - avail.x * 0.5f);
             ImGui::SetScrollY(marker_canvas_y - avail.y * 0.5f);
         }
