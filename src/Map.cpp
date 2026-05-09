@@ -102,6 +102,23 @@ std::string MapTranslator::RegionName(int region_id) const
     return m_data["regions"][key].value("name", std::string{});
 }
 
+int MapTranslator::FindMapID(int region_id, const std::string& floor) const
+{
+    if (m_data.is_null() || !m_data.contains("rules")) return -1;
+    for (const auto& rule : m_data["rules"])
+    {
+        if (rule.value("region", -1) != region_id) continue;
+        if (rule.value("floor",  std::string{}) != floor) continue;
+        if (!rule.contains("checks")) continue;
+        for (const auto& c : rule["checks"])
+        {
+            if (c.value("offset", -1) == 0)
+                return c.value("value", -1);
+        }
+    }
+    return -1;
+}
+
 void MapTranslator::RegionDims(int region_id, int& width, int& height) const
 {
     width = height = 0;
@@ -540,17 +557,18 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
 
     ImGui::Text("mapID $%02X  X=%u  Y=%u", mapID, ypos, xpos);
 
-    // Test-teleport: when active, the panel shows the chosen
-    // (region, floor, x, y) instead of the live game state. Lets us
-    // dial per-floor insets and verify the marker / fog math without
-    // playing through every map.
+    // Teleport sub-panel — pick a (region, floor) + (X, Y) and write
+    // the matching mapID, $6CEF (X) and $6CEC (Y) bytes into //e main
+    // RAM. The running game picks them up on its next read.
     auto floors = md.AllFloors(tx);
-    if (ImGui::CollapsingHeader("Test teleport"))
+    if (ImGui::CollapsingHeader("Teleport"))
     {
-        ImGui::Checkbox("Test mode", &m_testMode);
-        if (!floors.empty())
+        if (floors.empty())
         {
-            // Build display labels once per render. "Bayport / G".
+            ImGui::TextDisabled("No floors loaded.");
+        }
+        else
+        {
             std::vector<std::string> labels;
             labels.reserve(floors.size());
             for (const auto& e : floors)
@@ -558,52 +576,46 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
                     (e.region_name.empty() ? std::to_string(e.region_id) : e.region_name)
                     + " / " + e.floor);
 
-            if (m_testIdx < 0 || m_testIdx >= (int)floors.size()) m_testIdx = 0;
-            if (ImGui::BeginCombo("Floor", labels[m_testIdx].c_str()))
+            if (m_tpIdx < 0 || m_tpIdx >= (int)floors.size()) m_tpIdx = 0;
+            if (ImGui::BeginCombo("Target", labels[m_tpIdx].c_str()))
             {
                 for (int i = 0; i < (int)floors.size(); ++i)
                 {
-                    const bool sel = (i == m_testIdx);
-                    if (ImGui::Selectable(labels[i].c_str(), sel)) m_testIdx = i;
+                    const bool sel = (i == m_tpIdx);
+                    if (ImGui::Selectable(labels[i].c_str(), sel)) m_tpIdx = i;
                     if (sel) ImGui::SetItemDefaultFocus();
                 }
                 ImGui::EndCombo();
             }
-
-            int rw = 0, rh = 0;
-            tx.RegionDims(floors[m_testIdx].region_id, rw, rh);
-            ImGui::DragInt("Test X", &m_testX, 0.5f, 0, (std::max)(0, rw - 1));
-            ImGui::DragInt("Test Y", &m_testY, 0.5f, 0, (std::max)(0, rh - 1));
+            ImGui::InputInt("X", &m_tpX, 1, 16);
+            ImGui::InputInt("Y", &m_tpY, 1, 16);
+            if (ImGui::Button("Teleport"))
+            {
+                const auto& e = floors[m_tpIdx];
+                const int newMapID = tx.FindMapID(e.region_id, e.floor);
+                if (newMapID >= 0)
+                {
+                    if (uint8_t* p = reinterpret_cast<uint8_t*>(MemGetMainPtr(0)))
+                    {
+                        p[0x2AF9] = (uint8_t)newMapID;
+                        p[0x6CEF] = (uint8_t)m_tpX;
+                        p[0x6CEC] = (uint8_t)m_tpY;
+                    }
+                }
+            }
         }
     }
 
-    std::optional<MapLocation> loc;
-    if (m_testMode && !floors.empty() &&
-        m_testIdx >= 0 && m_testIdx < (int)floors.size())
+    auto loc = tx.Resolve(mapID, xpos, ypos);
+    // Use the raw RAM bytes for the player tile, not the resolver's
+    // dx/dy-adjusted output. The packetview <move> offsets in GC's
+    // profile are used for GC's combined-floor display, but each
+    // per-floor PNG we export already lays out its own coordinate
+    // system 1:1 with Nox's raw xpos/ypos.
+    if (loc)
     {
-        const auto& e = floors[m_testIdx];
-        MapLocation tloc;
-        tloc.region      = e.region_id;
-        tloc.region_name = e.region_name;
-        tloc.floor       = e.floor;
-        tloc.x           = m_testX;
-        tloc.y           = m_testY;
-        tx.RegionDims(e.region_id, tloc.width, tloc.height);
-        loc = tloc;
-    }
-    else
-    {
-        loc = tx.Resolve(mapID, xpos, ypos);
-        // Use the raw RAM bytes for the player tile, not the resolver's
-        // dx/dy-adjusted output. The packetview <move> offsets in GC's
-        // profile are used for GC's combined-floor display, but each
-        // per-floor PNG we export already lays out its own coordinate
-        // system 1:1 with Nox's raw xpos/ypos.
-        if (loc)
-        {
-            loc->x = ypos;
-            loc->y = xpos;
-        }
+        loc->x = ypos;
+        loc->y = xpos;
     }
     if (!loc)
     {
@@ -636,7 +648,9 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     ImGui::Separator();
 
     static float s_zoom = 1.0f;
-    ImGui::SliderFloat("Zoom", &s_zoom, 0.25f, 4.0f, "%.2fx");
+    ImGui::SetNextItemWidth(140.0f);
+    ImGui::InputFloat("Zoom", &s_zoom, 0.05f, 0.25f, "%.2fx");
+    s_zoom = (std::max)(0.05f, (std::min)(8.0f, s_zoom));
     ImGui::SameLine();
     if (ImGui::Button("Fit") && img.tex && img.width && img.height)
     {
@@ -653,15 +667,19 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     // in pixels in floors_meta.json so the runtime math doesn't have
     // to care about the unit.
     // Per-floor offset: where (tile 0, 0) sits inside the PNG, in
-    // whole tiles. Range goes ± the full region size so badly-aligned
-    // exports can be slid wherever they need to go.
+    // whole tiles. InputInt has +/- buttons and accepts typed values
+    // — finer than a slider when you need exact alignment.
     FloorMeta& meta = md.Meta(loc->region, loc->floor);
     if (ImGui::CollapsingHeader("Offset (current floor, tiles)"))
     {
+        ImGui::SetNextItemWidth(140.0f);
+        ImGui::InputInt("Offset X", &meta.offset_x, 1, 16);
+        ImGui::SetNextItemWidth(140.0f);
+        ImGui::InputInt("Offset Y", &meta.offset_y, 1, 16);
         const int xLim = (std::max)(regionW, 1);
         const int yLim = (std::max)(regionH, 1);
-        ImGui::SliderInt("Offset X", &meta.offset_x, -xLim, xLim);
-        ImGui::SliderInt("Offset Y", &meta.offset_y, -yLim, yLim);
+        meta.offset_x = (std::max)(-xLim, (std::min)(xLim, meta.offset_x));
+        meta.offset_y = (std::max)(-yLim, (std::min)(yLim, meta.offset_y));
         if (ImGui::Button("Save")) md.SaveMeta();
     }
 

@@ -41,6 +41,12 @@ public:
     std::string RegionName(int region_id) const;
     void        RegionDims(int region_id, int& width, int& height) const;
 
+    // For teleport: given a target (region, floor), find the first
+    // mapID byte ($2AF9) that the rule set maps to that floor. Returns
+    // -1 if no rule matches. For floors with multiple sub-region
+    // mapIDs (e.g. Bayport's quadrants) we just return the first.
+    int FindMapID(int region_id, const std::string& floor) const;
+
 private:
     nlohmann::json m_data;
 };
@@ -178,14 +184,13 @@ public:
 private:
     bool m_open = false;
 
-    // Test-teleport state — when m_testMode is on, the panel ignores
-    // live RAM reads and renders the chosen (region, floor, x, y)
-    // instead. Lets the user scrub through every map and dial the
-    // per-floor insets without playing through.
-    bool m_testMode      = false;
-    int  m_testIdx       = 0;     // index into MapData::AllFloors(tx)
-    int  m_testX         = 0;
-    int  m_testY         = 0;
+    // Teleport sub-panel state. The user picks a (region, floor) and
+    // an (X, Y); clicking Teleport writes the corresponding mapID +
+    // xpos/ypos bytes to the //e's main RAM, and the running game
+    // picks them up on its next read.
+    int  m_tpIdx = 0;
+    int  m_tpX   = 0;
+    int  m_tpY   = 0;
 };
 
 } // namespace nac

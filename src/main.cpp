@@ -19,6 +19,7 @@
 #include "Frame.h"
 #include "Templates.h"
 #include "Map.h"
+#include "MemoryViewer.h"
 #include "RamSnapshot.h"
 #include "RemoteInput.h"
 #include "NoxHacks.h"
@@ -129,6 +130,7 @@ struct AppState
     nac::FloorImageCache  floorImages;
     nac::FogOfWar         fog;
     nac::MapPanel         mapPanel;
+    nac::MemoryViewerPanel memoryViewer;
     bool                  gamelink_up      = false;
     bool                  apple_open       = true;
     bool                  pp_enabled       = true;
@@ -1070,6 +1072,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::MenuItem("Combat log", nullptr, state->combatLog.OpenFlag());
             ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
             ImGui::MenuItem("Map", nullptr, state->mapPanel.OpenFlag());
+            ImGui::MenuItem("Memory", nullptr, state->memoryViewer.OpenFlag());
             ImGui::Separator();
             if (ImGui::MenuItem("Post-processor", nullptr, &state->pp_enabled))
                 sa2::PostProcessor::GetInstance()->SetActive(state->pp_enabled);
@@ -1196,6 +1199,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     state->hackPanel.Render();
     state->mapPanel.Render(state->mapTranslator, state->mapData,
                            state->floorImages, state->fog);
+    state->memoryViewer.Render();
     state->reset_layout_pending = false;   // single-frame condition consumed
     state->renderer.EndImGui();
 
