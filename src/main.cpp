@@ -641,7 +641,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     // Need the pref-dir BEFORE the renderer comes up so we can restore
     // the saved host-window size. Set imgui_ini_path here too.
-    if (const char* pref = SDL_GetPrefPath("Asseily", "NoxArchaistCompanion"))
+    if (const char* pref = SDL_GetPrefPath("Rikkles", "NoxArchaistCompanion"))
     {
         state->pref_dir       = pref;
         state->imgui_ini_path = std::string(pref) + "imgui.ini";
