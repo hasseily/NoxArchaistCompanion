@@ -393,9 +393,9 @@ TileMap::Floor& TileMap::EnsureFloor(int region_id, const std::string& floor,
 void TileMap::Observe(int region_id, const std::string& floor,
                       int playerX, int playerY,
                       int floorWidth, int floorHeight,
-                      const uint8_t* vis)
+                      const uint8_t* vis, const uint8_t* fog)
 {
-    if (!vis || floorWidth <= 0 || floorHeight <= 0) return;
+    if (!vis || !fog || floorWidth <= 0 || floorHeight <= 0) return;
     Floor& fl = EnsureFloor(region_id, floor, floorWidth, floorHeight);
     const int x0 = playerX - kVisW / 2;
     const int y0 = playerY - kVisH / 2;
@@ -407,12 +407,20 @@ void TileMap::Observe(int region_id, const std::string& floor,
         {
             const int x = x0 + col;
             if (x < 0 || x >= floorWidth) continue;
-            const uint8_t id = vis[row * kVisW + col];
-            if (id == 0) continue;             // never overwrite with 0
+            const int idx = row * kVisW + col;
+            if (fog[idx] != 0) continue;       // hidden — skip
+            const uint8_t id = vis[idx];
+            if (id == 0) continue;             // visible but empty buffer slot
             uint8_t& cell = fl.tiles[y * floorWidth + x];
             if (cell != id) { cell = id; m_dirty = true; }
         }
     }
+}
+
+void TileMap::Clear()
+{
+    m_floors.clear();
+    m_dirty = true;
 }
 
 uint8_t TileMap::TileAt(int region_id, const std::string& floor, int x, int y) const
@@ -522,12 +530,16 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md, TileMap& tiles)
     const int regionW = (std::max)(1, loc->width);
     const int regionH = (std::max)(1, loc->height);
 
-    // Observe Nox's 17×11 visible buffer at $0800 each frame. The
-    // TileMap merges every non-zero byte into the (region, floor)
-    // grid; cells that have never been seen stay zero (drawn dark).
+    // Observe Nox's 17×11 visible-tile buffer ($0800) gated by the
+    // matching visibility mask ($08BB — 0 = visible, 1 = hidden).
+    // Only cells the player can actually see right now flow into the
+    // (region, floor) TileMap; everything else is left untouched so
+    // previously-discovered tiles persist.
     const uint8_t* vis = &g_ramSnapshot.main[0x0800];
+    const uint8_t* fog = &g_ramSnapshot.main[0x08BB];
     if (g_ramSnapshot.valid)
-        tiles.Observe(loc->region, loc->floor, loc->x, loc->y, regionW, regionH, vis);
+        tiles.Observe(loc->region, loc->floor, loc->x, loc->y,
+                      regionW, regionH, vis, fog);
 
     ImGui::Separator();
 
@@ -538,12 +550,16 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md, TileMap& tiles)
     ImGui::SameLine();
     if (ImGui::Button("Fit"))
     {
-        constexpr float kFitTile = 8.0f;   // px per tile we'd like in the fit
         const ImVec2 avail = ImGui::GetContentRegionAvail();
         const float zx = avail.x / (regionW * 32.0f);
         const float zy = (avail.y - 30) / (regionH * 32.0f);
         s_zoom = (std::max)(0.05f, (std::min)(zx, zy));
-        (void)kFitTile;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Clear seen"))
+    {
+        tiles.Clear();
+        tiles.Save();        // also wipe the on-disk cache immediately
     }
 
     ImGui::BeginChild("##map_canvas", ImVec2(0, 0),

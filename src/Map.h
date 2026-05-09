@@ -102,14 +102,21 @@ public:
 
     // Pull Nox's 17×11 visible buffer (`vis` points to 187 contiguous
     // bytes, row-major) into the (region, floor) map, centred on the
-    // player. Out-of-floor cells are clipped silently.
+    // player. `fog` points to the matching 17×11 visibility mask at
+    // $08BB — byte == 0 means the cell is currently visible to the
+    // player; non-zero means hidden by walls / dark / off-screen edge.
+    // Only cells that are both visible AND non-zero get written.
     void Observe(int region_id, const std::string& floor,
                  int playerX, int playerY,
                  int floorWidth, int floorHeight,
-                 const uint8_t* vis);
+                 const uint8_t* vis, const uint8_t* fog);
 
     // Tile id at (x, y), 0 = never observed.
     uint8_t TileAt(int region_id, const std::string& floor, int x, int y) const;
+
+    // Wipe everything — for the "Clear" button. Marks dirty so the
+    // next Save flushes an empty file (and removes the old contents).
+    void Clear();
 
 private:
     using Key = std::pair<int, std::string>;
