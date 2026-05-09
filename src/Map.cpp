@@ -6,6 +6,8 @@
 #include "RamSnapshot.h"
 
 #include <imgui.h>
+#include <stb_image.h>
+#include <glad/glad.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -255,6 +257,90 @@ const FloorRecord* MapData::Find(int region_id, const std::string& floor) const
     return it == m_index.end() ? nullptr : &it->second;
 }
 
+// ---------------------------------------------------------------------------
+// TilesetTexture
+// ---------------------------------------------------------------------------
+
+namespace
+{
+
+std::string FloorFriendly(const std::string& s)
+{
+    if (s == "G")              return "Ground Floor";
+    if (!s.empty() && s[0] == 'F') return "Floor "    + s.substr(1);
+    if (!s.empty() && s[0] == 'B') return "Basement " + s.substr(1);
+    return s;
+}
+
+} // namespace
+
+void TilesetTexture::Build(const std::filesystem::path& assetsDir,
+                           const MapData& maps,
+                           const MapTranslator& tx)
+{
+    // 512×512 RGBA, stride 2048 bytes. Filled with transparent black,
+    // overwritten as we discover each tile id's bitmap. Tiles we never
+    // see remain transparent — the renderer falls back to a colour
+    // for those via TilesetTexture::Has().
+    std::vector<uint8_t> atlas((size_t)kTexPx * kTexPx * 4, 0);
+
+    const auto floorsDir = assetsDir / "maps" / "floors";
+
+    for (const auto& fl : maps.AllFloors(tx))
+    {
+        const FloorRecord* fr = maps.Find(fl.region_id, fl.floor);
+        if (!fr) continue;
+
+        const std::string fname = fl.region_name + "_" + FloorFriendly(fl.floor) + ".png";
+        const auto path = floorsDir / fname;
+        if (!std::filesystem::exists(path)) continue;
+
+        int w = 0, h = 0, ch = 0;
+        unsigned char* png = stbi_load(path.string().c_str(), &w, &h, &ch, 4);
+        if (!png) continue;
+
+        // FloorRecord is (origin_x, origin_y) + (width, height) tiles.
+        // The PNG covers exactly (width × kTilePx) by (height × kTilePx)
+        // px (after the 32-px chrome crop we did earlier). Loop the
+        // tile grid; for any tile id we haven't yet seen, copy its
+        // 32×32 region out of the PNG into the atlas.
+        for (int ty = 0; ty < fr->height; ++ty)
+        {
+            for (int tx = 0; tx < fr->width; ++tx)
+            {
+                const uint8_t id = fr->tiles[ty * fr->width + tx];
+                if (id == 0 || m_has[id]) continue;
+                const int srcX = tx * kTilePx;
+                const int srcY = ty * kTilePx;
+                if (srcX + kTilePx > w || srcY + kTilePx > h) continue;
+                const int dstX = (id % kCols) * kTilePx;
+                const int dstY = (id / kCols) * kTilePx;
+                for (int row = 0; row < kTilePx; ++row)
+                {
+                    const uint8_t* src = png + ((size_t)(srcY + row) * w + srcX) * 4;
+                    uint8_t*       dst = atlas.data() + ((size_t)(dstY + row) * kTexPx + dstX) * 4;
+                    std::memcpy(dst, src, (size_t)kTilePx * 4);
+                }
+                m_has[id] = true;
+            }
+        }
+        stbi_image_free(png);
+    }
+
+    // Upload as one GL texture.
+    GLuint tex = 0;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kTexPx, kTexPx, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, atlas.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+    m_tex = tex;
+}
+
 std::vector<MapData::FloorListEntry>
 MapData::AllFloors(const MapTranslator& tx) const
 {
@@ -436,7 +522,8 @@ uint8_t TileMap::TileAt(int region_id, const std::string& floor, int x, int y) c
 // MapPanel
 // ---------------------------------------------------------------------------
 
-void MapPanel::Render(const MapTranslator& tx, MapData& md, TileMap& tiles)
+void MapPanel::Render(const MapTranslator& tx, MapData& md,
+                      const TilesetTexture& tileset, TileMap& tiles)
 {
     if (!m_open) return;
 
@@ -600,10 +687,10 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md, TileMap& tiles)
                      origin.y + regionH * kTilePx * s_zoom);
     dl->AddRectFilled(bg0, bg1, fogCol);
 
-    // Per-tile colours from a hash of the tile id — cheap visual that
-    // gives different terrain types distinct shades without needing a
-    // tileset PNG. Same scheme Phase D used. Tile 0 (unseen) doesn't
-    // draw — the background fog shows through.
+    // Render each observed tile as a textured quad sampled from the
+    // 512×512 tileset atlas (built once at startup from the floor
+    // PNGs). For tile ids the atlas didn't capture, fall back to a
+    // hash-derived colour so the cell at least shows up.
     auto colorForTile = [](uint8_t id) -> ImU32 {
         uint32_t h = id * 0x9E3779B1u + 0xBF58476Du;
         h ^= h >> 16;
@@ -613,6 +700,10 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md, TileMap& tiles)
         return IM_COL32(r, g, b, 255);
     };
 
+    constexpr float kUv = (float)TilesetTexture::kTilePx /
+                          (float)TilesetTexture::kTexPx;
+    const auto tileTexId = static_cast<ImTextureID>((uintptr_t)tileset.Tex());
+
     for (int ty = 0; ty < regionH; ++ty)
     {
         for (int tx = 0; tx < regionW; ++tx)
@@ -621,9 +712,19 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md, TileMap& tiles)
             if (id == 0) continue;
             const float px0 = origin.x + tx * kTilePx * s_zoom;
             const float py0 = origin.y + ty * kTilePx * s_zoom;
-            dl->AddRectFilled(ImVec2(px0, py0),
-                              ImVec2(px0 + kTilePx * s_zoom, py0 + kTilePx * s_zoom),
-                              colorForTile(id));
+            const ImVec2 p0(px0, py0);
+            const ImVec2 p1(px0 + kTilePx * s_zoom, py0 + kTilePx * s_zoom);
+            if (tileset.Tex() && tileset.Has(id))
+            {
+                const ImVec2 uv0((id % TilesetTexture::kCols) * kUv,
+                                 (id / TilesetTexture::kCols) * kUv);
+                const ImVec2 uv1(uv0.x + kUv, uv0.y + kUv);
+                dl->AddImage(tileTexId, p0, p1, uv0, uv1);
+            }
+            else
+            {
+                dl->AddRectFilled(p0, p1, colorForTile(id));
+            }
         }
     }
 

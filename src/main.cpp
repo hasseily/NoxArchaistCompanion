@@ -127,6 +127,7 @@ struct AppState
     nac::HackPanel        hackPanel;
     nac::MapTranslator    mapTranslator;
     nac::MapData          mapData;
+    nac::TilesetTexture   tileset;
     nac::TileMap          tileMap;
     nac::MapPanel         mapPanel;
     nac::MemoryViewerPanel memoryViewer;
@@ -687,6 +688,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     state->templates.Load(FindAssetsDir());
     state->mapTranslator.Load(FindAssetsDir());
     state->mapData.Load(FindAssetsDir());
+    state->tileset.Build(FindAssetsDir(), state->mapData, state->mapTranslator);
     state->tileMap.Load(state->pref_dir);
 
     // LoadSettings before InitEmulator so we can carry forward the saved
@@ -1187,7 +1189,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     state->combatLog.Render();
     state->hackPanel.Render();
-    state->mapPanel.Render(state->mapTranslator, state->mapData, state->tileMap);
+    state->mapPanel.Render(state->mapTranslator, state->mapData,
+                           state->tileset, state->tileMap);
     state->memoryViewer.Render();
     state->reset_layout_pending = false;   // single-frame condition consumed
     state->renderer.EndImGui();

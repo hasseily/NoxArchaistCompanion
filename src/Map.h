@@ -83,6 +83,33 @@ private:
     std::map<std::pair<int, std::string>, FloorRecord> m_index;
 };
 
+// One-shot 256-tile tileset, built at startup by walking each floor
+// PNG (in Assets/maps/floors/) alongside its maps.bin tile ids and
+// capturing the first 32×32 RGBA region we see for each unique tile
+// id. The result is a single 512×512 GL texture (16×16 grid of 32-px
+// tiles) — tile id N lives at uv = (N%16, N/16) × (32 / 512). The
+// MapPanel renders observed cells via dl->AddImage with the matching
+// UVs, falling back to a colour for any id we never captured.
+class TilesetTexture
+{
+public:
+    void Build(const std::filesystem::path& assetsDir,
+               const MapData& maps,
+               const MapTranslator& tx);
+
+    unsigned Tex() const { return m_tex; }
+    bool     Has(uint8_t id) const { return m_has[id]; }
+
+    static constexpr int kTilePx = 32;
+    static constexpr int kCols   = 16;
+    static constexpr int kRows   = 16;
+    static constexpr int kTexPx  = kCols * kTilePx;       // 512
+
+private:
+    unsigned m_tex          = 0;
+    bool     m_has[256]     = {};
+};
+
 // Per-(region, floor) "what tile has the player seen here" map. Each
 // cell holds the byte tile-id last observed in Nox's 17×11 visible
 // window at $0800, or 0 for "never seen". Driven from the snapshot
@@ -138,7 +165,8 @@ class MapPanel
 public:
     bool* OpenFlag()    { return &m_open; }
     bool& OpenRef()     { return m_open; }
-    void  Render(const MapTranslator& tx, MapData& md, TileMap& tiles);
+    void  Render(const MapTranslator& tx, MapData& md,
+                 const TilesetTexture& tileset, TileMap& tiles);
 
 private:
     bool m_open = false;
