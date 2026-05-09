@@ -161,10 +161,6 @@ public:
     // tile. Drives the Map panel's "Map" pulldown.
     std::vector<std::pair<int, std::string>> ObservedFloors() const;
 
-    // Wipe everything — for the "Clear" button. Marks dirty so the
-    // next Save flushes an empty file (and removes the old contents).
-    void Clear();
-
 private:
     using Key = std::pair<int, std::string>;
     struct Floor
@@ -187,6 +183,7 @@ public:
 
     bool* OpenFlag()    { return &m_open; }
     bool& OpenRef()     { return m_open; }
+    int&  ColorSchemeRef() { return m_colorScheme_int; }
     void  Render(const MapTranslator& tx, MapData& md,
                  TilesetTexture& tileset, TileMap& tiles);
 
@@ -200,7 +197,10 @@ private:
     // and hides the avatar marker.
     int         m_viewRegion = -1;
     std::string m_viewFloor;
-    ColorScheme m_colorScheme = CS_Color;
+    // Backed as int so SaveSettings / LoadSettings can round-trip it
+    // through nlohmann::json without a custom enum (de)serialiser. The
+    // Render path reads this through the ColorScheme enum cast.
+    int         m_colorScheme_int = (int)CS_Green;
 
     // Stored-map pan + zoom-to-fit. Pan is in tile units (added to the
     // floor-centre when computing the on-screen centre tile). m_needFit

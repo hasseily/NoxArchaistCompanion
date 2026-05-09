@@ -32,6 +32,27 @@ uint8_t Peek(uint16_t addr)
     return SnapshotPeek(addr);
 }
 
+// Returns true once Nox has a real party loaded (i.e. the user has
+// actually started or restored a game). Each of the six party slots
+// is 0x80 bytes starting at MEM_PARTY, with the member's name as a
+// high-ASCII NUL-terminated string at offset 0x4B; an empty slot has
+// 0x00 there. We gate live automap observation on this so the BASIC
+// prompt / boot-screen garbage doesn't paint into the discovered map.
+bool HasParty()
+{
+    if (!g_ramSnapshot.valid || cpuconstants.MEM_PARTY == 0) return false;
+    for (uint32_t k = 0; k < 6; ++k)
+    {
+        const uint32_t addr = cpuconstants.MEM_PARTY + k * 0x80u + 0x4Bu;
+        if (addr >= 0x20000u) continue;
+        const uint8_t b = (addr < 0x10000u)
+            ? g_ramSnapshot.main[addr]
+            : g_ramSnapshot.aux[addr - 0x10000u];
+        if (b != 0) return true;
+    }
+    return false;
+}
+
 bool CheckOp(int sample, int rhs, const std::string& op)
 {
     if (op == "EQ"  || op.empty()) return sample == rhs;
@@ -569,12 +590,6 @@ void TileMap::Observe(int region_id, const std::string& floor,
     }
 }
 
-void TileMap::Clear()
-{
-    m_floors.clear();
-    m_dirty = true;
-}
-
 uint8_t TileMap::TileAt(int region_id, const std::string& floor, int x, int y) const
 {
     auto it = m_floors.find({region_id, floor});
@@ -625,10 +640,11 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     // panel happens to be rendering — switching the view pulldown to
     // a stored map shouldn't pause discovery on the live one. Skipped
     // on combat maps so battle tiles ($0800 repurposed) don't pollute
-    // the overworld.
+    // the overworld, and skipped before the player has a party so
+    // boot / BASIC-prompt junk in $0800 doesn't paint into the map.
     auto liveLoc = tx.Resolve(mapID, xpos, ypos);
     if (liveLoc) { liveLoc->x = xpos; liveLoc->y = ypos; }
-    if (liveLoc && g_ramSnapshot.valid && mapType != kMapTypeCombat)
+    if (liveLoc && g_ramSnapshot.valid && mapType != kMapTypeCombat && HasParty())
     {
         const int liveW = (std::max)(1, liveLoc->width);
         const int liveH = (std::max)(1, liveLoc->height);
@@ -688,12 +704,13 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     // Apple ][ HGR-coloured atlas.
     {
         const char* csNames[] = { "White", "Green", "Amber", "Color" };
-        int cs = (int)m_colorScheme;
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
-        if (ImGui::Combo("##cs", &cs, csNames, IM_ARRAYSIZE(csNames)))
-            m_colorScheme = (ColorScheme)cs;
+        ImGui::Combo("##cs", &m_colorScheme_int, csNames, IM_ARRAYSIZE(csNames));
+        if (m_colorScheme_int < 0 || m_colorScheme_int > CS_Color)
+            m_colorScheme_int = (int)CS_Green;
     }
+    const ColorScheme colorScheme = (ColorScheme)m_colorScheme_int;
 
     // Resolve the floor we're actually rendering — live or stored.
     int         renderRegion = -1;
@@ -748,32 +765,6 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     s_zoom = (std::max)(0.05f, (std::min)(8.0f, s_zoom));
     ImGui::SameLine();
     const bool fitClicked = ImGui::Button("Fit");
-    ImGui::SameLine();
-    if (ImGui::Button("Clear seen"))
-        ImGui::OpenPopup("Confirm clear?");
-
-    if (ImGui::BeginPopupModal("Confirm clear?", nullptr,
-                               ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::TextUnformatted("Wipe every discovered tile on every floor?\n"
-                               "This also deletes the on-disk cache.");
-        ImGui::Separator();
-        if (ImGui::Button("Clear", ImVec2(120, 0)))
-        {
-            tiles.Clear();
-            tiles.Save();
-            // Snap back to live so we don't render a now-empty stored map.
-            m_viewRegion = -1;
-            m_viewFloor.clear();
-            m_panX = m_panY = 0.0f;
-            m_needFit = false;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0)))
-            ImGui::CloseCurrentPopup();
-        ImGui::EndPopup();
-    }
 
     // Pull fresh tile bitmaps out of aux RAM ($7000 / $8000) before
     // drawing — Nox patches the shape tables when entering a new
@@ -793,7 +784,11 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     constexpr float kUvW   = 1.0f / TilesetTexture::kCols;
     constexpr float kUvH   = 1.0f / TilesetTexture::kRows;
 
-    const ImVec2 view = ImGui::GetWindowSize();
+    // GetContentRegionAvail rather than GetWindowSize: the latter
+    // includes the child's borders / padding, so sizing the
+    // InvisibleButton from it overshoots the usable area by a few
+    // pixels and the child grows a vertical scrollbar.
+    const ImVec2 view = ImGui::GetContentRegionAvail();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
 
     // Cover the canvas with an InvisibleButton so left-drag inside it
@@ -844,14 +839,14 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     // tint; the monochrome modes draw the mono atlas with a flat
     // phosphor-style tint.
     ImU32 tint = IM_COL32_WHITE;
-    switch (m_colorScheme)
+    switch (colorScheme)
     {
     case CS_White: tint = IM_COL32(235, 235, 235, 255); break;
     case CS_Green: tint = IM_COL32( 80, 255, 120, 255); break;
     case CS_Amber: tint = IM_COL32(255, 180,  50, 255); break;
     case CS_Color: tint = IM_COL32_WHITE;               break;
     }
-    const unsigned glTex = (m_colorScheme == CS_Color)
+    const unsigned glTex = (colorScheme == CS_Color)
                          ? tileset.ColorTex()
                          : tileset.Tex();
     const auto tileTexId = static_cast<ImTextureID>((uintptr_t)glTex);

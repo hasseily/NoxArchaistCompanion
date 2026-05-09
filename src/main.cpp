@@ -204,6 +204,7 @@ void SaveSettings(const AppState& s)
     j["hack_hex"]        = const_cast<nac::HackPanel&>(s.hackPanel).HexRef();
     j["hack_poke_addr"]  = const_cast<nac::HackPanel&>(s.hackPanel).PokeAddrRef();
     j["map_open"]        = const_cast<nac::MapPanel&>(s.mapPanel).OpenRef();
+    j["map_color_scheme"] = const_cast<nac::MapPanel&>(s.mapPanel).ColorSchemeRef();
     j["pp_settings_open"] = sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen;
 
     // Persist open template instances so the user gets the same window
@@ -274,6 +275,8 @@ void LoadSettings(AppState& s)
         s.hackPanel.HexRef()       = j.value("hack_hex",  false);
         s.hackPanel.PokeAddrRef()  = j.value("hack_poke_addr", 0x6CEC);
         s.mapPanel.OpenRef()       = j.value("map_open",  false);
+        s.mapPanel.ColorSchemeRef() = j.value("map_color_scheme",
+                                              s.mapPanel.ColorSchemeRef());
         sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen =
             j.value("pp_settings_open", false);
         sa2::PostProcessor::GetInstance()->SetActive(s.pp_enabled);
