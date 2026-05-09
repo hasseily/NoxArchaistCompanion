@@ -94,6 +94,25 @@ void MapTranslator::Load(const std::filesystem::path& assetsDir)
     }
 }
 
+std::string MapTranslator::RegionName(int region_id) const
+{
+    if (m_data.is_null() || !m_data.contains("regions")) return {};
+    const std::string key = std::to_string(region_id);
+    if (!m_data["regions"].contains(key)) return {};
+    return m_data["regions"][key].value("name", std::string{});
+}
+
+void MapTranslator::RegionDims(int region_id, int& width, int& height) const
+{
+    width = height = 0;
+    if (m_data.is_null() || !m_data.contains("regions")) return;
+    const std::string key = std::to_string(region_id);
+    if (!m_data["regions"].contains(key)) return;
+    const auto& r = m_data["regions"][key];
+    width  = r.value("width",  0);
+    height = r.value("height", 0);
+}
+
 std::optional<MapLocation> MapTranslator::Resolve(uint8_t mapID,
                                                   uint8_t xpos,
                                                   uint8_t ypos) const
@@ -224,12 +243,93 @@ void MapData::Load(const std::filesystem::path& assetsDir)
         r.tiles = m_blob.data() + doff;
         m_index[{r.region_id, r.floor}] = r;
     }
+
+    // Load floors_meta.json (per-floor render insets etc.). Optional —
+    // missing or malformed file yields all-zero metas, which the panel
+    // can then edit and Save back.
+    m_metaPath = assetsDir / "maps" / "floors_meta.json";
+    if (std::filesystem::exists(m_metaPath))
+    {
+        try
+        {
+            std::ifstream f(m_metaPath);
+            nlohmann::json j; f >> j;
+            for (auto it = j.begin(); it != j.end(); ++it)
+            {
+                if (!it.value().is_array() || it.value().size() != 4) continue;
+                const std::string& key = it.key();
+                const auto slash = key.find('/');
+                if (slash == std::string::npos) continue;
+                const int rid = std::stoi(key.substr(0, slash));
+                const std::string fl = key.substr(slash + 1);
+                FloorMeta m;
+                m.inset_l = it.value()[0].get<int>();
+                m.inset_t = it.value()[1].get<int>();
+                m.inset_r = it.value()[2].get<int>();
+                m.inset_b = it.value()[3].get<int>();
+                m_meta[{rid, fl}] = m;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            std::fprintf(stderr, "MapData: floors_meta parse failed: %s\n", e.what());
+        }
+    }
 }
 
 const FloorRecord* MapData::Find(int region_id, const std::string& floor) const
 {
     auto it = m_index.find({region_id, floor});
     return it == m_index.end() ? nullptr : &it->second;
+}
+
+FloorMeta& MapData::Meta(int region_id, const std::string& floor)
+{
+    return m_meta[{region_id, floor}];   // default-constructs to all zero
+}
+
+const FloorMeta& MapData::Meta(int region_id, const std::string& floor) const
+{
+    static const FloorMeta zero;
+    auto it = m_meta.find({region_id, floor});
+    return it == m_meta.end() ? zero : it->second;
+}
+
+void MapData::SaveMeta() const
+{
+    if (m_metaPath.empty()) return;
+    nlohmann::json j = nlohmann::json::object();
+    for (const auto& [k, m] : m_meta)
+    {
+        // Skip rows that are still all-zero — keeps the file lean
+        // and matches the load-side default.
+        if (m.inset_l == 0 && m.inset_t == 0 && m.inset_r == 0 && m.inset_b == 0)
+            continue;
+        const std::string key = std::to_string(k.first) + "/" + k.second;
+        j[key] = nlohmann::json::array({m.inset_l, m.inset_t, m.inset_r, m.inset_b});
+    }
+    try
+    {
+        std::ofstream f(m_metaPath);
+        f << j.dump(2);
+    }
+    catch (...) {}
+}
+
+std::vector<MapData::FloorListEntry>
+MapData::AllFloors(const MapTranslator& tx) const
+{
+    std::vector<FloorListEntry> out;
+    out.reserve(m_index.size());
+    for (const auto& [k, fr] : m_index)
+    {
+        FloorListEntry e;
+        e.region_id   = k.first;
+        e.floor       = k.second;
+        e.region_name = tx.RegionName(k.first);
+        out.push_back(std::move(e));
+    }
+    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -425,7 +525,7 @@ const std::vector<uint8_t>* FogOfWar::Bitmap(int region_id,
 // MapPanel
 // ---------------------------------------------------------------------------
 
-void MapPanel::Render(const MapTranslator& tx, const MapData& md,
+void MapPanel::Render(const MapTranslator& tx, MapData& md,
                       FloorImageCache& images, FogOfWar& fog)
 {
     if (!m_open) return;
@@ -437,37 +537,67 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
         return;
     }
 
-    // Nox lays the player position out as:
-    //   $6CEC  Y axis (live, rows down)
-    //   $6CED  X axis but a one-step-lagged display mirror (don't use)
-    //   $6CEF  X axis (live, cols right)
-    // The GC profile XML originally peeked $6CEC/$6CED and labelled them
-    // "xpos"/"ypos"; both labels and the second address were wrong. We
-    // keep the XML's offset-3 / offset-4 calling convention into Resolve
-    // (so the auto-generated translation rules' xmin/xmax/dx/dy still
-    // apply against the right value) but feed the live X from $6CEF
-    // instead of the lagged $6CED.
     const uint8_t mapID = Peek(0x2AF9);
-    const uint8_t xpos  = Peek(0x6CEC);   // rule slot 3 — Nox Y
-    const uint8_t ypos  = Peek(0x6CEF);   // rule slot 4 — Nox X (live)
+    const uint8_t xpos  = Peek(0x6CEC);
+    const uint8_t ypos  = Peek(0x6CEF);
 
     ImGui::Text("mapID $%02X  X=%u  Y=%u", mapID, ypos, xpos);
 
-    // Diagnostic: scan a small window around the candidate addresses
-    // on both banks. Walk one step in a known direction and watch
-    // for the address that increments immediately by 1 (no lag).
-    // That's the live source of truth.
-    if (ImGui::CollapsingHeader("[diag] main / aux scan"))
+    // Test-teleport: when active, the panel shows the chosen
+    // (region, floor, x, y) instead of the live game state. Lets us
+    // dial per-floor insets and verify the marker / fog math without
+    // playing through every map.
+    auto floors = md.AllFloors(tx);
+    if (ImGui::CollapsingHeader("Test teleport"))
     {
-        for (uint16_t addr = 0x6CE8; addr <= 0x6CF2; ++addr)
+        ImGui::Checkbox("Test mode", &m_testMode);
+        if (!floors.empty())
         {
-            const uint8_t m = SnapshotPeek(addr);
-            const uint8_t a = SnapshotPeek(0x10000 + addr);
-            ImGui::Text("$%04X  main=%3u  aux=%3u", addr, m, a);
+            // Build display labels once per render. "Bayport / G".
+            std::vector<std::string> labels;
+            labels.reserve(floors.size());
+            for (const auto& e : floors)
+                labels.push_back(
+                    (e.region_name.empty() ? std::to_string(e.region_id) : e.region_name)
+                    + " / " + e.floor);
+
+            if (m_testIdx < 0 || m_testIdx >= (int)floors.size()) m_testIdx = 0;
+            if (ImGui::BeginCombo("Floor", labels[m_testIdx].c_str()))
+            {
+                for (int i = 0; i < (int)floors.size(); ++i)
+                {
+                    const bool sel = (i == m_testIdx);
+                    if (ImGui::Selectable(labels[i].c_str(), sel)) m_testIdx = i;
+                    if (sel) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+
+            int rw = 0, rh = 0;
+            tx.RegionDims(floors[m_testIdx].region_id, rw, rh);
+            ImGui::DragInt("Test X", &m_testX, 0.5f, 0, (std::max)(0, rw - 1));
+            ImGui::DragInt("Test Y", &m_testY, 0.5f, 0, (std::max)(0, rh - 1));
         }
     }
 
-    auto loc = tx.Resolve(mapID, xpos, ypos);
+    std::optional<MapLocation> loc;
+    if (m_testMode && !floors.empty() &&
+        m_testIdx >= 0 && m_testIdx < (int)floors.size())
+    {
+        const auto& e = floors[m_testIdx];
+        MapLocation tloc;
+        tloc.region      = e.region_id;
+        tloc.region_name = e.region_name;
+        tloc.floor       = e.floor;
+        tloc.x           = m_testX;
+        tloc.y           = m_testY;
+        tx.RegionDims(e.region_id, tloc.width, tloc.height);
+        loc = tloc;
+    }
+    else
+    {
+        loc = tx.Resolve(mapID, xpos, ypos);
+    }
     if (!loc)
     {
         ImGui::TextDisabled("(no rule matched — likely on the BASIC prompt)");
@@ -509,6 +639,22 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
         s_zoom = (std::max)(0.1f, (std::min)(zx, zy));
     }
 
+    // Per-floor inset sliders. Each PNG export from GC has its own
+    // chrome (axis labels, title bar, etc.) — different per region —
+    // so the playable tile area sits inside the PNG by some amount on
+    // each side. Adjust here, watch the marker/fog snap into place,
+    // hit Save to commit to floors_meta.json.
+    FloorMeta& meta = md.Meta(loc->region, loc->floor);
+    if (ImGui::CollapsingHeader("Insets (current floor)"))
+    {
+        const int maxIn = img.width ? img.width / 2 : 256;
+        ImGui::SliderInt("Left",   &meta.inset_l, 0, maxIn);
+        ImGui::SliderInt("Top",    &meta.inset_t, 0, maxIn);
+        ImGui::SliderInt("Right",  &meta.inset_r, 0, maxIn);
+        ImGui::SliderInt("Bottom", &meta.inset_b, 0, maxIn);
+        if (ImGui::Button("Save insets")) md.SaveMeta();
+    }
+
     ImGui::BeginChild("##map_canvas", ImVec2(0, 0),
                       ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
 
@@ -528,13 +674,17 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
 
         ImDrawList* dl = ImGui::GetWindowDrawList();
 
-        // GC exports each region at its own scale, with the PNG covering
-        // the full region (translation.json width × height). Derive
-        // pixel-per-tile from the PNG's actual dims rather than baking
-        // in 14×16 — that hardcoded constant only matched the original
-        // //e tile cell and isn't what GC's PNG export uses.
-        const float pxPerTileX = (float)img.width  / (float)regionW;
-        const float pxPerTileY = (float)img.height / (float)regionH;
+        // The playable tile area lives inside the PNG with a per-floor
+        // border (chrome from GC's export — axis labels, title bar,
+        // etc.). Subtract the inset rect from the PNG's pixel size to
+        // get the tile-area pixel rect, then map full-region tile
+        // coords to that rect.
+        const float innerW = (float)((std::max)(1, img.width  - meta.inset_l - meta.inset_r));
+        const float innerH = (float)((std::max)(1, img.height - meta.inset_t - meta.inset_b));
+        const float pxPerTileX = innerW / (float)regionW;
+        const float pxPerTileY = innerH / (float)regionH;
+        const float ox = origin.x + meta.inset_l * s_zoom;
+        const float oy = origin.y + meta.inset_t * s_zoom;
         const ImU32 fogCol = IM_COL32(20, 20, 24, 255);
 
         for (int ty = 0; ty < regionH; ++ty)
@@ -546,20 +696,18 @@ void MapPanel::Render(const MapTranslator& tx, const MapData& md,
                 const float py0 = ty * pxPerTileY * s_zoom;
                 const float px1 = px0 + pxPerTileX * s_zoom;
                 const float py1 = py0 + pxPerTileY * s_zoom;
-                dl->AddRectFilled(ImVec2(origin.x + px0, origin.y + py0),
-                                  ImVec2(origin.x + px1, origin.y + py1),
+                dl->AddRectFilled(ImVec2(ox + px0, oy + py0),
+                                  ImVec2(ox + px1, oy + py1),
                                   fogCol);
             }
         }
 
-        // Player marker — loc->x / loc->y are already in full-region
-        // coords (translation.json applies dx / dy to put them there),
-        // so they map straight onto the PNG.
+        // Player marker.
         if (loc->x >= 0 && loc->x < regionW &&
             loc->y >= 0 && loc->y < regionH)
         {
-            const ImVec2 c(origin.x + (loc->x + 0.5f) * pxPerTileX * s_zoom,
-                           origin.y + (loc->y + 0.5f) * pxPerTileY * s_zoom);
+            const ImVec2 c(ox + (loc->x + 0.5f) * pxPerTileX * s_zoom,
+                           oy + (loc->y + 0.5f) * pxPerTileY * s_zoom);
             const float r = (std::max)(3.0f, pxPerTileX * s_zoom * 0.45f);
             dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
             dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);

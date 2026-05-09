@@ -34,6 +34,13 @@ public:
                                        uint8_t xpos,
                                        uint8_t ypos) const;
 
+    // Look up a region's human-readable name + full grid dims by id.
+    // Returns the name string ("Wynmar", "Bayport", ...) or empty if
+    // the region isn't in translation.json. RegionDims fills width /
+    // height to the GC profile's grid dims.
+    std::string RegionName(int region_id) const;
+    void        RegionDims(int region_id, int& width, int& height) const;
+
 private:
     nlohmann::json m_data;
 };
@@ -50,9 +57,23 @@ struct FloorRecord
     const uint8_t* tiles    = nullptr;   // points into MapData::m_blob
 };
 
+// Per-floor render metadata (PNG insets, etc.). Each PNG export from
+// GC has its own decorative chrome — title bars, axis labels — so the
+// playable tile area is offset from the PNG's edges by a per-floor
+// amount. Loaded from Assets/maps/floors_meta.json; the Map panel
+// edits and writes it back when the user adjusts the sliders.
+struct FloorMeta
+{
+    int inset_l = 0;
+    int inset_t = 0;
+    int inset_r = 0;
+    int inset_b = 0;
+};
+
 // Loads Assets/maps/maps.bin (produced by tools/pack_maps.py from
 // EXPORTMAP.NUT's output) and indexes it by (region_id, floor) for
-// cheap lookup each frame.
+// cheap lookup each frame. Also owns the per-floor render metadata
+// loaded from floors_meta.json (insets etc.).
 class MapData
 {
 public:
@@ -61,9 +82,24 @@ public:
 
     const FloorRecord* Find(int region_id, const std::string& floor) const;
 
+    // Insets for (region_id, floor). Returns the editable struct;
+    // changes via the Map UI flow back to floors_meta.json on Save.
+    FloorMeta&       Meta(int region_id, const std::string& floor);
+    const FloorMeta& Meta(int region_id, const std::string& floor) const;
+
+    void SaveMeta() const;
+
+    // List every (region_id, floor) we have tile data for, paired with
+    // its human-readable region name (from translation.json's regions
+    // table). Used to populate the test-teleport combo.
+    struct FloorListEntry { int region_id; std::string floor; std::string region_name; };
+    std::vector<FloorListEntry> AllFloors(const class MapTranslator& tx) const;
+
 private:
     std::vector<uint8_t>                            m_blob;     // whole file
     std::map<std::pair<int, std::string>, FloorRecord> m_index;
+    mutable std::map<std::pair<int, std::string>, FloorMeta> m_meta;
+    std::filesystem::path                           m_metaPath;
 };
 
 // Lazy GL-texture cache for the per-floor PNGs exported via
@@ -134,11 +170,20 @@ class MapPanel
 public:
     bool* OpenFlag()    { return &m_open; }
     bool& OpenRef()     { return m_open; }
-    void  Render(const MapTranslator& tx, const MapData& md,
+    void  Render(const MapTranslator& tx, MapData& md,
                  FloorImageCache& images, FogOfWar& fog);
 
 private:
     bool m_open = false;
+
+    // Test-teleport state — when m_testMode is on, the panel ignores
+    // live RAM reads and renders the chosen (region, floor, x, y)
+    // instead. Lets the user scrub through every map and dial the
+    // per-floor insets without playing through.
+    bool m_testMode      = false;
+    int  m_testIdx       = 0;     // index into MapData::AllFloors(tx)
+    int  m_testX         = 0;
+    int  m_testY         = 0;
 };
 
 } // namespace nac
