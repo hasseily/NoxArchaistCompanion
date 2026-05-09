@@ -6,6 +6,7 @@
 
 #include <imgui.h>
 
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 
@@ -32,6 +33,70 @@ void MemoryViewerPanel::Render()
         ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_EnterReturnsTrue);
     if (m_jumpTo < 0)       m_jumpTo = 0;
     if (m_jumpTo > 0xFFFF)  m_jumpTo = 0xFFFF;
+
+    // Search row: type a hex byte sequence ("01 02 ff" or "0102FF"),
+    // hit Search, every match in the active bank gets a yellow
+    // background. Watch the change-tint flicker over the highlighted
+    // bytes to spot writes. Clear empties highlights + input.
+    ImGui::SetNextItemWidth(220.0f);
+    const bool searchRequested = ImGui::InputText("Search hex",
+        m_searchInput, sizeof(m_searchInput),
+        ImGuiInputTextFlags_EnterReturnsTrue);
+    ImGui::SameLine();
+    const bool searchClicked = ImGui::Button("Search");
+    ImGui::SameLine();
+    if (ImGui::Button("Clear"))
+    {
+        m_searchInput[0] = 0;
+        m_searchPattern.clear();
+        std::memset(m_highlight, 0, sizeof(m_highlight));
+        m_matchCount = 0;
+    }
+    if (m_matchCount > 0)
+    {
+        ImGui::SameLine();
+        ImGui::Text("(%d matches)", m_matchCount);
+    }
+
+    if (searchRequested || searchClicked)
+    {
+        // Parse: keep hex digits, drop everything else. Pair them up
+        // into bytes; an odd trailing nibble is dropped.
+        m_searchPattern.clear();
+        int hi = -1;
+        for (const char* p = m_searchInput; *p; ++p)
+        {
+            const char c = *p;
+            int n = -1;
+            if (c >= '0' && c <= '9') n = c - '0';
+            else if (c >= 'a' && c <= 'f') n = 10 + (c - 'a');
+            else if (c >= 'A' && c <= 'F') n = 10 + (c - 'A');
+            if (n < 0) continue;
+            if (hi < 0) hi = n;
+            else { m_searchPattern.push_back((uint8_t)((hi << 4) | n)); hi = -1; }
+        }
+
+        std::memset(m_highlight, 0, sizeof(m_highlight));
+        m_matchCount = 0;
+        if (!m_searchPattern.empty())
+        {
+            for (int b = 0; b < 2; ++b)
+            {
+                const uint8_t* bank = reinterpret_cast<const uint8_t*>(
+                    MemGetBankPtr(b == 0 ? 0 : 1));
+                if (!bank) continue;
+                const int last = 0x10000 - (int)m_searchPattern.size();
+                for (int i = 0; i <= last; ++i)
+                {
+                    if (std::memcmp(bank + i, m_searchPattern.data(),
+                                    m_searchPattern.size()) != 0) continue;
+                    for (size_t k = 0; k < m_searchPattern.size(); ++k)
+                        m_highlight[b][i + (int)k] = true;
+                    if (b == m_bank) ++m_matchCount;   // count only active bank
+                }
+            }
+        }
+    }
 
     ImGui::Separator();
 
@@ -97,6 +162,10 @@ void MemoryViewerPanel::Render()
                       1.0f);
     };
 
+    const ImU32 hiBg = IM_COL32(255, 200, 0, 230);   // bright saturated yellow
+    const bool* hilight = m_highlight[m_bank];
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+
     ImGuiListClipper clipper;
     clipper.Begin(0x10000 / 16);
     while (clipper.Step())
@@ -110,6 +179,12 @@ void MemoryViewerPanel::Render()
                 ImGui::SameLine(0.0f, 4.0f);
                 const uint8_t b = bank[addr + i];
                 const ImVec4 c = colorAt(addr + i);
+                if (hilight[addr + i])
+                {
+                    const ImVec2 p = ImGui::GetCursorScreenPos();
+                    const ImVec2 sz = ImGui::CalcTextSize("FF");
+                    dl->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), hiBg);
+                }
                 ImGui::TextColored(c, "%02X", b);
             }
 

@@ -49,6 +49,14 @@ bool LoadNoxConstants(const std::filesystem::path& assetsDir,
     cpuconstants.A_PRINT_RIGHT        = u("A_PRINT_RIGHT");
     cpuconstants.PC_INITIATE_COMBAT   = u("PC_INITIATE_COMBAT");
     cpuconstants.PC_END_COMBAT        = u("PC_END_COMBAT");
+
+    // Reset the combat-state flag every time we (re)load constants —
+    // an HDV swap or app start should always begin in the
+    // "not in combat" state. Without this reset, if Nox's boot path
+    // touches PC_INITIATE_COMBAT during init the flag latches true
+    // and the automap stays paused until the player completes their
+    // first real combat (which is when PC_END_COMBAT finally fires).
+    g_noxInCombat = false;
     return true;
 }
 
