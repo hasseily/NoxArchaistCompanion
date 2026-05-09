@@ -29,7 +29,7 @@ NoxArchaistCompanion/
 │   ├── Frame.{cpp,h}               minimal FrameBase: ROM loading, AudioOutput::Create
 │   ├── AudioOutput.{cpp,h}         SDL3 audio backend extending LinuxSoundBuffer
 │   ├── Sidebar.{cpp,h}             JSON profile loader + ImGui sidebar windows
-│   ├── NoxHacks.{cpp,h}            CombatLogPanel + HackPanel + LoadNoxConstants
+│   ├── NoxHacks.{cpp,h}            ConversationLogPanel + HackPanel + LoadNoxConstants
 │   ├── RemoteInput.{cpp,h}         Grid Cartographer DIK keypresses → //e keyboard latch
 │   └── PropertySheet.h             all-defaults IPropertySheet stub
 └── NoxArchaistCompanion/

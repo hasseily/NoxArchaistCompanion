@@ -49,107 +49,155 @@ bool LoadNoxConstants(const std::filesystem::path& assetsDir,
     cpuconstants.A_PRINT_RIGHT        = u("A_PRINT_RIGHT");
     cpuconstants.PC_INITIATE_COMBAT   = u("PC_INITIATE_COMBAT");
     cpuconstants.PC_END_COMBAT        = u("PC_END_COMBAT");
-
-    // Reset the combat-state flag every time we (re)load constants —
-    // an HDV swap or app start should always begin in the
-    // "not in combat" state. Without this reset, if Nox's boot path
-    // touches PC_INITIATE_COMBAT during init the flag latches true
-    // and the automap stays paused until the player completes their
-    // first real combat (which is when PC_END_COMBAT finally fires).
-    g_noxInCombat = false;
     return true;
 }
 
 // ---------------------------------------------------------------------------
-// CombatLogPanel
+// ConversationLogPanel
 // ---------------------------------------------------------------------------
 
-namespace { CombatLogPanel* s_combatLog = nullptr; }
+namespace { ConversationLogPanel* s_conversationLog = nullptr; }
 
-static void CombatLogTrampoline(char ch, bool flush)
+static void ConversationLogTrampoline(char ch, bool flush)
 {
-    if (s_combatLog) s_combatLog->Append(ch, flush);
+    if (s_conversationLog) s_conversationLog->Append(ch, flush);
 }
 
-CombatLogPanel::CombatLogPanel()
+ConversationLogPanel::ConversationLogPanel()
 {
-    s_combatLog = this;
-    g_noxLogCallback = &CombatLogTrampoline;
+    s_conversationLog = this;
+    g_noxLogCallback = &ConversationLogTrampoline;
     g_noxLogIncludeCombat = false;
 }
 
-void CombatLogPanel::ApplyIncludeCombat()
+void ConversationLogPanel::ApplyIncludeCombat()
 {
     g_noxLogIncludeCombat = m_includeCombat;
 }
 
-void CombatLogPanel::Append(char ch, bool /*flush*/)
+void ConversationLogPanel::Append(char ch, bool flush)
 {
     // Cap the buffer so a long session doesn't eat all our RAM. Drop the
     // first ~25% in one go when we hit 64 KiB so we don't realloc per char.
     if (m_buf.size() > 64 * 1024)
         m_buf.erase(0, 16 * 1024);
 
-    // Apple //e text uses CR; normalise so all our newline logic only
-    // has to deal with '\n'.
-    if (ch == '\r') ch = '\n';
-
-    // Defer the break we'd insert after a sentence-end ('.' / '!' / '?')
-    // when the *next* character is a closing '"' — keeps `."` glued
-    // together instead of splitting into `.\n"`.
-    const bool isSentenceEnd = (ch == '.' || ch == '!' || ch == '?');
-    if (m_pendingBreak && !isSentenceEnd && ch != '"')
+    // The trap distinguishes its own paragraph-break sentinels
+    // (flush=true, ch='\n' — fired between PRINTSTR calls and at
+    // combat-mode line endings) from raw COUT characters
+    // (flush=false). The former become real newlines; the latter
+    // include Nox's per-line CRs from word-wrapping into the narrow
+    // right-scroll panel, which we want to collapse to spaces so the
+    // captured text reflows as a paragraph in our wider log window.
+    if (flush)
     {
-        m_buf.push_back('\n');
-        m_pendingBreak = false;
-    }
-
-    // Skip whitespace right after a newline so the eaten-space from a
-    // sentence-end break (or any pre-existing newline) doesn't leave a
-    // leading space at the start of the next line.
-    if (ch == ' ' && !m_buf.empty() && m_buf.back() == '\n')
-        return;
-
-    // Collapse runs of newlines down to at most one blank line so the
-    // PRINTSTR-boundary flush + the heuristic don't compound.
-    if (ch == '\n')
-    {
+        if (m_buf.empty()) return;
         const size_t n = m_buf.size();
         if (n >= 2 && m_buf[n - 1] == '\n' && m_buf[n - 2] == '\n') return;
         m_buf.push_back('\n');
-        m_pendingBreak = false;
         return;
     }
 
+    if (ch == '\r' || ch == '\n')
+    {
+        if (m_buf.empty()) return;
+        const char back = m_buf.back();
+        if (back == ' ' || back == '\n') return;
+        m_buf.push_back(' ');
+        return;
+    }
+
+    // Eat leading spaces after a real newline (otherwise Nox's
+    // per-line indentation prefix shows up at the start of every
+    // paragraph).
+    if (ch == ' ' && !m_buf.empty() && m_buf.back() == '\n')
+        return;
+
     m_buf.push_back(ch);
 
-    if (isSentenceEnd)
+    // Visual break after Nox's "<Press a key>" prompt — it ends a
+    // narrative beat and the next block reads better on its own line.
+    static constexpr char kPrompt[]   = "<Press a key>";
+    static constexpr size_t kPromptN  = sizeof(kPrompt) - 1;
+    if (m_buf.size() >= kPromptN &&
+        std::memcmp(m_buf.data() + m_buf.size() - kPromptN,
+                    kPrompt, kPromptN) == 0)
     {
-        m_pendingBreak = true;
-    }
-    else if (ch == '"' && m_pendingBreak)
-    {
-        // Closing quote glued to a sentence end (`."`, `?"`, `!"`) — break
-        // *after* the quote so the punctuation stays with the sentence.
         m_buf.push_back('\n');
-        m_pendingBreak = false;
-    }
-    else if (ch == '>')
-    {
-        // Nox prompt char — paragraph break so each player exchange is
-        // visually separated from the next.
-        m_buf.push_back('\n');
-        m_buf.push_back('\n');
-        m_pendingBreak = false;
     }
 }
 
-void CombatLogPanel::Render()
+namespace
+{
+struct LogScrollState { bool wantTail; };
+int LogInputCallback(ImGuiInputTextCallbackData* data)
+{
+    if (data->EventFlag & ImGuiInputTextFlags_CallbackAlways)
+    {
+        auto* st = static_cast<LogScrollState*>(data->UserData);
+        if (st && st->wantTail)
+            data->CursorPos = data->BufTextLen;   // jump cursor → InputText scrolls it into view
+    }
+    return 0;
+}
+}
+
+void ConversationLogPanel::RebuildWrappedBuffer(float wrapWidth)
+{
+    m_wrappedBuf.clear();
+    m_wrappedWidth  = wrapWidth;
+    m_wrappedBufLen = m_buf.size();
+    if (m_buf.empty()) return;
+
+    ImFont* font = ImGui::GetFont();
+    if (!font || wrapWidth <= 1.0f)
+    {
+        m_wrappedBuf = m_buf;
+        return;
+    }
+    const float scale = ImGui::GetFontSize() / font->FontSize;
+    m_wrappedBuf.reserve(m_buf.size() + m_buf.size() / 16);
+
+    const char* p   = m_buf.data();
+    const char* end = p + m_buf.size();
+    while (p < end)
+    {
+        const char* lineEnd =
+            static_cast<const char*>(std::memchr(p, '\n', end - p));
+        if (!lineEnd) lineEnd = end;
+
+        if (p == lineEnd)
+        {
+            // Empty source line → preserve as a paragraph break.
+            m_wrappedBuf.push_back('\n');
+        }
+        else
+        {
+            const char* lp = p;
+            while (lp < lineEnd)
+            {
+                const char* wrap = font->CalcWordWrapPositionA(
+                    scale, lp, lineEnd, wrapWidth);
+                if (wrap <= lp)   wrap = lp + 1;       // ensure progress
+                if (wrap > lineEnd) wrap = lineEnd;
+                m_wrappedBuf.append(lp, wrap - lp);
+                m_wrappedBuf.push_back('\n');
+                lp = wrap;
+                while (lp < lineEnd && *lp == ' ') ++lp;
+            }
+        }
+
+        p = lineEnd;
+        if (p < end) ++p;
+    }
+}
+
+void ConversationLogPanel::Render()
 {
     if (!m_open) return;
 
     ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Nox combat log", &m_open, ImGuiWindowFlags_NoCollapse))
+    if (!ImGui::Begin("Nox conversation log", &m_open, ImGuiWindowFlags_NoCollapse))
     {
         ImGui::End();
         return;
@@ -157,21 +205,56 @@ void CombatLogPanel::Render()
 
     if (ImGui::Button("Clear")) m_buf.clear();
     ImGui::SameLine();
+    if (ImGui::Button("New Paragraph"))
+    {
+        // One blank line between blocks. No-op on empty buffer; collapses
+        // if the previous Append already left a trailing newline.
+        if (!m_buf.empty())
+        {
+            if (m_buf.back() != '\n') m_buf.push_back('\n');
+            m_buf.push_back('\n');
+        }
+    }
+    ImGui::SameLine();
     ImGui::Checkbox("Auto-scroll", &m_autoScroll);
     ImGui::SameLine();
     if (ImGui::Checkbox("Include combat", &m_includeCombat))
         g_noxLogIncludeCombat = m_includeCombat;
 
     ImGui::Separator();
-    ImGui::BeginChild("##noxlog", ImVec2(0, 0), false);
-    // Wrap to the child's right edge so long Nox lines (which have no
-    // word breaks of their own) fit without forcing a horizontal scroll.
-    ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
-    ImGui::TextUnformatted(m_buf.data(), m_buf.data() + m_buf.size());
-    ImGui::PopTextWrapPos();
-    if (m_autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
-        ImGui::SetScrollHereY(1.0f);
-    ImGui::EndChild();
+
+    // Read-only multiline input gives native selection, Ctrl+C, and a
+    // built-in scrollbar — TextUnformatted in a child window can't
+    // select across lines. The input doesn't word-wrap on its own, so
+    // we feed it m_wrappedBuf (m_buf with hard newlines inserted at
+    // the input's content-width boundaries). Rebuilt on width or
+    // content change.
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float wrapWidth = (std::max)(
+        16.0f,
+        ImGui::GetContentRegionAvail().x
+            - style.ScrollbarSize
+            - style.FramePadding.x * 2.0f
+            - 4.0f);   // a few pixels of safety so we never trigger an h-scrollbar
+    if (m_wrappedBufLen != m_buf.size() || m_wrappedWidth != wrapWidth)
+        RebuildWrappedBuffer(wrapWidth);
+
+    LogScrollState st{ m_autoScroll && !m_logFocused };
+    constexpr ImGuiInputTextFlags kFlags =
+        ImGuiInputTextFlags_ReadOnly |
+        ImGuiInputTextFlags_CallbackAlways |
+        ImGuiInputTextFlags_NoUndoRedo |
+        ImGuiInputTextFlags_NoHorizontalScroll;
+    // m_wrappedBuf.data() is mutable (C++17) and NUL-terminated past
+    // size(); ImGui won't write through it (ReadOnly).
+    ImGui::InputTextMultiline("##noxlog",
+                              m_wrappedBuf.data(),
+                              m_wrappedBuf.size() + 1,
+                              ImVec2(-FLT_MIN, -FLT_MIN),
+                              kFlags,
+                              &LogInputCallback,
+                              &st);
+    m_logFocused = ImGui::IsItemFocused();
 
     ImGui::End();
 }

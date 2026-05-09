@@ -116,7 +116,6 @@ NoxLogCallbackFn    g_noxLogCallback    = nullptr;
 NoxSampleCallbackFn g_noxSampleCallback = nullptr;
 NoxKbdReadCallbackFn g_noxKbdReadCallback = nullptr;
 bool                g_noxLogIncludeCombat = false;
-bool                g_noxInCombat   = false;
 static bool         g_noxInPrintRight = false;
 
 regsrec regs;
@@ -299,11 +298,18 @@ static void DebugHddEntrypoint(const USHORT PC)
 }
 #endif
 
-// Nox Archaist combat-log trap: fires from each Fetch when a frontend
-// has installed g_noxLogCallback and populated cpuconstants. Watches the
-// PC for Nox's PRINTSTR / COUT / CARRIAGE_RETURN entry points and ferries
-// printed characters out to the frontend. Tiny enough to inline; bails
-// fast when the callback isn't installed.
+// Nox Archaist conversation-log trap: fires from each Fetch when a
+// frontend has installed g_noxLogCallback and populated cpuconstants.
+// Watches the PC for Nox's PRINTSTR / COUT / CARRIAGE_RETURN entry
+// points and ferries printed characters out to the frontend. Tiny
+// enough to inline; bails fast when the callback isn't installed.
+//
+// "Are we in combat" is decided by the map-type byte at main $267D
+// ($FF = combat). PC_INITIATE_COMBAT / PC_END_COMBAT are unreliable —
+// PC_INITIATE_COMBAT fires for non-combat prompts and PC_END_COMBAT
+// doesn't always pair, leaving any boolean we'd toggle on those PCs
+// stuck. The map-type byte is what Nox itself reads to know which
+// renderer is active and is what the rest of NAC trusts.
 static __forceinline void NoxFetchTrap(USHORT PC)
 {
 	if (cpuconstants.PC_PRINTSTR == 0)
@@ -320,22 +326,18 @@ static __forceinline void NoxFetchTrap(USHORT PC)
 	if (!g_noxLogCallback)
 		return;
 
-	if (PC == cpuconstants.PC_INITIATE_COMBAT) g_noxInCombat = true;
-	if (PC == cpuconstants.PC_END_COMBAT)      g_noxInCombat = false;
+	const bool inCombat = (mem != nullptr) && (mem[0x267D] == 0xFF);
 
 	if (PC == cpuconstants.PC_PRINTSTR)
 	{
-		// Each PRINTSTR begins a new block. Close the previous one with
-		// a newline so consecutive right-panel sessions don't run into
-		// each other in the log.
-		if (g_noxInPrintRight)
-			g_noxLogCallback('\n', true);
-		g_noxInPrintRight = false;
-		if (regs.a == cpuconstants.A_PRINT_RIGHT &&
-		    (!g_noxInCombat || g_noxLogIncludeCombat))
-		{
-			g_noxInPrintRight = true;
-		}
+		// Don't inject a newline between PRINTSTR calls — Nox calls
+		// PRINTSTR per word (one call per column-wrapped token in the
+		// narrow right scroll panel), so a per-PRINTSTR break puts
+		// every word on its own line. The frontend collapses Nox's
+		// own CRs into spaces, which is the right joiner.
+		g_noxInPrintRight =
+		    (regs.a == cpuconstants.A_PRINT_RIGHT) &&
+		    (!inCombat || g_noxLogIncludeCombat);
 	}
 
 	if (g_noxInPrintRight && PC == cpuconstants.PC_COUT)
@@ -343,7 +345,7 @@ static __forceinline void NoxFetchTrap(USHORT PC)
 		// Nox stores ASCII with the high bit set; strip for the log.
 		g_noxLogCallback((char)(regs.a & 0x7F), false);
 	}
-	if (g_noxInPrintRight && g_noxInCombat &&
+	if (g_noxInPrintRight && inCombat &&
 	    (PC == cpuconstants.PC_CARRIAGE_RETURN1 || PC == cpuconstants.PC_CARRIAGE_RETURN2))
 	{
 		g_noxLogCallback('\n', true);

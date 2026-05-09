@@ -16,14 +16,15 @@ bool LoadNoxConstants(const std::filesystem::path& assetsDir,
 
 // ImGui panels — one window each, toggled from the main menu bar.
 
-// "Nox combat log": appends each character the game's PRINT routines
-// emit to the right scroll panel (conversations) into a scrolling text
-// buffer. Lines from inside combat are gated on the Include-combat
-// checkbox.
-class CombatLogPanel
+// "Nox conversation log": appends each character the game's PRINT
+// routines emit to the right scroll panel (NPC conversations,
+// look-at descriptions, etc.) into a scrolling text buffer. Combat
+// text is gated separately by the Include-combat checkbox — without
+// it, only out-of-combat output is captured.
+class ConversationLogPanel
 {
 public:
-    CombatLogPanel();
+    ConversationLogPanel();
 
     bool* OpenFlag()       { return &m_open; }
     void  Render();
@@ -39,11 +40,23 @@ public:
     void  ApplyIncludeCombat();   // re-syncs g_noxLogIncludeCombat after load
 
 private:
+    void RebuildWrappedBuffer(float wrapWidth);
+
     bool        m_open       = false;
     bool        m_autoScroll = true;
     bool        m_includeCombat = false;
-    bool        m_pendingBreak = false;   // sentence-break heuristic state
+    bool        m_logFocused = false;   // suppresses auto-scroll while user is selecting
     std::string m_buf;
+
+    // m_buf is the raw text from the trap (Nox CRs already collapsed
+    // to spaces). m_wrappedBuf is the same content with hard newlines
+    // inserted at the InputTextMultiline's content-width boundaries —
+    // the input doesn't word-wrap natively, so we pre-wrap and feed
+    // the wrapped form to it. Rebuilt only when the source content or
+    // the current wrap width changes.
+    std::string m_wrappedBuf;
+    float       m_wrappedWidth   = 0.0f;
+    size_t      m_wrappedBufLen  = 0;
 };
 
 // "Nox hack": peek/poke party stats via cpuconstants offsets. Provides

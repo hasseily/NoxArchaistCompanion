@@ -124,7 +124,7 @@ struct AppState
     nac::TemplateRegistry templates;
     std::vector<std::unique_ptr<nac::TemplateInstance>> instances;
     int                   nextInstanceId = 1;
-    nac::CombatLogPanel   combatLog;        // installs the Fetch-trap callback
+    nac::ConversationLogPanel conversationLog; // installs the Fetch-trap callback
     nac::HackPanel        hackPanel;
     nac::MapTranslator    mapTranslator;
     nac::MapData          mapData;
@@ -197,9 +197,9 @@ void SaveSettings(const AppState& s)
     j["vol_speaker"]         = s.vol_speaker;
     j["vol_mb"]              = s.vol_mb;
     j["hdv_path"]            = s.hdv_path.string();
-    j["combat_log_open"] = const_cast<nac::CombatLogPanel&>(s.combatLog).OpenRef();
-    j["combat_log_auto_scroll"]    = const_cast<nac::CombatLogPanel&>(s.combatLog).AutoScrollRef();
-    j["combat_log_include_combat"] = const_cast<nac::CombatLogPanel&>(s.combatLog).IncludeCombatRef();
+    j["conversation_log_open"] = const_cast<nac::ConversationLogPanel&>(s.conversationLog).OpenRef();
+    j["conversation_log_auto_scroll"]    = const_cast<nac::ConversationLogPanel&>(s.conversationLog).AutoScrollRef();
+    j["conversation_log_include_combat"] = const_cast<nac::ConversationLogPanel&>(s.conversationLog).IncludeCombatRef();
     j["hack_open"]       = const_cast<nac::HackPanel&>(s.hackPanel).OpenRef();
     j["hack_hex"]        = const_cast<nac::HackPanel&>(s.hackPanel).HexRef();
     j["hack_poke_addr"]  = const_cast<nac::HackPanel&>(s.hackPanel).PokeAddrRef();
@@ -267,10 +267,10 @@ void LoadSettings(AppState& s)
         const std::string lastHdv = j.value("hdv_path", std::string{});
         if (s.hdv_path.empty() && !lastHdv.empty() && std::filesystem::exists(lastHdv))
             s.hdv_path = lastHdv;
-        s.combatLog.OpenRef()           = j.value("combat_log_open", false);
-        s.combatLog.AutoScrollRef()     = j.value("combat_log_auto_scroll", true);
-        s.combatLog.IncludeCombatRef()  = j.value("combat_log_include_combat", false);
-        s.combatLog.ApplyIncludeCombat();
+        s.conversationLog.OpenRef()          = j.value("conversation_log_open", false);
+        s.conversationLog.AutoScrollRef()    = j.value("conversation_log_auto_scroll", true);
+        s.conversationLog.IncludeCombatRef() = j.value("conversation_log_include_combat", false);
+        s.conversationLog.ApplyIncludeCombat();
         s.hackPanel.OpenRef()      = j.value("hack_open", false);
         s.hackPanel.HexRef()       = j.value("hack_hex",  false);
         s.hackPanel.PokeAddrRef()  = j.value("hack_poke_addr", 0x6CEC);
@@ -465,7 +465,7 @@ void ResetLayout(AppState& s)
     s.fullscreen = false;
     s.instances.clear();
     s.apple_open = true;
-    s.combatLog.OpenRef()  = false;
+    s.conversationLog.OpenRef() = false;
     s.hackPanel.OpenRef()  = false;
     s.mapPanel.OpenRef()   = false;
     sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen = false;
@@ -1065,7 +1065,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                 ResetLayout(*state);
             ImGui::Separator();
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
-            ImGui::MenuItem("Combat log", nullptr, state->combatLog.OpenFlag());
+            ImGui::MenuItem("Conversation log", nullptr, state->conversationLog.OpenFlag());
             ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
             ImGui::MenuItem("Map", nullptr, state->mapPanel.OpenFlag());
             ImGui::MenuItem("Memory", nullptr, state->memoryViewer.OpenFlag());
@@ -1192,7 +1192,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                        }),
         state->instances.end());
 
-    state->combatLog.Render();
+    state->conversationLog.Render();
     state->hackPanel.Render();
     state->mapPanel.Render(state->mapTranslator, state->mapData,
                            state->tileset, state->tileMap);

@@ -2,7 +2,7 @@
 
 #include "Map.h"
 
-#include "Emulator/CPU.h"     // g_noxInCombat
+#include "Emulator/CPU.h"     // cpuconstants
 #include "Emulator/Memory.h"
 #include "RamSnapshot.h"
 
