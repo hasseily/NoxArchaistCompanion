@@ -597,6 +597,16 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     else
     {
         loc = tx.Resolve(mapID, xpos, ypos);
+        // Use the raw RAM bytes for the player tile, not the resolver's
+        // dx/dy-adjusted output. The packetview <move> offsets in GC's
+        // profile are used for GC's combined-floor display, but each
+        // per-floor PNG we export already lays out its own coordinate
+        // system 1:1 with Nox's raw xpos/ypos.
+        if (loc)
+        {
+            loc->x = ypos;
+            loc->y = xpos;
+        }
     }
     if (!loc)
     {
