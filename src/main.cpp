@@ -477,13 +477,15 @@ void InitEmulator(const std::filesystem::path& hdvPath)
     // MODE_RUNNING before any CpuExecute call.
     g_nAppMode = MODE_RUNNING;
 
-    // Snapshot RAM at every PC_PRINTSTR — Nox's print routine runs
-    // after the display fields ($6CED xpos in particular) have just
-    // been updated, so this picks up the fresh value before the next
-    // SDL_AppIterate's tail snapshot would. Per-iterate snapshot
-    // remains as the catch-all for state that updates outside any
-    // print path.
-    g_noxSampleCallback = &nac::TakeRamSnapshot;
+    // Snapshot RAM the moment the CPU reads $C000 (the keyboard
+    // latch). Nox polls $C000 once per game tick (and tightly while
+    // waiting for input), so by then it's done writing the per-tick
+    // state — visible-tile buffer at $0800, visibility mask at
+    // $08BB, party stats, xpos / ypos. Sampling at PC_PRINTSTR
+    // wasn't reliable for the visibility mask: it gets briefly
+    // cleared during the tick, which our snapshot caught and broke
+    // the fog-of-war reveal.
+    g_noxKbdReadCallback = &nac::TakeRamSnapshot;
 
     // SDL3 audio: Frame::CreateSoundBuffer hands back an AudioOutput
     // (LinuxSoundBuffer + SDL_AudioStream on the default playback device).
@@ -914,16 +916,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
             g_dwCyclesThisFrame = (g_dwCyclesThisFrame + executed) % cyclesPerFrame;
         } while (totalExecuted < cycles);
-
-        // Latch the //e's main + aux banks for panel reads. Done after
-        // the CPU has run for this iterate so any state Nox just wrote
-        // (xpos/ypos as the player walks, party stats, sidebar text)
-        // is captured. The internal BackMainImage flush in
-        // MemGetBankPtr makes this safe regardless of where the CPU is
-        // mid-instruction. With raw-bank reads (no memshadow) the
-        // page-flipping flicker on hires-affected pages is also gone,
-        // so we don't need a tighter Nox-PC gate to stay stable.
-        nac::TakeRamSnapshot();
 
         GetFrame().VideoRedrawScreen();
     }

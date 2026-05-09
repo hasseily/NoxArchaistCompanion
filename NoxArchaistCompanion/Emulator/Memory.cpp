@@ -561,6 +561,10 @@ uint8_t ReadByteFromROM(uint16_t addr)
 
 static BYTE __stdcall IORead_C00x(WORD pc, WORD addr, BYTE bWrite, BYTE d, ULONG nExecutedCycles)
 {
+	// NAC frontend snapshot trigger — see CPU.h NoxKbdReadCallbackFn.
+	// Fires on every $C00x read (Nox polls $C000 specifically). Cheap
+	// no-op when the frontend hasn't installed a callback.
+	if (g_noxKbdReadCallback) g_noxKbdReadCallback();
 	return KeybReadData();
 }
 

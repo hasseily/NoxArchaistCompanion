@@ -42,6 +42,16 @@ extern bool g_noxLogIncludeCombat;
 typedef void (*NoxSampleCallbackFn)(void);
 extern NoxSampleCallbackFn g_noxSampleCallback;
 
+// Optional frontend callback fired every time the CPU reads the
+// keyboard latch at $C000. Nox checks the keyboard once per game tick
+// (and tightly polls in "press any key" loops), so this is a clean
+// signal that the game has just settled all its per-tick writes —
+// $0800 visible-tile buffer, $08BB visibility mask, party state,
+// xpos/ypos, etc. — and is now waiting for input. Frontends use this
+// as the "snapshot RAM" trigger.
+typedef void (*NoxKbdReadCallbackFn)(void);
+extern NoxKbdReadCallbackFn g_noxKbdReadCallback;
+
 struct regsrec
 {
   BYTE a;   // accumulator

@@ -114,6 +114,7 @@ noxcpuconstants cpuconstants;
 
 NoxLogCallbackFn    g_noxLogCallback    = nullptr;
 NoxSampleCallbackFn g_noxSampleCallback = nullptr;
+NoxKbdReadCallbackFn g_noxKbdReadCallback = nullptr;
 bool                g_noxLogIncludeCombat = false;
 static bool         g_noxInCombat   = false;
 static bool         g_noxInPrintRight = false;
