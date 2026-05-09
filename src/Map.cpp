@@ -244,9 +244,9 @@ void MapData::Load(const std::filesystem::path& assetsDir)
         m_index[{r.region_id, r.floor}] = r;
     }
 
-    // Load floors_meta.json (per-floor render insets etc.). Optional —
-    // missing or malformed file yields all-zero metas, which the panel
-    // can then edit and Save back.
+    // Load floors_meta.json. Two array layouts supported:
+    //   [l, t, r, b]                  — old, marker offsets default to 0
+    //   [l, t, r, b, mdx, mdy]        — current
     m_metaPath = assetsDir / "maps" / "floors_meta.json";
     if (std::filesystem::exists(m_metaPath))
     {
@@ -256,7 +256,7 @@ void MapData::Load(const std::filesystem::path& assetsDir)
             nlohmann::json j; f >> j;
             for (auto it = j.begin(); it != j.end(); ++it)
             {
-                if (!it.value().is_array() || it.value().size() != 4) continue;
+                if (!it.value().is_array() || it.value().size() < 4) continue;
                 const std::string& key = it.key();
                 const auto slash = key.find('/');
                 if (slash == std::string::npos) continue;
@@ -267,6 +267,11 @@ void MapData::Load(const std::filesystem::path& assetsDir)
                 m.inset_t = it.value()[1].get<int>();
                 m.inset_r = it.value()[2].get<int>();
                 m.inset_b = it.value()[3].get<int>();
+                if (it.value().size() >= 6)
+                {
+                    m.marker_dx = it.value()[4].get<int>();
+                    m.marker_dy = it.value()[5].get<int>();
+                }
                 m_meta[{rid, fl}] = m;
             }
         }
@@ -301,12 +306,12 @@ void MapData::SaveMeta() const
     nlohmann::json j = nlohmann::json::object();
     for (const auto& [k, m] : m_meta)
     {
-        // Skip rows that are still all-zero — keeps the file lean
-        // and matches the load-side default.
-        if (m.inset_l == 0 && m.inset_t == 0 && m.inset_r == 0 && m.inset_b == 0)
+        if (m.inset_l == 0 && m.inset_t == 0 && m.inset_r == 0 && m.inset_b == 0
+            && m.marker_dx == 0 && m.marker_dy == 0)
             continue;
         const std::string key = std::to_string(k.first) + "/" + k.second;
-        j[key] = nlohmann::json::array({m.inset_l, m.inset_t, m.inset_r, m.inset_b});
+        j[key] = nlohmann::json::array({m.inset_l, m.inset_t, m.inset_r, m.inset_b,
+                                        m.marker_dx, m.marker_dy});
     }
     try
     {
@@ -656,7 +661,7 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     // in pixels in floors_meta.json so the runtime math doesn't have
     // to care about the unit.
     FloorMeta& meta = md.Meta(loc->region, loc->floor);
-    if (ImGui::CollapsingHeader("Insets (current floor, tiles)"))
+    if (ImGui::CollapsingHeader("Insets / marker (current floor)"))
     {
         constexpr int kPx = 32;
         const int maxTiles = img.width ? (img.width / kPx) / 2 : 8;
@@ -664,15 +669,22 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
         int t = meta.inset_t / kPx;
         int r = meta.inset_r / kPx;
         int b = meta.inset_b / kPx;
-        ImGui::SliderInt("Left",   &l, 0, maxTiles);
-        ImGui::SliderInt("Top",    &t, 0, maxTiles);
-        ImGui::SliderInt("Right",  &r, 0, maxTiles);
-        ImGui::SliderInt("Bottom", &b, 0, maxTiles);
+        ImGui::SliderInt("Left  (tiles)",   &l, 0, maxTiles);
+        ImGui::SliderInt("Top   (tiles)",   &t, 0, maxTiles);
+        ImGui::SliderInt("Right (tiles)",   &r, 0, maxTiles);
+        ImGui::SliderInt("Bottom (tiles)",  &b, 0, maxTiles);
         meta.inset_l = l * kPx;
         meta.inset_t = t * kPx;
         meta.inset_r = r * kPx;
         meta.inset_b = b * kPx;
-        if (ImGui::Button("Save insets")) md.SaveMeta();
+
+        // Sub-tile marker nudge — half-tile increments are the most we
+        // typically need to reconcile a Nox-vs-PNG corner-vs-centre
+        // convention drift on a particular floor.
+        ImGui::SliderInt("Marker dX (px)", &meta.marker_dx, -kPx, kPx);
+        ImGui::SliderInt("Marker dY (px)", &meta.marker_dy, -kPx, kPx);
+
+        if (ImGui::Button("Save")) md.SaveMeta();
     }
 
     ImGui::BeginChild("##map_canvas", ImVec2(0, 0),
@@ -694,15 +706,16 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
 
         ImDrawList* dl = ImGui::GetWindowDrawList();
 
-        // The playable tile area lives inside the PNG with a per-floor
-        // border (chrome from GC's export — axis labels, title bar,
-        // etc.). Subtract the inset rect from the PNG's pixel size to
-        // get the tile-area pixel rect, then map full-region tile
-        // coords to that rect.
-        const float innerW = (float)((std::max)(1, img.width  - meta.inset_l - meta.inset_r));
-        const float innerH = (float)((std::max)(1, img.height - meta.inset_t - meta.inset_b));
-        const float pxPerTileX = innerW / (float)regionW;
-        const float pxPerTileY = innerH / (float)regionH;
+        // Cropped PNGs are exactly tile-aligned at 32 px / tile in
+        // both axes, so we use a fixed scale and just slide the origin
+        // by the inset rect. This way an inset slider step of 1 tile
+        // moves the marker by exactly 32 × s_zoom px (the previous
+        // formula divided innerW by regionW, so insets also shrank
+        // pxPerTile slightly and the marker drifted off integer tile
+        // boundaries).
+        constexpr float kTilePx = 32.0f;
+        const float pxPerTileX = kTilePx;
+        const float pxPerTileY = kTilePx;
         const float ox = origin.x + meta.inset_l * s_zoom;
         const float oy = origin.y + meta.inset_t * s_zoom;
         const ImU32 fogCol = IM_COL32(20, 20, 24, 255);
@@ -722,24 +735,23 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
             }
         }
 
-        // Player marker. Y coordinate doesn't get the +0.5 tile-centre
-        // shift X uses — Nox's Y aligns to the top edge of each tile
-        // row, not the centre, so adding the half-tile pushes the
-        // marker between two rows on the avatar's actual cell.
+        // Player marker — both axes centred in the tile (+0.5) so the
+        // dot sits dead-centre on the avatar's cell, plus the per-floor
+        // marker_dx/dy nudge for any residual Nox-vs-PNG convention
+        // drift.
         if (loc->x >= 0 && loc->x < regionW &&
             loc->y >= 0 && loc->y < regionH)
         {
-            const float ax = (loc->x + 0.5f) * pxPerTileX * s_zoom;
-            const float ay = (loc->y       ) * pxPerTileY * s_zoom;
+            const float ax = (loc->x + 0.5f) * pxPerTileX * s_zoom + meta.marker_dx * s_zoom;
+            const float ay = (loc->y + 0.5f) * pxPerTileY * s_zoom + meta.marker_dy * s_zoom;
             const ImVec2 c(ox + ax, oy + ay);
             const float r = (std::max)(3.0f, pxPerTileX * s_zoom * 0.45f);
             dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
             dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
 
-            // Auto-centre the canvas on the avatar each frame. Compute
-            // scroll positions so the marker's canvas-relative pixel
-            // sits at the middle of the visible region. ImGui clamps
-            // out-of-range scroll values for us.
+            // Auto-centre the canvas on the avatar each frame. ImGui
+            // clamps out-of-range scroll values so we don't pan past
+            // the map edges.
             const ImVec2 avail = ImGui::GetContentRegionAvail();
             const float marker_canvas_x = meta.inset_l * s_zoom + ax;
             const float marker_canvas_y = meta.inset_t * s_zoom + ay;

@@ -68,6 +68,10 @@ struct FloorMeta
     int inset_t = 0;
     int inset_r = 0;
     int inset_b = 0;
+    // Sub-tile marker nudge (px), to compensate for a per-floor Nox
+    // origin convention. Saved in floors_meta.json alongside insets.
+    int marker_dx = 0;
+    int marker_dy = 0;
 };
 
 // Loads Assets/maps/maps.bin (produced by tools/pack_maps.py from
