@@ -700,10 +700,7 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
         return IM_COL32(r, g, b, 255);
     };
 
-    constexpr float kUv = (float)TilesetTexture::kTilePx /
-                          (float)TilesetTexture::kTexPx;
-    const auto tileTexId = static_cast<ImTextureID>((uintptr_t)tileset.Tex());
-
+    (void)tileset;   // atlas path disabled until tiles come from the //e frame
     for (int ty = 0; ty < regionH; ++ty)
     {
         for (int tx = 0; tx < regionW; ++tx)
@@ -712,19 +709,9 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
             if (id == 0) continue;
             const float px0 = origin.x + tx * kTilePx * s_zoom;
             const float py0 = origin.y + ty * kTilePx * s_zoom;
-            const ImVec2 p0(px0, py0);
-            const ImVec2 p1(px0 + kTilePx * s_zoom, py0 + kTilePx * s_zoom);
-            if (tileset.Tex() && tileset.Has(id))
-            {
-                const ImVec2 uv0((id % TilesetTexture::kCols) * kUv,
-                                 (id / TilesetTexture::kCols) * kUv);
-                const ImVec2 uv1(uv0.x + kUv, uv0.y + kUv);
-                dl->AddImage(tileTexId, p0, p1, uv0, uv1);
-            }
-            else
-            {
-                dl->AddRectFilled(p0, p1, colorForTile(id));
-            }
+            dl->AddRectFilled(ImVec2(px0, py0),
+                              ImVec2(px0 + kTilePx * s_zoom, py0 + kTilePx * s_zoom),
+                              colorForTile(id));
         }
     }
 
