@@ -20,6 +20,7 @@
 #include "Templates.h"
 #include "Map.h"
 #include "MemoryViewer.h"
+#include "HGRViewer.h"
 #include "RamSnapshot.h"
 #include "RemoteInput.h"
 #include "NoxHacks.h"
@@ -131,6 +132,7 @@ struct AppState
     nac::TileMap          tileMap;
     nac::MapPanel         mapPanel;
     nac::MemoryViewerPanel memoryViewer;
+    nac::HGRViewerPanel    hgrViewer;
     bool                  gamelink_up      = false;
     bool                  apple_open       = true;
     bool                  pp_enabled       = true;
@@ -1065,6 +1067,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
             ImGui::MenuItem("Map", nullptr, state->mapPanel.OpenFlag());
             ImGui::MenuItem("Memory", nullptr, state->memoryViewer.OpenFlag());
+            ImGui::MenuItem("HGR viewer", nullptr, state->hgrViewer.OpenFlag());
             ImGui::Separator();
             if (ImGui::MenuItem("Post-processor", nullptr, &state->pp_enabled))
                 sa2::PostProcessor::GetInstance()->SetActive(state->pp_enabled);
@@ -1192,6 +1195,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     state->mapPanel.Render(state->mapTranslator, state->mapData,
                            state->tileset, state->tileMap);
     state->memoryViewer.Render();
+    state->hgrViewer.Render();
     state->reset_layout_pending = false;   // single-frame condition consumed
     state->renderer.EndImGui();
 

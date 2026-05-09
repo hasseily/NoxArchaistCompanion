@@ -126,6 +126,7 @@ add_executable(nac WIN32 MACOSX_BUNDLE
     src/NoxHacks.cpp
     src/Map.cpp
     src/MemoryViewer.cpp
+    src/HGRViewer.cpp
     src/RamSnapshot.cpp
     ${GAMELINK_SOURCES}
     $<$<BOOL:${APPLE}>:${NAC_ICON_FILE}>
