@@ -6,7 +6,6 @@
 #include "RamSnapshot.h"
 
 #include <imgui.h>
-#include <stb_image.h>
 #include <glad/glad.h>
 
 #include <algorithm>
@@ -261,84 +260,70 @@ const FloorRecord* MapData::Find(int region_id, const std::string& floor) const
 // TilesetTexture
 // ---------------------------------------------------------------------------
 
-namespace
+void TilesetTexture::EnsureTexture()
 {
-
-std::string FloorFriendly(const std::string& s)
-{
-    if (s == "G")              return "Ground Floor";
-    if (!s.empty() && s[0] == 'F') return "Floor "    + s.substr(1);
-    if (!s.empty() && s[0] == 'B') return "Basement " + s.substr(1);
-    return s;
-}
-
-} // namespace
-
-void TilesetTexture::Build(const std::filesystem::path& assetsDir,
-                           const MapData& maps,
-                           const MapTranslator& tx)
-{
-    // 512×512 RGBA, stride 2048 bytes. Filled with transparent black,
-    // overwritten as we discover each tile id's bitmap. Tiles we never
-    // see remain transparent — the renderer falls back to a colour
-    // for those via TilesetTexture::Has().
-    std::vector<uint8_t> atlas((size_t)kTexPx * kTexPx * 4, 0);
-
-    const auto floorsDir = assetsDir / "maps" / "floors";
-
-    for (const auto& fl : maps.AllFloors(tx))
-    {
-        const FloorRecord* fr = maps.Find(fl.region_id, fl.floor);
-        if (!fr) continue;
-
-        const std::string fname = fl.region_name + "_" + FloorFriendly(fl.floor) + ".png";
-        const auto path = floorsDir / fname;
-        if (!std::filesystem::exists(path)) continue;
-
-        int w = 0, h = 0, ch = 0;
-        unsigned char* png = stbi_load(path.string().c_str(), &w, &h, &ch, 4);
-        if (!png) continue;
-
-        // FloorRecord is (origin_x, origin_y) + (width, height) tiles.
-        // The PNG covers exactly (width × kTilePx) by (height × kTilePx)
-        // px (after the 32-px chrome crop we did earlier). Loop the
-        // tile grid; for any tile id we haven't yet seen, copy its
-        // 32×32 region out of the PNG into the atlas.
-        for (int ty = 0; ty < fr->height; ++ty)
-        {
-            for (int tx = 0; tx < fr->width; ++tx)
-            {
-                const uint8_t id = fr->tiles[ty * fr->width + tx];
-                if (id == 0 || m_has[id]) continue;
-                const int srcX = tx * kTilePx;
-                const int srcY = ty * kTilePx;
-                if (srcX + kTilePx > w || srcY + kTilePx > h) continue;
-                const int dstX = (id % kCols) * kTilePx;
-                const int dstY = (id / kCols) * kTilePx;
-                for (int row = 0; row < kTilePx; ++row)
-                {
-                    const uint8_t* src = png + ((size_t)(srcY + row) * w + srcX) * 4;
-                    uint8_t*       dst = atlas.data() + ((size_t)(dstY + row) * kTexPx + dstX) * 4;
-                    std::memcpy(dst, src, (size_t)kTilePx * 4);
-                }
-                m_has[id] = true;
-            }
-        }
-        stbi_image_free(png);
-    }
-
-    // Upload as one GL texture.
+    if (m_tex) return;
     GLuint tex = 0;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kTexPx, kTexPx, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, atlas.data());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kAtlasW, kAtlasH, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glBindTexture(GL_TEXTURE_2D, 0);
     m_tex = tex;
+}
+
+void TilesetTexture::DecodeTile(uint8_t id, const uint8_t* src)
+{
+    // 16 lines × 2 bytes × 7 pixels each (LSB = leftmost). Bit set →
+    // opaque white, bit clear → transparent. The transparency lets the
+    // dark fog background show through "empty" tile pixels.
+    const int x0 = (id % kCols) * kTileW;
+    const int y0 = (id / kCols) * kTileH;
+    for (int y = 0; y < kTileH; ++y)
+    {
+        const uint8_t b0 = src[y * 2 + 0];
+        const uint8_t b1 = src[y * 2 + 1];
+        uint8_t* dst = m_pixels + ((size_t)(y0 + y) * kAtlasW + x0) * 4;
+        for (int bit = 0; bit < 7; ++bit)
+        {
+            const bool on = (b0 & (1 << bit)) != 0;
+            *dst++ = on ? 0xFF : 0; *dst++ = on ? 0xFF : 0;
+            *dst++ = on ? 0xFF : 0; *dst++ = on ? 0xFF : 0;
+        }
+        for (int bit = 0; bit < 7; ++bit)
+        {
+            const bool on = (b1 & (1 << bit)) != 0;
+            *dst++ = on ? 0xFF : 0; *dst++ = on ? 0xFF : 0;
+            *dst++ = on ? 0xFF : 0; *dst++ = on ? 0xFF : 0;
+        }
+    }
+    m_has[id] = true;
+}
+
+void TilesetTexture::Refresh()
+{
+    if (!g_ramSnapshot.valid) return;
+    EnsureTexture();
+
+    // Static tiles: $7000 + N * $20 for N in 0..$7F.
+    for (int id = 0; id <= 0x7F; ++id)
+        DecodeTile((uint8_t)id, &g_ramSnapshot.aux[0x7000 + id * 0x20]);
+
+    // Animated tiles: $8000 + (N - $80) * $80 for N in $80..$FF, each
+    // 128 bytes laid out as 4 × 32-byte frames. Decode frame 0 only —
+    // animation cycling is a TODO once we know how Nox tracks the
+    // current frame.
+    for (int id = 0x80; id <= 0xFF; ++id)
+        DecodeTile((uint8_t)id, &g_ramSnapshot.aux[0x8000 + (id - 0x80) * 0x80]);
+
+    glBindTexture(GL_TEXTURE_2D, m_tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kAtlasW, kAtlasH,
+                    GL_RGBA, GL_UNSIGNED_BYTE, m_pixels);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 std::vector<MapData::FloorListEntry>
@@ -483,8 +468,23 @@ void TileMap::Observe(int region_id, const std::string& floor,
 {
     if (!vis || !fog || floorWidth <= 0 || floorHeight <= 0) return;
     Floor& fl = EnsureFloor(region_id, floor, floorWidth, floorHeight);
-    const int x0 = playerX - kVisW / 2;
-    const int y0 = playerY - kVisH / 2;
+
+    // Nox's visible window stops scrolling when the avatar approaches
+    // a map edge — the camera clamps to (0..floor_w-kVisW), and the
+    // avatar shifts within the otherwise-stationary viewport. Use the
+    // same clamp so $0800 cells map to the right floor tiles. Without
+    // it, walking near the west edge plots the new content kVisW/2 = 8
+    // tiles further west than where it actually belongs (the symptom
+    // you saw on Vacous re-entry).
+    int x0 = playerX - kVisW / 2;
+    int y0 = playerY - kVisH / 2;
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x0 + kVisW > floorWidth)  x0 = floorWidth  - kVisW;
+    if (y0 + kVisH > floorHeight) y0 = floorHeight - kVisH;
+    if (x0 < 0) x0 = 0;     // floors smaller than the viewport
+    if (y0 < 0) y0 = 0;
+
     for (int row = 0; row < kVisH; ++row)
     {
         const int y = y0 + row;
@@ -523,7 +523,7 @@ uint8_t TileMap::TileAt(int region_id, const std::string& floor, int x, int y) c
 // ---------------------------------------------------------------------------
 
 void MapPanel::Render(const MapTranslator& tx, MapData& md,
-                      const TilesetTexture& tileset, TileMap& tiles)
+                      TilesetTexture& tileset, TileMap& tiles)
 {
     if (!m_open) return;
 
@@ -661,8 +661,8 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     if (ImGui::Button("Fit"))
     {
         const ImVec2 avail = ImGui::GetContentRegionAvail();
-        const float zx = avail.x / (regionW * 32.0f);
-        const float zy = (avail.y - 30) / (regionH * 32.0f);
+        const float zx = avail.x / (regionW * (float)TilesetTexture::kTileW);
+        const float zy = (avail.y - 30) / (regionH * (float)TilesetTexture::kTileH);
         s_zoom = (std::max)(0.05f, (std::min)(zx, zy));
     }
     ImGui::SameLine();
@@ -672,25 +672,38 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
         tiles.Save();        // also wipe the on-disk cache immediately
     }
 
-    ImGui::BeginChild("##map_canvas", ImVec2(0, 0),
-                      ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
+    // Pull fresh tile bitmaps out of aux RAM ($7000 / $8000) before
+    // drawing — Nox patches the shape tables when entering a new
+    // dungeon / town, so the atlas tracks whatever's currently loaded.
+    tileset.Refresh();
 
-    constexpr float kTilePx = 32.0f;
+    // Avatar-centred render. No scroll, no canvas larger than the
+    // visible region — we just compute where the avatar would sit at
+    // the centre of the panel and offset every tile relative to it.
+    // This guarantees the avatar never drifts to a corner even at
+    // map edges (where ImGui's scroll clamp would otherwise pin us).
+    ImGui::BeginChild("##map_canvas", ImVec2(0, 0),
+                      ImGuiChildFlags_Borders);
+
+    constexpr float kTileW = (float)TilesetTexture::kTileW;   // 14
+    constexpr float kTileH = (float)TilesetTexture::kTileH;   // 16
+    constexpr float kUvW   = 1.0f / TilesetTexture::kCols;
+    constexpr float kUvH   = 1.0f / TilesetTexture::kRows;
+
+    const ImVec2 view = ImGui::GetWindowSize();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
+    const float centreX = origin.x + view.x * 0.5f;
+    const float centreY = origin.y + view.y * 0.5f;
+
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const ImU32 fogCol = IM_COL32(20, 20, 24, 255);
 
-    // Background — solid dark across the whole region. Drawn first so
-    // unseen cells stay dark; observed tiles paint over it.
-    const ImVec2 bg0(origin.x, origin.y);
-    const ImVec2 bg1(origin.x + regionW * kTilePx * s_zoom,
-                     origin.y + regionH * kTilePx * s_zoom);
-    dl->AddRectFilled(bg0, bg1, fogCol);
+    // Solid dark fill across the visible area first; observed tiles
+    // overpaint it.
+    dl->AddRectFilled(origin,
+                      ImVec2(origin.x + view.x, origin.y + view.y),
+                      fogCol);
 
-    // Render each observed tile as a textured quad sampled from the
-    // 512×512 tileset atlas (built once at startup from the floor
-    // PNGs). For tile ids the atlas didn't capture, fall back to a
-    // hash-derived colour so the cell at least shows up.
     auto colorForTile = [](uint8_t id) -> ImU32 {
         uint32_t h = id * 0x9E3779B1u + 0xBF58476Du;
         h ^= h >> 16;
@@ -700,41 +713,48 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
         return IM_COL32(r, g, b, 255);
     };
 
-    (void)tileset;   // atlas path disabled until tiles come from the //e frame
-    for (int ty = 0; ty < regionH; ++ty)
+    const auto tileTexId = static_cast<ImTextureID>((uintptr_t)tileset.Tex());
+
+    // Range of floor tiles that fit on screen, with one extra cell of
+    // margin so partially-visible edge tiles aren't culled.
+    const int spanX = (int)(view.x / (kTileW * s_zoom)) / 2 + 2;
+    const int spanY = (int)(view.y / (kTileH * s_zoom)) / 2 + 2;
+    const int x0 = (std::max)(0,           loc->x - spanX);
+    const int x1 = (std::min)(regionW - 1, loc->x + spanX);
+    const int y0 = (std::max)(0,           loc->y - spanY);
+    const int y1 = (std::min)(regionH - 1, loc->y + spanY);
+
+    for (int ty = y0; ty <= y1; ++ty)
     {
-        for (int tx = 0; tx < regionW; ++tx)
+        for (int tx = x0; tx <= x1; ++tx)
         {
             const uint8_t id = tiles.TileAt(loc->region, loc->floor, tx, ty);
             if (id == 0) continue;
-            const float px0 = origin.x + tx * kTilePx * s_zoom;
-            const float py0 = origin.y + ty * kTilePx * s_zoom;
-            dl->AddRectFilled(ImVec2(px0, py0),
-                              ImVec2(px0 + kTilePx * s_zoom, py0 + kTilePx * s_zoom),
-                              colorForTile(id));
+            const float px0 = centreX + (tx - loc->x - 0.5f) * kTileW * s_zoom;
+            const float py0 = centreY + (ty - loc->y - 0.5f) * kTileH * s_zoom;
+            const ImVec2 p0(px0, py0);
+            const ImVec2 p1(px0 + kTileW * s_zoom, py0 + kTileH * s_zoom);
+            if (tileset.Tex() && tileset.Has(id))
+            {
+                const ImVec2 uv0((id % TilesetTexture::kCols) * kUvW,
+                                 (id / TilesetTexture::kCols) * kUvH);
+                const ImVec2 uv1(uv0.x + kUvW, uv0.y + kUvH);
+                dl->AddImage(tileTexId, p0, p1, uv0, uv1);
+            }
+            else
+            {
+                dl->AddRectFilled(p0, p1, colorForTile(id));
+            }
         }
     }
 
-    // Player marker.
-    if (loc->x >= 0 && loc->x < regionW &&
-        loc->y >= 0 && loc->y < regionH)
+    // Player marker dead-centre.
     {
-        const float ax = (loc->x + 0.5f) * kTilePx * s_zoom;
-        const float ay = (loc->y + 0.5f) * kTilePx * s_zoom;
-        const ImVec2 c(origin.x + ax, origin.y + ay);
-        const float r = (std::max)(3.0f, kTilePx * s_zoom * 0.45f);
+        const ImVec2 c(centreX, centreY);
+        const float r = (std::max)(3.0f, kTileW * s_zoom * 0.45f);
         dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
         dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
-
-        // Auto-centre the canvas on the avatar each frame.
-        const ImVec2 view = ImGui::GetWindowSize();
-        ImGui::SetScrollX(ax - view.x * 0.5f);
-        ImGui::SetScrollY(ay - view.y * 0.5f);
     }
-
-    // Reserve canvas area for scroll bars.
-    ImGui::Dummy(ImVec2(regionW * kTilePx * s_zoom,
-                        regionH * kTilePx * s_zoom));
 
     ImGui::EndChild();
     ImGui::End();

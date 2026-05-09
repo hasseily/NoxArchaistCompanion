@@ -690,7 +690,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     state->templates.Load(FindAssetsDir());
     state->mapTranslator.Load(FindAssetsDir());
     state->mapData.Load(FindAssetsDir());
-    state->tileset.Build(FindAssetsDir(), state->mapData, state->mapTranslator);
     state->tileMap.Load(state->pref_dir);
 
     // LoadSettings before InitEmulator so we can carry forward the saved

@@ -83,31 +83,44 @@ private:
     std::map<std::pair<int, std::string>, FloorRecord> m_index;
 };
 
-// One-shot 256-tile tileset, built at startup by walking each floor
-// PNG (in Assets/maps/floors/) alongside its maps.bin tile ids and
-// capturing the first 32×32 RGBA region we see for each unique tile
-// id. The result is a single 512×512 GL texture (16×16 grid of 32-px
-// tiles) — tile id N lives at uv = (N%16, N/16) × (32 / 512). The
-// MapPanel renders observed cells via dl->AddImage with the matching
-// UVs, falling back to a colour for any id we never captured.
+// 256-tile atlas decoded from Nox's tile shape tables in aux RAM:
+//
+//   $7000-$7FFF  static tiles, 32 bytes each (2 wide × 16 lines, HGR)
+//                — tile id N at $7000 + N * $20, valid 0..$7F (only
+//                  0..$74 are actually populated; rest are decoded
+//                  too, just as garbage).
+//   $8000-$BFFF  animated tiles, 128 bytes each (4 × 32-byte frames),
+//                tile id N at $8000 + (N - $80) * $80, valid $80..$FF.
+//                We currently only decode frame 0.
+//
+// Each tile is 14 × 16 monochrome HGR pixels (LSB = leftmost). The
+// atlas is laid out as a 16 × 16 grid (224 × 256 px total); UVs:
+//   uv0 = (N%16, N/16) × (1/16)
+//   uv1 = uv0 + (1/16)
+//
+// Refresh() rebuilds from the current aux RAM snapshot. Cheap; called
+// before each MapPanel render so the atlas tracks any patched tiles.
 class TilesetTexture
 {
 public:
-    void Build(const std::filesystem::path& assetsDir,
-               const MapData& maps,
-               const MapTranslator& tx);
-
+    void Refresh();
     unsigned Tex() const { return m_tex; }
     bool     Has(uint8_t id) const { return m_has[id]; }
 
-    static constexpr int kTilePx = 32;
+    static constexpr int kTileW  = 14;
+    static constexpr int kTileH  = 16;
     static constexpr int kCols   = 16;
     static constexpr int kRows   = 16;
-    static constexpr int kTexPx  = kCols * kTilePx;       // 512
+    static constexpr int kAtlasW = kCols * kTileW;     // 224
+    static constexpr int kAtlasH = kRows * kTileH;     // 256
 
 private:
+    void EnsureTexture();
+    void DecodeTile(uint8_t id, const uint8_t* src);
+
     unsigned m_tex          = 0;
     bool     m_has[256]     = {};
+    uint8_t  m_pixels[kAtlasW * kAtlasH * 4] = {};
 };
 
 // Per-(region, floor) "what tile has the player seen here" map. Each
@@ -166,7 +179,7 @@ public:
     bool* OpenFlag()    { return &m_open; }
     bool& OpenRef()     { return m_open; }
     void  Render(const MapTranslator& tx, MapData& md,
-                 const TilesetTexture& tileset, TileMap& tiles);
+                 TilesetTexture& tileset, TileMap& tiles);
 
 private:
     bool m_open = false;
