@@ -2,6 +2,7 @@
 
 #include "Map.h"
 
+#include "Emulator/CPU.h"     // g_noxInCombat
 #include "Emulator/Memory.h"
 #include "RamSnapshot.h"
 
@@ -613,9 +614,14 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     // Only cells the player can actually see right now flow into the
     // (region, floor) TileMap; everything else is left untouched so
     // previously-discovered tiles persist.
+    //
+    // Skip during combat — Nox repurposes the same $0800 buffer for
+    // the battle map (PC_INITIATE_COMBAT through PC_END_COMBAT). If
+    // we observed those bytes they'd overwrite the overworld tiles
+    // we'd previously discovered for this floor.
     const uint8_t* vis = &g_ramSnapshot.main[0x0800];
     const uint8_t* fog = &g_ramSnapshot.main[0x08BB];
-    if (g_ramSnapshot.valid)
+    if (g_ramSnapshot.valid && !g_noxInCombat)
         tiles.Observe(loc->region, loc->floor, loc->x, loc->y,
                       regionW, regionH, vis, fog);
 

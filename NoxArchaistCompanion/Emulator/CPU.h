@@ -33,6 +33,12 @@ extern NoxLogCallbackFn g_noxLogCallback;
 // frontend's "include combat" toggle).
 extern bool g_noxLogIncludeCombat;
 
+// True between PC_INITIATE_COMBAT and PC_END_COMBAT — Nox is using
+// the visible-tile buffer at $0800 to render the battle map, not the
+// overworld. Frontends gate side-effects (e.g. automap observation)
+// on this so battle tiles don't overwrite the discovered terrain.
+extern bool g_noxInCombat;
+
 // Optional frontend callback fired when the CPU is at a known-safe
 // Nox-state-settled point (PC_PRINTSTR entry — the print routine).
 // Multi-byte game-state writes (xpos/ypos, party stats, ...) have
