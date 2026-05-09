@@ -31,17 +31,18 @@ private:
     uint8_t m_prev    [2][0x10000] = {};
     double  m_changeAt[2][0x10000] = {};
 
-    // Search state. m_searchInput is the text the user typed; on
-    // pressing Search we parse it into m_searchPattern (whitespace-
-    // tolerant hex) and scan the active bank for every match,
-    // marking each matched byte true in m_highlight. Render tints
-    // those bytes' background yellow so the user can watch them
-    // change via the existing change-tint overlay. Clear empties
-    // both the input and the highlight bitmap.
+    // Search state. Search scans the active bank for the typed hex
+    // pattern and stores each match's start offset in m_matches[bank].
+    // Refine takes the new pattern and keeps only matches where the
+    // bytes at the existing match offsets equal the new pattern —
+    // classic memory-scanner narrowing. m_highlight is regenerated
+    // from m_matches[bank] + m_patternLen[bank] each time.
+    // m_filterRows hides rows with no highlighted bytes.
     char    m_searchInput[128] = {};
-    std::vector<uint8_t> m_searchPattern;
+    std::vector<int>  m_matches[2];
+    int     m_patternLen[2] = {};
     bool    m_highlight[2][0x10000] = {};
-    int     m_matchCount = 0;
+    bool    m_filterRows = false;
 };
 
 } // namespace nac

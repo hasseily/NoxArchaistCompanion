@@ -35,9 +35,11 @@ void MemoryViewerPanel::Render()
     if (m_jumpTo > 0xFFFF)  m_jumpTo = 0xFFFF;
 
     // Search row: type a hex byte sequence ("01 02 ff" or "0102FF"),
-    // hit Search, every match in the active bank gets a yellow
-    // background. Watch the change-tint flicker over the highlighted
-    // bytes to spot writes. Clear empties highlights + input.
+    // hit Search to mark every match with a yellow background, or
+    // Refine to keep only matches whose bytes now equal the new
+    // pattern (classic memory-scanner narrowing — search FF, walk in
+    // game, refine DE to find the bytes that flipped). Both operate
+    // on the active bank only.
     ImGui::SetNextItemWidth(220.0f);
     const bool searchRequested = ImGui::InputText("Search hex",
         m_searchInput, sizeof(m_searchInput),
@@ -45,24 +47,27 @@ void MemoryViewerPanel::Render()
     ImGui::SameLine();
     const bool searchClicked = ImGui::Button("Search");
     ImGui::SameLine();
-    if (ImGui::Button("Clear"))
-    {
-        m_searchInput[0] = 0;
-        m_searchPattern.clear();
-        std::memset(m_highlight, 0, sizeof(m_highlight));
-        m_matchCount = 0;
-    }
-    if (m_matchCount > 0)
+    const bool refineClicked = ImGui::Button("Refine");
+    ImGui::SameLine();
+    const bool clearClicked = ImGui::Button("Clear");
+    ImGui::SameLine();
+    ImGui::Checkbox("Filter rows", &m_filterRows);
+    if (!m_matches[m_bank].empty())
     {
         ImGui::SameLine();
-        ImGui::Text("(%d matches)", m_matchCount);
+        ImGui::Text("(%zu matches)", m_matches[m_bank].size());
     }
 
-    if (searchRequested || searchClicked)
+    if (clearClicked)
     {
-        // Parse: keep hex digits, drop everything else. Pair them up
-        // into bytes; an odd trailing nibble is dropped.
-        m_searchPattern.clear();
+        m_searchInput[0] = 0;
+        m_matches[m_bank].clear();
+        m_patternLen[m_bank] = 0;
+        std::memset(m_highlight[m_bank], 0, sizeof(m_highlight[m_bank]));
+    }
+
+    auto parsePattern = [&]() {
+        std::vector<uint8_t> out;
         int hi = -1;
         for (const char* p = m_searchInput; *p; ++p)
         {
@@ -73,28 +78,52 @@ void MemoryViewerPanel::Render()
             else if (c >= 'A' && c <= 'F') n = 10 + (c - 'A');
             if (n < 0) continue;
             if (hi < 0) hi = n;
-            else { m_searchPattern.push_back((uint8_t)((hi << 4) | n)); hi = -1; }
+            else { out.push_back((uint8_t)((hi << 4) | n)); hi = -1; }
         }
+        return out;
+    };
 
-        std::memset(m_highlight, 0, sizeof(m_highlight));
-        m_matchCount = 0;
-        if (!m_searchPattern.empty())
+    auto regenerateHighlight = [&](int bank, int patLen) {
+        std::memset(m_highlight[bank], 0, sizeof(m_highlight[bank]));
+        for (int off : m_matches[bank])
+            for (int k = 0; k < patLen; ++k)
+                m_highlight[bank][off + k] = true;
+    };
+
+    if (searchRequested || searchClicked)
+    {
+        const auto pat = parsePattern();
+        m_matches[m_bank].clear();
+        m_patternLen[m_bank] = (int)pat.size();
+        const uint8_t* bank = reinterpret_cast<const uint8_t*>(
+            MemGetBankPtr(m_bank == 0 ? 0 : 1));
+        if (bank && !pat.empty())
         {
-            for (int b = 0; b < 2; ++b)
+            const int last = 0x10000 - (int)pat.size();
+            for (int i = 0; i <= last; ++i)
+                if (std::memcmp(bank + i, pat.data(), pat.size()) == 0)
+                    m_matches[m_bank].push_back(i);
+        }
+        regenerateHighlight(m_bank, (int)pat.size());
+    }
+    else if (refineClicked && !m_matches[m_bank].empty())
+    {
+        const auto pat = parsePattern();
+        const uint8_t* bank = reinterpret_cast<const uint8_t*>(
+            MemGetBankPtr(m_bank == 0 ? 0 : 1));
+        if (bank && !pat.empty())
+        {
+            std::vector<int> kept;
+            kept.reserve(m_matches[m_bank].size());
+            for (int off : m_matches[m_bank])
             {
-                const uint8_t* bank = reinterpret_cast<const uint8_t*>(
-                    MemGetBankPtr(b == 0 ? 0 : 1));
-                if (!bank) continue;
-                const int last = 0x10000 - (int)m_searchPattern.size();
-                for (int i = 0; i <= last; ++i)
-                {
-                    if (std::memcmp(bank + i, m_searchPattern.data(),
-                                    m_searchPattern.size()) != 0) continue;
-                    for (size_t k = 0; k < m_searchPattern.size(); ++k)
-                        m_highlight[b][i + (int)k] = true;
-                    if (b == m_bank) ++m_matchCount;   // count only active bank
-                }
+                if (off + (int)pat.size() > 0x10000) continue;
+                if (std::memcmp(bank + off, pat.data(), pat.size()) == 0)
+                    kept.push_back(off);
             }
+            m_matches[m_bank].swap(kept);
+            m_patternLen[m_bank] = (int)pat.size();
+            regenerateHighlight(m_bank, (int)pat.size());
         }
     }
 
@@ -162,28 +191,55 @@ void MemoryViewerPanel::Render()
                       1.0f);
     };
 
-    const ImU32 hiBg = IM_COL32(255, 200, 0, 230);   // bright saturated yellow
+    const ImU32 hiBg = IM_COL32(255, 220, 0, 255);   // bright saturated yellow
+    const ImVec4 colHiNormal(0.0f, 0.0f, 0.0f, 1.0f);                // black on yellow
+    const ImVec4 colHiChanged(0.6f, 0.0f, 0.0f, 1.0f);               // dark red on yellow
     const bool* hilight = m_highlight[m_bank];
     ImDrawList* dl = ImGui::GetWindowDrawList();
 
+    // Build the row list. When "Filter rows" is on, only rows that
+    // contain at least one highlighted byte are emitted; the user's
+    // clipper / scroll then operates on the filtered set.
+    std::vector<int> filteredRows;
+    if (m_filterRows)
+    {
+        for (int row = 0; row < 0x10000 / 16; ++row)
+        {
+            const int base = row * 16;
+            for (int col = 0; col < 16; ++col)
+            {
+                if (hilight[base + col]) { filteredRows.push_back(row); break; }
+            }
+        }
+    }
+    const int totalRows = m_filterRows ? (int)filteredRows.size() : 0x10000 / 16;
+
     ImGuiListClipper clipper;
-    clipper.Begin(0x10000 / 16);
+    clipper.Begin(totalRows);
     while (clipper.Step())
     {
-        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
+        for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i)
         {
+            const int row  = m_filterRows ? filteredRows[i] : i;
             const int addr = row * 16;
             ImGui::Text("%04X ", addr);
-            for (int i = 0; i < 16; ++i)
+            for (int col = 0; col < 16; ++col)
             {
                 ImGui::SameLine(0.0f, 4.0f);
-                const uint8_t b = bank[addr + i];
-                const ImVec4 c = colorAt(addr + i);
-                if (hilight[addr + i])
+                const uint8_t b = bank[addr + col];
+                const bool hl = hilight[addr + col];
+                const double age = now - ages[addr + col];
+                ImVec4 c;
+                if (hl)
                 {
+                    c = (age < kHighlightSeconds) ? colHiChanged : colHiNormal;
                     const ImVec2 p = ImGui::GetCursorScreenPos();
                     const ImVec2 sz = ImGui::CalcTextSize("FF");
                     dl->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), hiBg);
+                }
+                else
+                {
+                    c = colorAt(addr + col);
                 }
                 ImGui::TextColored(c, "%02X", b);
             }
