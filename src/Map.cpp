@@ -712,15 +712,29 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
             }
         }
 
-        // Player marker.
+        // Player marker. Y coordinate doesn't get the +0.5 tile-centre
+        // shift X uses — Nox's Y aligns to the top edge of each tile
+        // row, not the centre, so adding the half-tile pushes the
+        // marker between two rows on the avatar's actual cell.
         if (loc->x >= 0 && loc->x < regionW &&
             loc->y >= 0 && loc->y < regionH)
         {
-            const ImVec2 c(ox + (loc->x + 0.5f) * pxPerTileX * s_zoom,
-                           oy + (loc->y + 0.5f) * pxPerTileY * s_zoom);
+            const float ax = (loc->x + 0.5f) * pxPerTileX * s_zoom;
+            const float ay = (loc->y       ) * pxPerTileY * s_zoom;
+            const ImVec2 c(ox + ax, oy + ay);
             const float r = (std::max)(3.0f, pxPerTileX * s_zoom * 0.45f);
             dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
             dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
+
+            // Auto-centre the canvas on the avatar each frame. Compute
+            // scroll positions so the marker's canvas-relative pixel
+            // sits at the middle of the visible region. ImGui clamps
+            // out-of-range scroll values for us.
+            const ImVec2 avail = ImGui::GetContentRegionAvail();
+            const float marker_canvas_x = meta.inset_l * s_zoom + ax;
+            const float marker_canvas_y = meta.inset_t * s_zoom + ay;
+            ImGui::SetScrollX(marker_canvas_x - avail.x * 0.5f);
+            ImGui::SetScrollY(marker_canvas_y - avail.y * 0.5f);
         }
     }
 
