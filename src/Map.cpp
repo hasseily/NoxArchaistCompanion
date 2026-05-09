@@ -150,16 +150,8 @@ std::optional<MapLocation> MapTranslator::Resolve(uint8_t mapID,
         MapLocation loc;
         loc.region = rule.value("region", 0);
         loc.floor  = rule.value("floor",  std::string{});
-        // The GC profile XML labels byte $6CEC "xpos" and byte $6CED
-        // "ypos", but Nox actually stores them the other way: $6CEC is
-        // Y (row, increases going south), $6CED is X (col, increases
-        // going east). The rules' xmin/xmax/ymin/ymax + dx/dy were
-        // authored against the XML's labels, so they still gate on the
-        // correct byte (xpos here = byte 3 = $6CEC); we only need to
-        // swap the *meaning* of the rule's adjustment when emitting
-        // loc.x / loc.y. Result: loc.x = east-west, loc.y = north-south.
-        loc.x      = ypos + rule.value("dy", 0);
-        loc.y      = xpos + rule.value("dx", 0);
+        loc.x      = xpos + rule.value("dx", 0);
+        loc.y      = ypos + rule.value("dy", 0);
 
         if (m_data.contains("regions"))
         {
@@ -534,14 +526,17 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
         return;
     }
 
+    // Canonical Nox coordinates: X at $6CEB, Y at $6CEC, both in main.
+    // Used everywhere — Map panel display, tile observation, teleport
+    // write target, party_full sextant template.
     const uint8_t mapID = Peek(0x2AF9);
-    const uint8_t xpos  = Peek(0x6CEC);
-    const uint8_t ypos  = Peek(0x6CEF);
+    const uint8_t xpos  = Peek(0x6CEB);
+    const uint8_t ypos  = Peek(0x6CEC);
 
-    ImGui::Text("mapID $%02X  X=%u  Y=%u", mapID, ypos, xpos);
+    ImGui::Text("mapID $%02X  X=%u  Y=%u", mapID, xpos, ypos);
 
     // Teleport sub-panel — pick a (region, floor) + (X, Y) and write
-    // the matching mapID, $6CEF (X) and $6CEC (Y) bytes into //e main
+    // the matching mapID, $6CEB (X) and $6CEC (Y) bytes into //e main
     // RAM. The running game picks them up on its next read.
     auto floors = md.AllFloors(tx);
     if (ImGui::CollapsingHeader("Teleport"))
@@ -581,7 +576,7 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
                     if (uint8_t* p = reinterpret_cast<uint8_t*>(MemGetMainPtr(0)))
                     {
                         p[0x2AF9] = (uint8_t)newMapID;
-                        p[0x6CEF] = (uint8_t)m_tpX;
+                        p[0x6CEB] = (uint8_t)m_tpX;
                         p[0x6CEC] = (uint8_t)m_tpY;
                     }
                 }
@@ -590,15 +585,14 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     }
 
     auto loc = tx.Resolve(mapID, xpos, ypos);
-    // Use the raw RAM bytes for the player tile, not the resolver's
-    // dx/dy-adjusted output. The packetview <move> offsets in GC's
-    // profile are used for GC's combined-floor display, but each
-    // per-floor PNG we export already lays out its own coordinate
-    // system 1:1 with Nox's raw xpos/ypos.
+    // Pin loc.x / loc.y to the raw Nox bytes (no rule dx/dy applied)
+    // — the per-floor PNG / tile data layout is 1:1 with Nox's xpos
+    // / ypos, so any rule-side coordinate translation would push the
+    // marker off the right tile.
     if (loc)
     {
-        loc->x = ypos;
-        loc->y = xpos;
+        loc->x = xpos;
+        loc->y = ypos;
     }
     if (!loc)
     {
@@ -610,9 +604,6 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     ImGui::Text("Region %d (%s) — Floor %s — Tile %d, %d",
                 loc->region, loc->region_name.c_str(),
                 loc->floor.c_str(), loc->x, loc->y);
-
-    ImGui::Text("Region %d (%s) — Floor %s",
-                loc->region, loc->region_name.c_str(), loc->floor.c_str());
 
     const int regionW = (std::max)(1, loc->width);
     const int regionH = (std::max)(1, loc->height);
