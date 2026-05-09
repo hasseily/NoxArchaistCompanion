@@ -104,7 +104,8 @@ class TilesetTexture
 {
 public:
     void Refresh();
-    unsigned Tex() const { return m_tex; }
+    unsigned Tex()      const { return m_tex; }       // monochrome (white on transparent)
+    unsigned ColorTex() const { return m_texColor; }  // baked Apple ][ HGR colours
     bool     Has(uint8_t id) const { return m_has[id]; }
 
     static constexpr int kTileW  = 14;
@@ -119,8 +120,10 @@ private:
     void DecodeTile(uint8_t id, const uint8_t* src);
 
     unsigned m_tex          = 0;
+    unsigned m_texColor     = 0;
     bool     m_has[256]     = {};
-    uint8_t  m_pixels[kAtlasW * kAtlasH * 4] = {};
+    uint8_t  m_pixels     [kAtlasW * kAtlasH * 4] = {};
+    uint8_t  m_pixelsColor[kAtlasW * kAtlasH * 4] = {};
 };
 
 // Per-(region, floor) "what tile has the player seen here" map. Each
@@ -154,6 +157,10 @@ public:
     // Tile id at (x, y), 0 = never observed.
     uint8_t TileAt(int region_id, const std::string& floor, int x, int y) const;
 
+    // (region_id, floor) pairs with at least one observed (non-zero)
+    // tile. Drives the Map panel's "Map" pulldown.
+    std::vector<std::pair<int, std::string>> ObservedFloors() const;
+
     // Wipe everything — for the "Clear" button. Marks dirty so the
     // next Save flushes an empty file (and removes the old contents).
     void Clear();
@@ -176,6 +183,8 @@ private:
 class MapPanel
 {
 public:
+    enum ColorScheme { CS_White = 0, CS_Green, CS_Amber, CS_Color };
+
     bool* OpenFlag()    { return &m_open; }
     bool& OpenRef()     { return m_open; }
     void  Render(const MapTranslator& tx, MapData& md,
@@ -184,13 +193,23 @@ public:
 private:
     bool m_open = false;
 
-    // Teleport sub-panel state. The user picks a (region, floor) and
-    // an (X, Y); clicking Teleport writes the corresponding mapID +
-    // xpos/ypos bytes to the //e's main RAM, and the running game
-    // picks them up on its next read.
-    int  m_tpIdx = 0;
-    int  m_tpX   = 0;
-    int  m_tpY   = 0;
+    // Map view selector. m_viewRegion == -1 means "follow the live
+    // current map" (avatar visible, auto-centred). Anything else means
+    // "show this stored (region, floor) instead" — observation still
+    // writes into the live map, but the panel renders the chosen one
+    // and hides the avatar marker.
+    int         m_viewRegion = -1;
+    std::string m_viewFloor;
+    ColorScheme m_colorScheme = CS_Color;
+
+    // Stored-map pan + zoom-to-fit. Pan is in tile units (added to the
+    // floor-centre when computing the on-screen centre tile). m_needFit
+    // forces a one-shot zoom-to-fit on the next render — set whenever
+    // the user picks a stored map from the combo so we always start
+    // framed. Pan resets on the same event.
+    float m_panX    = 0.0f;
+    float m_panY    = 0.0f;
+    bool  m_needFit = false;
 };
 
 } // namespace nac

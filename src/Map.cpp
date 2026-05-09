@@ -10,6 +10,7 @@
 #include <glad/glad.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -280,43 +281,87 @@ const FloorRecord* MapData::Find(int region_id, const std::string& floor) const
 
 void TilesetTexture::EnsureTexture()
 {
-    if (m_tex) return;
-    GLuint tex = 0;
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kAtlasW, kAtlasH, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    m_tex = tex;
+    if (m_tex && m_texColor) return;
+    auto makeTex = [&]() {
+        GLuint tex = 0;
+        glGenTextures(1, &tex);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kAtlasW, kAtlasH, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return tex;
+    };
+    if (!m_tex)      m_tex      = makeTex();
+    if (!m_texColor) m_texColor = makeTex();
 }
 
 void TilesetTexture::DecodeTile(uint8_t id, const uint8_t* src)
 {
-    // 16 lines × 2 bytes × 7 pixels each (LSB = leftmost). Bit set →
-    // opaque white, bit clear → transparent. The transparency lets the
-    // dark fog background show through "empty" tile pixels.
+    // 16 lines × 2 bytes × 7 pixels each (LSB = leftmost). Two atlases
+    // are filled in lockstep: a monochrome one (white-on-transparent,
+    // tinted at draw-time for the white/green/amber CRT modes) and an
+    // Apple ][ HGR-coloured one for the "Color" mode.
+    //
+    // HGR colour rule (the simple version — no NTSC fringe / sub-pixel
+    // shift): a lit pixel whose immediate left or right neighbour is
+    // also lit renders as WHITE; otherwise its colour is picked from
+    // its in-tile column parity plus the high bit of the byte it lives
+    // in:
+    //   high bit 0 → even col VIOLET, odd col GREEN
+    //   high bit 1 → even col BLUE,   odd col ORANGE
+    // Bits 6 and 8 (last pixel of byte 0, first pixel of byte 1) are
+    // screen-adjacent so the white test crosses the byte boundary.
+    constexpr uint8_t kBlack [4] = {   0,   0,   0,   0 };
+    constexpr uint8_t kViolet[4] = { 255,  68, 253, 255 };
+    constexpr uint8_t kGreen [4] = {  20, 245,  60, 255 };
+    constexpr uint8_t kBlue  [4] = {  20, 207, 253, 255 };
+    constexpr uint8_t kOrange[4] = { 255, 106,  60, 255 };
+    constexpr uint8_t kWhiteM[4] = { 255, 255, 255, 255 };
+
     const int x0 = (id % kCols) * kTileW;
     const int y0 = (id / kCols) * kTileH;
     for (int y = 0; y < kTileH; ++y)
     {
-        const uint8_t b0 = src[y * 2 + 0];
-        const uint8_t b1 = src[y * 2 + 1];
-        uint8_t* dst = m_pixels + ((size_t)(y0 + y) * kAtlasW + x0) * 4;
-        for (int bit = 0; bit < 7; ++bit)
+        const uint8_t bytes[2] = { src[y * 2 + 0], src[y * 2 + 1] };
+        bool    on[kTileW];
+        bool    hi[kTileW];
+        for (int col = 0; col < kTileW; ++col)
         {
-            const bool on = (b0 & (1 << bit)) != 0;
-            *dst++ = on ? 0xFF : 0; *dst++ = on ? 0xFF : 0;
-            *dst++ = on ? 0xFF : 0; *dst++ = on ? 0xFF : 0;
+            const int     bi  = col / 7;
+            const int     bit = col % 7;
+            const uint8_t b   = bytes[bi];
+            on[col] = (b & (1 << bit)) != 0;
+            hi[col] = (b & 0x80) != 0;
         }
-        for (int bit = 0; bit < 7; ++bit)
+        uint8_t* dstM = m_pixels      + ((size_t)(y0 + y) * kAtlasW + x0) * 4;
+        uint8_t* dstC = m_pixelsColor + ((size_t)(y0 + y) * kAtlasW + x0) * 4;
+        for (int col = 0; col < kTileW; ++col)
         {
-            const bool on = (b1 & (1 << bit)) != 0;
-            *dst++ = on ? 0xFF : 0; *dst++ = on ? 0xFF : 0;
-            *dst++ = on ? 0xFF : 0; *dst++ = on ? 0xFF : 0;
+            const uint8_t* mono = on[col] ? kWhiteM : kBlack;
+
+            const uint8_t* color;
+            if (!on[col])
+                color = kBlack;
+            else
+            {
+                const bool leftOn  = (col > 0)             && on[col - 1];
+                const bool rightOn = (col < kTileW - 1)    && on[col + 1];
+                if (leftOn || rightOn)
+                    color = kWhiteM;
+                else
+                {
+                    const bool even = ((col & 1) == 0);
+                    color = hi[col] ? (even ? kBlue   : kOrange)
+                                    : (even ? kViolet : kGreen);
+                }
+            }
+
+            std::memcpy(dstM, mono,  4); dstM += 4;
+            std::memcpy(dstC, color, 4); dstC += 4;
         }
     }
     m_has[id] = true;
@@ -341,6 +386,9 @@ void TilesetTexture::Refresh()
     glBindTexture(GL_TEXTURE_2D, m_tex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kAtlasW, kAtlasH,
                     GL_RGBA, GL_UNSIGNED_BYTE, m_pixels);
+    glBindTexture(GL_TEXTURE_2D, m_texColor);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kAtlasW, kAtlasH,
+                    GL_RGBA, GL_UNSIGNED_BYTE, m_pixelsColor);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
@@ -536,11 +584,23 @@ uint8_t TileMap::TileAt(int region_id, const std::string& floor, int x, int y) c
     return fl.tiles[y * fl.width + x];
 }
 
+std::vector<std::pair<int, std::string>> TileMap::ObservedFloors() const
+{
+    std::vector<std::pair<int, std::string>> out;
+    out.reserve(m_floors.size());
+    for (const auto& [k, fl] : m_floors)
+    {
+        for (uint8_t b : fl.tiles)
+            if (b != 0) { out.push_back(k); break; }
+    }
+    return out;
+}
+
 // ---------------------------------------------------------------------------
 // MapPanel
 // ---------------------------------------------------------------------------
 
-void MapPanel::Render(const MapTranslator& tx, MapData& md,
+void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
                       TilesetTexture& tileset, TileMap& tiles)
 {
     if (!m_open) return;
@@ -553,8 +613,6 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     }
 
     // Canonical Nox coordinates: X at $6CEB, Y at $6CEC, both in main.
-    // Used everywhere — Map panel display, tile observation, teleport
-    // write target, party_full sextant template.
     const uint8_t mapID   = Peek(0x2AF9);
     const uint8_t xpos    = Peek(0x6CEB);
     const uint8_t ypos    = Peek(0x6CEC);
@@ -563,118 +621,123 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     ImGui::Text("mapID $%02X  X=%u  Y=%u  type $%02X (%s)",
                 mapID, xpos, ypos, mapType, MapTypeName(mapType));
 
-    // Teleport sub-panel — pick a (region, floor) + (X, Y) and write
-    // the matching mapID, $6CEB (X) and $6CEC (Y) bytes into //e main
-    // RAM. The running game picks them up on its next read.
-    auto floors = md.AllFloors(tx);
-    if (ImGui::CollapsingHeader("Teleport"))
+    // Live observation always runs, regardless of which floor the
+    // panel happens to be rendering — switching the view pulldown to
+    // a stored map shouldn't pause discovery on the live one. Skipped
+    // on combat maps so battle tiles ($0800 repurposed) don't pollute
+    // the overworld.
+    auto liveLoc = tx.Resolve(mapID, xpos, ypos);
+    if (liveLoc) { liveLoc->x = xpos; liveLoc->y = ypos; }
+    if (liveLoc && g_ramSnapshot.valid && mapType != kMapTypeCombat)
     {
-        if (floors.empty())
-        {
-            ImGui::TextDisabled("No floors loaded.");
-        }
-        else
-        {
-            std::vector<std::string> labels;
-            labels.reserve(floors.size());
-            for (const auto& e : floors)
-                labels.push_back(
-                    (e.region_name.empty() ? std::to_string(e.region_id) : e.region_name)
-                    + " / " + e.floor);
+        const int liveW = (std::max)(1, liveLoc->width);
+        const int liveH = (std::max)(1, liveLoc->height);
+        const uint8_t* vis = &g_ramSnapshot.main[0x0800];
+        const uint8_t* fog = &g_ramSnapshot.main[0x08BB];
+        tiles.Observe(liveLoc->region, liveLoc->floor,
+                      liveLoc->x, liveLoc->y, liveW, liveH, vis, fog);
+    }
 
-            if (m_tpIdx < 0 || m_tpIdx >= (int)floors.size()) m_tpIdx = 0;
-            if (ImGui::BeginCombo("Target", labels[m_tpIdx].c_str()))
+    // Map pulldown: "Live (auto)" plus every (region, floor) the
+    // player has ever observed.
+    auto observed = tiles.ObservedFloors();
+    {
+        std::vector<std::string> labels;
+        labels.reserve(observed.size() + 1);
+        labels.emplace_back("Live (auto)");
+        for (const auto& [r, f] : observed)
+        {
+            std::string name = tx.RegionName(r);
+            if (name.empty()) name = std::to_string(r);
+            labels.push_back(name + " / " + f);
+        }
+        int sel = 0;
+        if (m_viewRegion >= 0)
+        {
+            for (size_t i = 0; i < observed.size(); ++i)
+                if (observed[i].first == m_viewRegion &&
+                    observed[i].second == m_viewFloor)
+                { sel = (int)(i + 1); break; }
+        }
+        ImGui::SetNextItemWidth(280.0f);
+        if (ImGui::BeginCombo("Map", labels[sel].c_str()))
+        {
+            for (int i = 0; i < (int)labels.size(); ++i)
             {
-                for (int i = 0; i < (int)floors.size(); ++i)
+                const bool s = (i == sel);
+                if (ImGui::Selectable(labels[i].c_str(), s) && i != sel)
                 {
-                    const bool sel = (i == m_tpIdx);
-                    if (ImGui::Selectable(labels[i].c_str(), sel)) m_tpIdx = i;
-                    if (sel) ImGui::SetItemDefaultFocus();
-                }
-                ImGui::EndCombo();
-            }
-            ImGui::InputInt("X", &m_tpX, 1, 16);
-            ImGui::InputInt("Y", &m_tpY, 1, 16);
-            if (ImGui::Button("Teleport"))
-            {
-                const auto& e = floors[m_tpIdx];
-                const int newMapID = tx.FindMapID(e.region_id, e.floor);
-                if (newMapID >= 0)
-                {
-                    if (uint8_t* p = reinterpret_cast<uint8_t*>(MemGetMainPtr(0)))
+                    if (i == 0) { m_viewRegion = -1; m_viewFloor.clear(); }
+                    else
                     {
-                        p[0x2AF9] = (uint8_t)newMapID;
-                        p[0x6CEB] = (uint8_t)m_tpX;
-                        p[0x6CEC] = (uint8_t)m_tpY;
+                        m_viewRegion = observed[i - 1].first;
+                        m_viewFloor  = observed[i - 1].second;
+                        // Fresh stored-map view → frame the whole floor
+                        // and reset any previous pan from another map.
+                        m_needFit = true;
                     }
+                    m_panX = m_panY = 0.0f;
                 }
+                if (s) ImGui::SetItemDefaultFocus();
             }
+            ImGui::EndCombo();
         }
     }
 
-    auto loc = tx.Resolve(mapID, xpos, ypos);
-    // Pin loc.x / loc.y to the raw Nox bytes (no rule dx/dy applied)
-    // — the per-floor PNG / tile data layout is 1:1 with Nox's xpos
-    // / ypos, so any rule-side coordinate translation would push the
-    // marker off the right tile.
-    if (loc)
+    // CRT-style monochrome tints + a "Color" mode using the baked
+    // Apple ][ HGR-coloured atlas.
     {
-        loc->x = xpos;
-        loc->y = ypos;
-    }
-    if (!loc)
-    {
-        ImGui::TextDisabled("(no rule matched — likely on the BASIC prompt)");
-        ImGui::End();
-        return;
+        const char* csNames[] = { "White", "Green", "Amber", "Color" };
+        int cs = (int)m_colorScheme;
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::Combo("##cs", &cs, csNames, IM_ARRAYSIZE(csNames)))
+            m_colorScheme = (ColorScheme)cs;
     }
 
-    ImGui::Text("Region %d (%s) — Floor %s — Tile %d, %d",
-                loc->region, loc->region_name.c_str(),
-                loc->floor.c_str(), loc->x, loc->y);
+    // Resolve the floor we're actually rendering — live or stored.
+    int         renderRegion = -1;
+    std::string renderFloor;
+    int         renderW = 0, renderH = 0;
+    float       centreTileX = 0.0f, centreTileY = 0.0f;
+    bool        showAvatar = false;
+    const bool  liveView = (m_viewRegion < 0);
 
-    const int regionW = (std::max)(1, loc->width);
-    const int regionH = (std::max)(1, loc->height);
-
-    // Observe Nox's 17×11 visible-tile buffer ($0800) gated by the
-    // matching visibility mask ($08BB — 0 = visible, 1 = hidden).
-    // Only cells the player can actually see right now flow into the
-    // (region, floor) TileMap; everything else is left untouched so
-    // previously-discovered tiles persist.
-    //
-    // Skip when the map type at $267D is $FF — Nox repurposes the
-    // $0800 buffer for the battle map then, and observing it would
-    // overwrite the overworld tiles we'd previously discovered for
-    // this floor. (g_noxInCombat is a separate signal used by other
-    // code for the combat *loop*; map-type is the right signal for
-    // "is the buffer currently rendering combat".)
-    const uint8_t* vis = &g_ramSnapshot.main[0x0800];
-    const uint8_t* fog = &g_ramSnapshot.main[0x08BB];
-    if (g_ramSnapshot.valid && mapType != kMapTypeCombat)
-        tiles.Observe(loc->region, loc->floor, loc->x, loc->y,
-                      regionW, regionH, vis, fog);
-
-    // Diagnostic: live view of the two 17×11 buffers Observe() reads.
-    // Watch this while you walk to verify $0800 / $08BB are the right
-    // addresses and that fog == 0 / non-0 means visible / hidden.
-    if (ImGui::CollapsingHeader("[diag] visible + fog buffers"))
+    if (liveView)
     {
-        ImGui::Text("$0800 (tiles, hex)         $08BB (fog, hex)");
-        for (int row = 0; row < TileMap::kVisH; ++row)
+        if (!liveLoc)
         {
-            std::string visRow, fogRow;
-            visRow.reserve(TileMap::kVisW * 3);
-            fogRow.reserve(TileMap::kVisW * 3);
-            for (int col = 0; col < TileMap::kVisW; ++col)
-            {
-                char b1[4], b2[4];
-                std::snprintf(b1, 4, "%02X ", vis[row * TileMap::kVisW + col]);
-                std::snprintf(b2, 4, "%02X ", fog[row * TileMap::kVisW + col]);
-                visRow += b1;
-                fogRow += b2;
-            }
-            ImGui::Text("%s   %s", visRow.c_str(), fogRow.c_str());
+            ImGui::TextDisabled("(no rule matched - likely on the BASIC prompt)");
+            ImGui::End();
+            return;
         }
+        renderRegion = liveLoc->region;
+        renderFloor  = liveLoc->floor;
+        renderW      = (std::max)(1, liveLoc->width);
+        renderH      = (std::max)(1, liveLoc->height);
+        centreTileX  = (float)liveLoc->x;
+        centreTileY  = (float)liveLoc->y;
+        showAvatar   = true;
+
+        ImGui::Text("Region %d (%s) - Floor %s - Tile %d, %d",
+                    liveLoc->region, liveLoc->region_name.c_str(),
+                    liveLoc->floor.c_str(), liveLoc->x, liveLoc->y);
+    }
+    else
+    {
+        renderRegion = m_viewRegion;
+        renderFloor  = m_viewFloor;
+        tx.RegionDims(renderRegion, renderW, renderH);
+        if (renderW <= 0) renderW = 1;
+        if (renderH <= 0) renderH = 1;
+        // Stored view starts framed on the floor's centre; m_panX/Y
+        // shifts that as the user drags inside the canvas.
+        centreTileX  = renderW * 0.5f + m_panX;
+        centreTileY  = renderH * 0.5f + m_panY;
+
+        ImGui::Text("Region %d (%s) - Floor %s - viewing stored map",
+                    renderRegion, tx.RegionName(renderRegion).c_str(),
+                    renderFloor.c_str());
     }
 
     ImGui::Separator();
@@ -684,18 +747,32 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     ImGui::InputFloat("Zoom", &s_zoom, 0.05f, 0.25f, "%.2fx");
     s_zoom = (std::max)(0.05f, (std::min)(8.0f, s_zoom));
     ImGui::SameLine();
-    if (ImGui::Button("Fit"))
-    {
-        const ImVec2 avail = ImGui::GetContentRegionAvail();
-        const float zx = avail.x / (regionW * (float)TilesetTexture::kTileW);
-        const float zy = (avail.y - 30) / (regionH * (float)TilesetTexture::kTileH);
-        s_zoom = (std::max)(0.05f, (std::min)(zx, zy));
-    }
+    const bool fitClicked = ImGui::Button("Fit");
     ImGui::SameLine();
     if (ImGui::Button("Clear seen"))
+        ImGui::OpenPopup("Confirm clear?");
+
+    if (ImGui::BeginPopupModal("Confirm clear?", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize))
     {
-        tiles.Clear();
-        tiles.Save();        // also wipe the on-disk cache immediately
+        ImGui::TextUnformatted("Wipe every discovered tile on every floor?\n"
+                               "This also deletes the on-disk cache.");
+        ImGui::Separator();
+        if (ImGui::Button("Clear", ImVec2(120, 0)))
+        {
+            tiles.Clear();
+            tiles.Save();
+            // Snap back to live so we don't render a now-empty stored map.
+            m_viewRegion = -1;
+            m_viewFloor.clear();
+            m_panX = m_panY = 0.0f;
+            m_needFit = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
     }
 
     // Pull fresh tile bitmaps out of aux RAM ($7000 / $8000) before
@@ -706,8 +783,8 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     // Avatar-centred render. No scroll, no canvas larger than the
     // visible region — we just compute where the avatar would sit at
     // the centre of the panel and offset every tile relative to it.
-    // This guarantees the avatar never drifts to a corner even at
-    // map edges (where ImGui's scroll clamp would otherwise pin us).
+    // For a stored-map view we centre on the floor's middle plus pan,
+    // and let the user drag inside the canvas to move that pan.
     ImGui::BeginChild("##map_canvas", ImVec2(0, 0),
                       ImGuiChildFlags_Borders);
 
@@ -718,63 +795,99 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
 
     const ImVec2 view = ImGui::GetWindowSize();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
+
+    // Cover the canvas with an InvisibleButton so left-drag inside it
+    // is consumed as an item interaction and never bubbles up to the
+    // ImGui window-move handler — without this, dragging on the map
+    // also drags the whole "Map" window around. Tile drawing below
+    // uses absolute screen coords from `origin` so the button advancing
+    // the cursor doesn't matter.
+    ImGui::InvisibleButton("##map_canvas_hit", view);
+    const bool canvasActive = ImGui::IsItemActive();
+
+    // One-shot zoom-to-fit. Auto-fires the first frame after the user
+    // picks a stored map (m_needFit was set in the combo handler) and
+    // also when they explicitly click Fit. Live view is never auto-fit
+    // — it would yank the user's chosen zoom out from under them.
+    if (fitClicked || (m_needFit && !liveView))
+    {
+        const float zx = view.x / (renderW * kTileW);
+        const float zy = view.y / (renderH * kTileH);
+        s_zoom = (std::max)(0.05f, (std::min)(zx, zy));
+        m_needFit = false;
+    }
+
+    // Pan: drag inside the canvas (stored-map view only — live view
+    // stays locked to the avatar).
+    if (!liveView && canvasActive &&
+        ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    {
+        const ImVec2 d = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+        m_panX -= d.x / (kTileW * s_zoom);
+        m_panY -= d.y / (kTileH * s_zoom);
+        ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
+        centreTileX = renderW * 0.5f + m_panX;
+        centreTileY = renderH * 0.5f + m_panY;
+    }
+
     const float centreX = origin.x + view.x * 0.5f;
     const float centreY = origin.y + view.y * 0.5f;
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const ImU32 fogCol = IM_COL32(20, 20, 24, 255);
 
-    // Solid dark fill across the visible area first; observed tiles
-    // overpaint it.
     dl->AddRectFilled(origin,
                       ImVec2(origin.x + view.x, origin.y + view.y),
                       fogCol);
 
-    auto colorForTile = [](uint8_t id) -> ImU32 {
-        uint32_t h = id * 0x9E3779B1u + 0xBF58476Du;
-        h ^= h >> 16;
-        const uint8_t r = 60 + ((h >> 0)  & 0xFF) * 180 / 255;
-        const uint8_t g = 60 + ((h >> 8)  & 0xFF) * 180 / 255;
-        const uint8_t b = 60 + ((h >> 16) & 0xFF) * 180 / 255;
-        return IM_COL32(r, g, b, 255);
-    };
+    // CS_Color samples the Apple ][ HGR-coloured atlas with a white
+    // tint; the monochrome modes draw the mono atlas with a flat
+    // phosphor-style tint.
+    ImU32 tint = IM_COL32_WHITE;
+    switch (m_colorScheme)
+    {
+    case CS_White: tint = IM_COL32(235, 235, 235, 255); break;
+    case CS_Green: tint = IM_COL32( 80, 255, 120, 255); break;
+    case CS_Amber: tint = IM_COL32(255, 180,  50, 255); break;
+    case CS_Color: tint = IM_COL32_WHITE;               break;
+    }
+    const unsigned glTex = (m_colorScheme == CS_Color)
+                         ? tileset.ColorTex()
+                         : tileset.Tex();
+    const auto tileTexId = static_cast<ImTextureID>((uintptr_t)glTex);
 
-    const auto tileTexId = static_cast<ImTextureID>((uintptr_t)tileset.Tex());
-
-    // Range of floor tiles that fit on screen, with one extra cell of
-    // margin so partially-visible edge tiles aren't culled.
     const int spanX = (int)(view.x / (kTileW * s_zoom)) / 2 + 2;
     const int spanY = (int)(view.y / (kTileH * s_zoom)) / 2 + 2;
-    const int x0 = (std::max)(0,           loc->x - spanX);
-    const int x1 = (std::min)(regionW - 1, loc->x + spanX);
-    const int y0 = (std::max)(0,           loc->y - spanY);
-    const int y1 = (std::min)(regionH - 1, loc->y + spanY);
+    const int x0 = (std::max)(0,           (int)std::floor(centreTileX) - spanX);
+    const int x1 = (std::min)(renderW - 1, (int)std::ceil (centreTileX) + spanX);
+    const int y0 = (std::max)(0,           (int)std::floor(centreTileY) - spanY);
+    const int y1 = (std::min)(renderH - 1, (int)std::ceil (centreTileY) + spanY);
 
     for (int ty = y0; ty <= y1; ++ty)
     {
-        for (int tx = x0; tx <= x1; ++tx)
+        for (int tx_ = x0; tx_ <= x1; ++tx_)
         {
-            const uint8_t id = tiles.TileAt(loc->region, loc->floor, tx, ty);
+            const uint8_t id = tiles.TileAt(renderRegion, renderFloor, tx_, ty);
             if (id == 0) continue;
-            const float px0 = centreX + (tx - loc->x - 0.5f) * kTileW * s_zoom;
-            const float py0 = centreY + (ty - loc->y - 0.5f) * kTileH * s_zoom;
+            const float px0 = centreX + (tx_ - centreTileX - 0.5f) * kTileW * s_zoom;
+            const float py0 = centreY + (ty  - centreTileY - 0.5f) * kTileH * s_zoom;
             const ImVec2 p0(px0, py0);
             const ImVec2 p1(px0 + kTileW * s_zoom, py0 + kTileH * s_zoom);
-            if (tileset.Tex() && tileset.Has(id))
+            if (glTex && tileset.Has(id))
             {
                 const ImVec2 uv0((id % TilesetTexture::kCols) * kUvW,
                                  (id / TilesetTexture::kCols) * kUvH);
                 const ImVec2 uv1(uv0.x + kUvW, uv0.y + kUvH);
-                dl->AddImage(tileTexId, p0, p1, uv0, uv1);
+                dl->AddImage(tileTexId, p0, p1, uv0, uv1, tint);
             }
             else
             {
-                dl->AddRectFilled(p0, p1, colorForTile(id));
+                dl->AddRectFilled(p0, p1, tint);
             }
         }
     }
 
-    // Player marker dead-centre.
+    if (showAvatar)
     {
         const ImVec2 c(centreX, centreY);
         const float r = (std::max)(3.0f, kTileW * s_zoom * 0.45f);
