@@ -721,13 +721,16 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
             dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
             dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
 
-            // Auto-centre the canvas on the avatar each frame. ImGui
-            // clamps scroll values so we never pan past the map edges.
-            const ImVec2 avail = ImGui::GetContentRegionAvail();
+            // Auto-centre the canvas on the avatar each frame. The
+            // child window's *visible* size is GetWindowSize (NOT
+            // GetContentRegionAvail, which has shrunk by the rendered
+            // image already and would over-scroll). ImGui clamps the
+            // scroll so the map edges don't pan off-screen.
+            const ImVec2 view = ImGui::GetWindowSize();
             const float marker_canvas_x = meta.offset_x * kTilePx * s_zoom + ax;
             const float marker_canvas_y = meta.offset_y * kTilePx * s_zoom + ay;
-            ImGui::SetScrollX(marker_canvas_x - avail.x * 0.5f);
-            ImGui::SetScrollY(marker_canvas_y - avail.y * 0.5f);
+            ImGui::SetScrollX(marker_canvas_x - view.x * 0.5f);
+            ImGui::SetScrollY(marker_canvas_y - view.y * 0.5f);
         }
     }
 
