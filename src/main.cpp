@@ -127,8 +127,7 @@ struct AppState
     nac::HackPanel        hackPanel;
     nac::MapTranslator    mapTranslator;
     nac::MapData          mapData;
-    nac::FloorImageCache  floorImages;
-    nac::FogOfWar         fog;
+    nac::TileMap          tileMap;
     nac::MapPanel         mapPanel;
     nac::MemoryViewerPanel memoryViewer;
     bool                  gamelink_up      = false;
@@ -686,8 +685,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     state->templates.Load(FindAssetsDir());
     state->mapTranslator.Load(FindAssetsDir());
     state->mapData.Load(FindAssetsDir());
-    state->floorImages.SetRoot(FindAssetsDir());
-    state->fog.Load(state->pref_dir);
+    state->tileMap.Load(state->pref_dir);
 
     // LoadSettings before InitEmulator so we can carry forward the saved
     // hdv_path and audio volumes into the first init.
@@ -1197,8 +1195,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     state->combatLog.Render();
     state->hackPanel.Render();
-    state->mapPanel.Render(state->mapTranslator, state->mapData,
-                           state->floorImages, state->fog);
+    state->mapPanel.Render(state->mapTranslator, state->mapData, state->tileMap);
     state->memoryViewer.Render();
     state->reset_layout_pending = false;   // single-frame condition consumed
     state->renderer.EndImGui();
@@ -1214,7 +1211,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult /*result*/)
     if (state)
     {
         SaveSettings(*state);
-        state->fog.Save();
+        state->tileMap.Save();
         ShutdownEmulator();
         if (state->gamelink_up) GameLink::Term();
         state->renderer.Shutdown();

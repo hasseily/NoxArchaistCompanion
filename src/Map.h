@@ -63,25 +63,10 @@ struct FloorRecord
     const uint8_t* tiles    = nullptr;   // points into MapData::m_blob
 };
 
-// Per-floor render metadata (PNG insets, etc.). Each PNG export from
-// GC has its own decorative chrome — title bars, axis labels — so the
-// playable tile area is offset from the PNG's edges by a per-floor
-// amount. Loaded from Assets/maps/floors_meta.json; the Map panel
-// edits and writes it back when the user adjusts the sliders.
-// Per-floor render metadata — where (tile 0, 0) sits inside the PNG,
-// in whole tiles (32 px each). Can be negative to shift the grid up
-// / left if the PNG starts before Nox's logical (0, 0). Saved in
-// floors_meta.json keyed by "<region_id>/<floor>" as an [x, y] pair.
-struct FloorMeta
-{
-    int offset_x = 0;     // tiles; positive = grid shifted right within PNG
-    int offset_y = 0;
-};
 
-// Loads Assets/maps/maps.bin (produced by tools/pack_maps.py from
-// EXPORTMAP.NUT's output) and indexes it by (region_id, floor) for
-// cheap lookup each frame. Also owns the per-floor render metadata
-// loaded from floors_meta.json (insets etc.).
+// Loads Assets/maps/maps.bin (produced by tools/pack_maps.py) and
+// indexes it by (region_id, floor) for cheap lookup. Drives the
+// teleport combo's list of known floors.
 class MapData
 {
 public:
@@ -90,80 +75,48 @@ public:
 
     const FloorRecord* Find(int region_id, const std::string& floor) const;
 
-    // Insets for (region_id, floor). Returns the editable struct;
-    // changes via the Map UI flow back to floors_meta.json on Save.
-    FloorMeta&       Meta(int region_id, const std::string& floor);
-    const FloorMeta& Meta(int region_id, const std::string& floor) const;
-
-    void SaveMeta() const;
-
-    // List every (region_id, floor) we have tile data for, paired with
-    // its human-readable region name (from translation.json's regions
-    // table). Used to populate the test-teleport combo.
     struct FloorListEntry { int region_id; std::string floor; std::string region_name; };
     std::vector<FloorListEntry> AllFloors(const class MapTranslator& tx) const;
 
 private:
-    std::vector<uint8_t>                            m_blob;     // whole file
+    std::vector<uint8_t>                            m_blob;
     std::map<std::pair<int, std::string>, FloorRecord> m_index;
-    mutable std::map<std::pair<int, std::string>, FloorMeta> m_meta;
-    std::filesystem::path                           m_metaPath;
 };
 
-// Lazy GL-texture cache for the per-floor PNGs exported via
-// tools/EXPORTPNGS.NUT. PNGs live under Assets/maps/floors/ and are
-// loaded on first request via stb_image. Each entry holds the GL
-// texture id + native pixel dimensions.
-class FloorImageCache
+// Per-(region, floor) "what tile has the player seen here" map. Each
+// cell holds the byte tile-id last observed in Nox's 17×11 visible
+// window at $0800, or 0 for "never seen". Driven from the snapshot
+// each frame: every non-zero tile in the visible window updates the
+// stored id, zeros are skipped (we keep the previous observation).
+//
+// Persisted to <pref_dir>/seen_tiles.json so the discovered map
+// survives app restarts.
+class TileMap
 {
 public:
-    void SetRoot(const std::filesystem::path& assetsDir);
+    static constexpr int kVisW = 17;
+    static constexpr int kVisH = 11;
 
-    struct Entry
-    {
-        unsigned tex = 0;        // GL texture id (0 if not loaded / missing)
-        int      width  = 0;     // native pixel size
-        int      height = 0;
-    };
-
-    // Returns the entry for (region_name, floor). Loads on first call;
-    // subsequent calls hit the cache. region_name and floor must match
-    // the EXPORTPNGS.NUT filename convention (region from translation
-    // .json's regions table; floor in friendly form, see Lookup notes).
-    const Entry& Lookup(const std::string& region_name,
-                        const std::string& floor_short);
-
-private:
-    std::filesystem::path                 m_root;
-    std::map<std::string, Entry>          m_cache;     // key = "<region>/<floor_short>"
-};
-
-// Per-(region, floor) "have I seen this tile" bitmap, persisted to
-// pref_dir/fogofwar.json. Reveals a 17×11 box around the player each
-// time it's poked. Phase F.
-class FogOfWar
-{
-public:
     void Load(const std::filesystem::path& prefDir);
     void Save() const;
 
-    // Mark the visible 17×11 footprint (centred on player) as seen.
-    void Reveal(int region_id, const std::string& floor,
-                int playerX, int playerY,
-                int floorWidth, int floorHeight);
+    // Pull Nox's 17×11 visible buffer (`vis` points to 187 contiguous
+    // bytes, row-major) into the (region, floor) map, centred on the
+    // player. Out-of-floor cells are clipped silently.
+    void Observe(int region_id, const std::string& floor,
+                 int playerX, int playerY,
+                 int floorWidth, int floorHeight,
+                 const uint8_t* vis);
 
-    // True if the tile at (x, y) on (region, floor) has been seen.
-    bool IsRevealed(int region_id, const std::string& floor, int x, int y) const;
-
-    // Raw access to a floor's bitmap (row-major, w*h bytes; 1 = seen).
-    const std::vector<uint8_t>* Bitmap(int region_id, const std::string& floor) const;
+    // Tile id at (x, y), 0 = never observed.
+    uint8_t TileAt(int region_id, const std::string& floor, int x, int y) const;
 
 private:
     using Key = std::pair<int, std::string>;
     struct Floor
     {
         int width = 0, height = 0;
-        std::vector<uint8_t> seen;     // size = width*height
+        std::vector<uint8_t> tiles;    // size = width*height; 0 = unseen
     };
     Floor& EnsureFloor(int region_id, const std::string& floor,
                        int floorWidth, int floorHeight);
@@ -178,8 +131,7 @@ class MapPanel
 public:
     bool* OpenFlag()    { return &m_open; }
     bool& OpenRef()     { return m_open; }
-    void  Render(const MapTranslator& tx, MapData& md,
-                 FloorImageCache& images, FogOfWar& fog);
+    void  Render(const MapTranslator& tx, MapData& md, TileMap& tiles);
 
 private:
     bool m_open = false;

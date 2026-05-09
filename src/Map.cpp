@@ -6,8 +6,6 @@
 #include "RamSnapshot.h"
 
 #include <imgui.h>
-#include <stb_image.h>
-#include <glad/glad.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -57,18 +55,6 @@ int SampleAtPeekOffset(int peekOffset, uint8_t mapID, uint8_t xpos, uint8_t ypos
 // the safe-sample callback fires.
 constexpr int kVisionW = 17;
 constexpr int kVisionH = 11;
-
-// Translate the GC FriendlyName form the EXPORTPNGS.NUT writes into
-// PNG filenames ("Ground Floor", "Floor 2", "Basement 1") into the
-// short floor codes the rest of NAC uses ("G", "F2", "B1"). Inverse
-// of pack_maps.py's normalise_floor.
-std::string FriendlyFromShort(const std::string& s)
-{
-    if (s == "G")              return "Ground Floor";
-    if (!s.empty() && s[0] == 'F') return "Floor "    + s.substr(1);
-    if (!s.empty() && s[0] == 'B') return "Basement " + s.substr(1);
-    return s;
-}
 
 } // namespace
 
@@ -261,73 +247,12 @@ void MapData::Load(const std::filesystem::path& assetsDir)
         m_index[{r.region_id, r.floor}] = r;
     }
 
-    // Load floors_meta.json. Per-floor entry is [offset_x, offset_y]
-    // in tiles. Older [l, t, r, b] / [l, t, r, b, mdx, mdy] layouts
-    // from earlier iterations are silently dropped — they were always
-    // tunable from the UI anyway.
-    m_metaPath = assetsDir / "maps" / "floors_meta.json";
-    if (std::filesystem::exists(m_metaPath))
-    {
-        try
-        {
-            std::ifstream f(m_metaPath);
-            nlohmann::json j; f >> j;
-            for (auto it = j.begin(); it != j.end(); ++it)
-            {
-                if (!it.value().is_array() || it.value().size() < 2) continue;
-                if (it.value().size() != 2) continue;       // not the new schema
-                const std::string& key = it.key();
-                const auto slash = key.find('/');
-                if (slash == std::string::npos) continue;
-                const int rid = std::stoi(key.substr(0, slash));
-                const std::string fl = key.substr(slash + 1);
-                FloorMeta m;
-                m.offset_x = it.value()[0].get<int>();
-                m.offset_y = it.value()[1].get<int>();
-                m_meta[{rid, fl}] = m;
-            }
-        }
-        catch (const std::exception& e)
-        {
-            std::fprintf(stderr, "MapData: floors_meta parse failed: %s\n", e.what());
-        }
-    }
 }
 
 const FloorRecord* MapData::Find(int region_id, const std::string& floor) const
 {
     auto it = m_index.find({region_id, floor});
     return it == m_index.end() ? nullptr : &it->second;
-}
-
-FloorMeta& MapData::Meta(int region_id, const std::string& floor)
-{
-    return m_meta[{region_id, floor}];   // default-constructs to all zero
-}
-
-const FloorMeta& MapData::Meta(int region_id, const std::string& floor) const
-{
-    static const FloorMeta zero;
-    auto it = m_meta.find({region_id, floor});
-    return it == m_meta.end() ? zero : it->second;
-}
-
-void MapData::SaveMeta() const
-{
-    if (m_metaPath.empty()) return;
-    nlohmann::json j = nlohmann::json::object();
-    for (const auto& [k, m] : m_meta)
-    {
-        if (m.offset_x == 0 && m.offset_y == 0) continue;
-        const std::string key = std::to_string(k.first) + "/" + k.second;
-        j[key] = nlohmann::json::array({m.offset_x, m.offset_y});
-    }
-    try
-    {
-        std::ofstream f(m_metaPath);
-        f << j.dump(2);
-    }
-    catch (...) {}
 }
 
 std::vector<MapData::FloorListEntry>
@@ -347,56 +272,60 @@ MapData::AllFloors(const MapTranslator& tx) const
 }
 
 // ---------------------------------------------------------------------------
-// FloorImageCache
+// TileMap
 // ---------------------------------------------------------------------------
 
-void FloorImageCache::SetRoot(const std::filesystem::path& assetsDir)
+namespace
 {
-    m_root = assetsDir / "maps" / "floors";
-}
 
-const FloorImageCache::Entry& FloorImageCache::Lookup(const std::string& region_name,
-                                                      const std::string& floor_short)
+// Tiny inline base64 — same scheme the old fogofwar.json used so the
+// switch to seen_tiles.json doesn't need a real codec dependency.
+const std::string kB64 =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+std::string EncodeB64(const std::vector<uint8_t>& bytes)
 {
-    const std::string key = region_name + "/" + floor_short;
-    auto it = m_cache.find(key);
-    if (it != m_cache.end()) return it->second;
-
-    Entry e;
-    const std::string fname = region_name + "_" + FriendlyFromShort(floor_short) + ".png";
-    const auto path = m_root / fname;
-    if (std::filesystem::exists(path))
+    std::string out;
+    out.reserve((bytes.size() + 2) / 3 * 4);
+    int val = 0, valb = -6;
+    for (uint8_t c : bytes)
     {
-        int w = 0, h = 0, channels = 0;
-        unsigned char* data = stbi_load(path.string().c_str(), &w, &h, &channels, 4);
-        if (data)
+        val = (val << 8) | c;
+        valb += 8;
+        while (valb >= 0)
         {
-            GLuint tex = 0;
-            glGenTextures(1, &tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            stbi_image_free(data);
-            e.tex    = tex;
-            e.width  = w;
-            e.height = h;
+            out.push_back(kB64[(val >> valb) & 0x3F]);
+            valb -= 6;
         }
     }
-    auto [ins, ok] = m_cache.emplace(key, e);
-    return ins->second;
+    if (valb > -6) out.push_back(kB64[((val << 8) >> (valb + 8)) & 0x3F]);
+    while (out.size() % 4) out.push_back('=');
+    return out;
 }
 
-// ---------------------------------------------------------------------------
-// FogOfWar
-// ---------------------------------------------------------------------------
-
-void FogOfWar::Load(const std::filesystem::path& prefDir)
+std::vector<uint8_t> DecodeB64(const std::string& b64)
 {
-    m_path = prefDir / "fogofwar.json";
+    std::vector<int> tab(256, -1);
+    for (int i = 0; i < 64; ++i) tab[(uint8_t)kB64[i]] = i;
+    std::vector<uint8_t> out;
+    out.reserve(b64.size() * 3 / 4);
+    int val = 0, valb = -8;
+    for (char c : b64)
+    {
+        if (c == '=') break;
+        if (tab[(uint8_t)c] < 0) continue;
+        val = (val << 6) | tab[(uint8_t)c];
+        valb += 6;
+        if (valb >= 0) { out.push_back((uint8_t)((val >> valb) & 0xFF)); valb -= 8; }
+    }
+    return out;
+}
+
+} // namespace
+
+void TileMap::Load(const std::filesystem::path& prefDir)
+{
+    m_path = prefDir / "seen_tiles.json";
     m_floors.clear();
     m_dirty = false;
     if (!std::filesystem::exists(m_path)) return;
@@ -411,69 +340,32 @@ void FogOfWar::Load(const std::filesystem::path& prefDir)
             const std::string floor = fjson.value("floor", std::string{});
             const int w = fjson.value("w", 0);
             const int h = fjson.value("h", 0);
-            const std::string b64 = fjson.value("seen_b64", std::string{});
+            const std::string b64 = fjson.value("tiles_b64", std::string{});
             if (region == 0 || floor.empty() || w <= 0 || h <= 0) continue;
             Floor& fl = EnsureFloor(region, floor, w, h);
-            // Encoding: each byte in seen_b64 is one tile (0 / 1) — this
-            // is wasteful (8x what a packed bitset would take) but the
-            // file stays human-inspectable and ~200 KB total fits easily
-            // in pref_dir. Decode is a straight base64 → byte copy.
-            // Use a tiny inline base64 to avoid pulling another lib.
-            static const std::string T =
-                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-            std::vector<int> tab(256, -1);
-            for (int i = 0; i < 64; ++i) tab[(uint8_t)T[i]] = i;
-            std::vector<uint8_t> bytes;
-            bytes.reserve(b64.size() * 3 / 4);
-            int val = 0, valb = -8;
-            for (char c : b64)
-            {
-                if (c == '=') break;
-                if (tab[(uint8_t)c] < 0) continue;
-                val = (val << 6) | tab[(uint8_t)c];
-                valb += 6;
-                if (valb >= 0) { bytes.push_back((uint8_t)((val >> valb) & 0xFF)); valb -= 8; }
-            }
+            const auto bytes = DecodeB64(b64);
             const size_t n = (std::min)(bytes.size(), (size_t)w * (size_t)h);
-            std::memcpy(fl.seen.data(), bytes.data(), n);
+            std::memcpy(fl.tiles.data(), bytes.data(), n);
         }
     }
     catch (const std::exception& e)
     {
-        std::fprintf(stderr, "FogOfWar: parse failed: %s\n", e.what());
+        std::fprintf(stderr, "TileMap: parse failed: %s\n", e.what());
     }
 }
 
-void FogOfWar::Save() const
+void TileMap::Save() const
 {
     if (!m_dirty || m_path.empty()) return;
-    static const std::string T =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     nlohmann::json arr = nlohmann::json::array();
     for (const auto& [k, fl] : m_floors)
     {
-        std::string b64;
-        b64.reserve((fl.seen.size() + 2) / 3 * 4);
-        int val = 0, valb = -6;
-        for (uint8_t c : fl.seen)
-        {
-            val = (val << 8) | c;
-            valb += 8;
-            while (valb >= 0)
-            {
-                b64.push_back(T[(val >> valb) & 0x3F]);
-                valb -= 6;
-            }
-        }
-        if (valb > -6) b64.push_back(T[((val << 8) >> (valb + 8)) & 0x3F]);
-        while (b64.size() % 4) b64.push_back('=');
-
         arr.push_back({
-            {"region",   k.first},
-            {"floor",    k.second},
-            {"w",        fl.width},
-            {"h",        fl.height},
-            {"seen_b64", b64},
+            {"region",    k.first},
+            {"floor",     k.second},
+            {"w",         fl.width},
+            {"h",         fl.height},
+            {"tiles_b64", EncodeB64(fl.tiles)},
         });
     }
     try
@@ -485,62 +377,58 @@ void FogOfWar::Save() const
     catch (...) {}
 }
 
-FogOfWar::Floor& FogOfWar::EnsureFloor(int region_id, const std::string& floor,
-                                       int floorWidth, int floorHeight)
+TileMap::Floor& TileMap::EnsureFloor(int region_id, const std::string& floor,
+                                     int floorWidth, int floorHeight)
 {
     auto& fl = m_floors[{region_id, floor}];
-    if ((int)fl.seen.size() != floorWidth * floorHeight)
+    if ((int)fl.tiles.size() != floorWidth * floorHeight)
     {
         fl.width  = floorWidth;
         fl.height = floorHeight;
-        fl.seen.assign((size_t)floorWidth * (size_t)floorHeight, 0);
+        fl.tiles.assign((size_t)floorWidth * (size_t)floorHeight, 0);
     }
     return fl;
 }
 
-void FogOfWar::Reveal(int region_id, const std::string& floor,
+void TileMap::Observe(int region_id, const std::string& floor,
                       int playerX, int playerY,
-                      int floorWidth, int floorHeight)
+                      int floorWidth, int floorHeight,
+                      const uint8_t* vis)
 {
-    if (floorWidth <= 0 || floorHeight <= 0) return;
+    if (!vis || floorWidth <= 0 || floorHeight <= 0) return;
     Floor& fl = EnsureFloor(region_id, floor, floorWidth, floorHeight);
-
-    const int x0 = (std::max)(0,                playerX - kVisionW / 2);
-    const int x1 = (std::min)(floorWidth  - 1,  playerX + kVisionW / 2);
-    const int y0 = (std::max)(0,                playerY - kVisionH / 2);
-    const int y1 = (std::min)(floorHeight - 1,  playerY + kVisionH / 2);
-
-    for (int y = y0; y <= y1; ++y)
-        for (int x = x0; x <= x1; ++x)
-            if (!fl.seen[y * floorWidth + x])
-            {
-                fl.seen[y * floorWidth + x] = 1;
-                m_dirty = true;
-            }
+    const int x0 = playerX - kVisW / 2;
+    const int y0 = playerY - kVisH / 2;
+    for (int row = 0; row < kVisH; ++row)
+    {
+        const int y = y0 + row;
+        if (y < 0 || y >= floorHeight) continue;
+        for (int col = 0; col < kVisW; ++col)
+        {
+            const int x = x0 + col;
+            if (x < 0 || x >= floorWidth) continue;
+            const uint8_t id = vis[row * kVisW + col];
+            if (id == 0) continue;             // never overwrite with 0
+            uint8_t& cell = fl.tiles[y * floorWidth + x];
+            if (cell != id) { cell = id; m_dirty = true; }
+        }
+    }
 }
 
-bool FogOfWar::IsRevealed(int region_id, const std::string& floor, int x, int y) const
+uint8_t TileMap::TileAt(int region_id, const std::string& floor, int x, int y) const
 {
     auto it = m_floors.find({region_id, floor});
-    if (it == m_floors.end()) return false;
+    if (it == m_floors.end()) return 0;
     const Floor& fl = it->second;
-    if (x < 0 || x >= fl.width || y < 0 || y >= fl.height) return false;
-    return fl.seen[y * fl.width + x] != 0;
-}
-
-const std::vector<uint8_t>* FogOfWar::Bitmap(int region_id,
-                                             const std::string& floor) const
-{
-    auto it = m_floors.find({region_id, floor});
-    return it == m_floors.end() ? nullptr : &it->second.seen;
+    if (x < 0 || x >= fl.width || y < 0 || y >= fl.height) return 0;
+    return fl.tiles[y * fl.width + x];
 }
 
 // ---------------------------------------------------------------------------
 // MapPanel
 // ---------------------------------------------------------------------------
 
-void MapPanel::Render(const MapTranslator& tx, MapData& md,
-                      FloorImageCache& images, FogOfWar& fog)
+void MapPanel::Render(const MapTranslator& tx, MapData& md, TileMap& tiles)
 {
     if (!m_open) return;
 
@@ -628,22 +516,18 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
                 loc->region, loc->region_name.c_str(),
                 loc->floor.c_str(), loc->x, loc->y);
 
-    const FloorRecord* fr = md.Find(loc->region, loc->floor);
-    if (!fr)
-    {
-        ImGui::TextDisabled("(no map data for this region/floor)");
-        ImGui::End();
-        return;
-    }
+    ImGui::Text("Region %d (%s) — Floor %s",
+                loc->region, loc->region_name.c_str(), loc->floor.c_str());
 
-    // Fog bitmap sizes to the full region (loc->width × loc->height per
-    // translation.json), not the FindBound-cropped FloorRecord, so the
-    // bitmap aligns 1:1 with the PNG which covers the full region.
     const int regionW = (std::max)(1, loc->width);
     const int regionH = (std::max)(1, loc->height);
-    fog.Reveal(loc->region, loc->floor, loc->x, loc->y, regionW, regionH);
 
-    const auto& img = images.Lookup(loc->region_name, loc->floor);
+    // Observe Nox's 17×11 visible buffer at $0800 each frame. The
+    // TileMap merges every non-zero byte into the (region, floor)
+    // grid; cells that have never been seen stay zero (drawn dark).
+    const uint8_t* vis = &g_ramSnapshot.main[0x0800];
+    if (g_ramSnapshot.valid)
+        tiles.Observe(loc->region, loc->floor, loc->x, loc->y, regionW, regionH, vis);
 
     ImGui::Separator();
 
@@ -652,105 +536,78 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     ImGui::InputFloat("Zoom", &s_zoom, 0.05f, 0.25f, "%.2fx");
     s_zoom = (std::max)(0.05f, (std::min)(8.0f, s_zoom));
     ImGui::SameLine();
-    if (ImGui::Button("Fit") && img.tex && img.width && img.height)
+    if (ImGui::Button("Fit"))
     {
+        constexpr float kFitTile = 8.0f;   // px per tile we'd like in the fit
         const ImVec2 avail = ImGui::GetContentRegionAvail();
-        const float zx = avail.x / img.width;
-        const float zy = (avail.y - 30) / img.height;
-        s_zoom = (std::max)(0.1f, (std::min)(zx, zy));
-    }
-
-    // Per-floor inset sliders. Each PNG can have residual chrome /
-    // an off-by-one tile around the playable area; sliders work in
-    // whole-tile units (32 px each) since fractional-tile offsets
-    // would shear the marker grid against the underlying PNG. Stored
-    // in pixels in floors_meta.json so the runtime math doesn't have
-    // to care about the unit.
-    // Per-floor offset: where (tile 0, 0) sits inside the PNG, in
-    // whole tiles. InputInt has +/- buttons and accepts typed values
-    // — finer than a slider when you need exact alignment.
-    FloorMeta& meta = md.Meta(loc->region, loc->floor);
-    if (ImGui::CollapsingHeader("Offset (current floor, tiles)"))
-    {
-        ImGui::SetNextItemWidth(140.0f);
-        ImGui::InputInt("Offset X", &meta.offset_x, 1, 16);
-        ImGui::SetNextItemWidth(140.0f);
-        ImGui::InputInt("Offset Y", &meta.offset_y, 1, 16);
-        const int xLim = (std::max)(regionW, 1);
-        const int yLim = (std::max)(regionH, 1);
-        meta.offset_x = (std::max)(-xLim, (std::min)(xLim, meta.offset_x));
-        meta.offset_y = (std::max)(-yLim, (std::min)(yLim, meta.offset_y));
-        if (ImGui::Button("Save")) md.SaveMeta();
+        const float zx = avail.x / (regionW * 32.0f);
+        const float zy = (avail.y - 30) / (regionH * 32.0f);
+        s_zoom = (std::max)(0.05f, (std::min)(zx, zy));
+        (void)kFitTile;
     }
 
     ImGui::BeginChild("##map_canvas", ImVec2(0, 0),
                       ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
 
-    if (img.tex == 0)
+    constexpr float kTilePx = 32.0f;
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImU32 fogCol = IM_COL32(20, 20, 24, 255);
+
+    // Background — solid dark across the whole region. Drawn first so
+    // unseen cells stay dark; observed tiles paint over it.
+    const ImVec2 bg0(origin.x, origin.y);
+    const ImVec2 bg1(origin.x + regionW * kTilePx * s_zoom,
+                     origin.y + regionH * kTilePx * s_zoom);
+    dl->AddRectFilled(bg0, bg1, fogCol);
+
+    // Per-tile colours from a hash of the tile id — cheap visual that
+    // gives different terrain types distinct shades without needing a
+    // tileset PNG. Same scheme Phase D used. Tile 0 (unseen) doesn't
+    // draw — the background fog shows through.
+    auto colorForTile = [](uint8_t id) -> ImU32 {
+        uint32_t h = id * 0x9E3779B1u + 0xBF58476Du;
+        h ^= h >> 16;
+        const uint8_t r = 60 + ((h >> 0)  & 0xFF) * 180 / 255;
+        const uint8_t g = 60 + ((h >> 8)  & 0xFF) * 180 / 255;
+        const uint8_t b = 60 + ((h >> 16) & 0xFF) * 180 / 255;
+        return IM_COL32(r, g, b, 255);
+    };
+
+    for (int ty = 0; ty < regionH; ++ty)
     {
-        ImGui::TextDisabled(
-            "(missing NoxArchaistCompanion/Assets/maps/floors/%s_%s.png)",
-            loc->region_name.c_str(),
-            FriendlyFromShort(loc->floor).c_str());
-    }
-    else
-    {
-        const ImVec2 origin = ImGui::GetCursorScreenPos();
-        const ImVec2 size((float)img.width * s_zoom, (float)img.height * s_zoom);
-
-        ImGui::Image(static_cast<ImTextureID>((uintptr_t)img.tex), size);
-
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-
-        // Cropped PNGs are exactly tile-aligned at 32 px / tile, so we
-        // use a fixed scale and slide the origin by the per-floor
-        // (offset_x, offset_y) tile shift.
-        constexpr float kTilePx = 32.0f;
-        const float pxPerTileX = kTilePx;
-        const float pxPerTileY = kTilePx;
-        const float ox = origin.x + meta.offset_x * kTilePx * s_zoom;
-        const float oy = origin.y + meta.offset_y * kTilePx * s_zoom;
-        const ImU32 fogCol = IM_COL32(20, 20, 24, 255);
-
-        for (int ty = 0; ty < regionH; ++ty)
+        for (int tx = 0; tx < regionW; ++tx)
         {
-            for (int tx = 0; tx < regionW; ++tx)
-            {
-                if (fog.IsRevealed(loc->region, loc->floor, tx, ty)) continue;
-                const float px0 = tx * pxPerTileX * s_zoom;
-                const float py0 = ty * pxPerTileY * s_zoom;
-                const float px1 = px0 + pxPerTileX * s_zoom;
-                const float py1 = py0 + pxPerTileY * s_zoom;
-                dl->AddRectFilled(ImVec2(ox + px0, oy + py0),
-                                  ImVec2(ox + px1, oy + py1),
-                                  fogCol);
-            }
-        }
-
-        // Player marker — both axes centred (+0.5) on the avatar's
-        // tile cell.
-        if (loc->x >= 0 && loc->x < regionW &&
-            loc->y >= 0 && loc->y < regionH)
-        {
-            const float ax = (loc->x + 0.5f) * pxPerTileX * s_zoom;
-            const float ay = (loc->y + 0.5f) * pxPerTileY * s_zoom;
-            const ImVec2 c(ox + ax, oy + ay);
-            const float r = (std::max)(3.0f, pxPerTileX * s_zoom * 0.45f);
-            dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
-            dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
-
-            // Auto-centre the canvas on the avatar each frame. The
-            // child window's *visible* size is GetWindowSize (NOT
-            // GetContentRegionAvail, which has shrunk by the rendered
-            // image already and would over-scroll). ImGui clamps the
-            // scroll so the map edges don't pan off-screen.
-            const ImVec2 view = ImGui::GetWindowSize();
-            const float marker_canvas_x = meta.offset_x * kTilePx * s_zoom + ax;
-            const float marker_canvas_y = meta.offset_y * kTilePx * s_zoom + ay;
-            ImGui::SetScrollX(marker_canvas_x - view.x * 0.5f);
-            ImGui::SetScrollY(marker_canvas_y - view.y * 0.5f);
+            const uint8_t id = tiles.TileAt(loc->region, loc->floor, tx, ty);
+            if (id == 0) continue;
+            const float px0 = origin.x + tx * kTilePx * s_zoom;
+            const float py0 = origin.y + ty * kTilePx * s_zoom;
+            dl->AddRectFilled(ImVec2(px0, py0),
+                              ImVec2(px0 + kTilePx * s_zoom, py0 + kTilePx * s_zoom),
+                              colorForTile(id));
         }
     }
+
+    // Player marker.
+    if (loc->x >= 0 && loc->x < regionW &&
+        loc->y >= 0 && loc->y < regionH)
+    {
+        const float ax = (loc->x + 0.5f) * kTilePx * s_zoom;
+        const float ay = (loc->y + 0.5f) * kTilePx * s_zoom;
+        const ImVec2 c(origin.x + ax, origin.y + ay);
+        const float r = (std::max)(3.0f, kTilePx * s_zoom * 0.45f);
+        dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
+        dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
+
+        // Auto-centre the canvas on the avatar each frame.
+        const ImVec2 view = ImGui::GetWindowSize();
+        ImGui::SetScrollX(ax - view.x * 0.5f);
+        ImGui::SetScrollY(ay - view.y * 0.5f);
+    }
+
+    // Reserve canvas area for scroll bars.
+    ImGui::Dummy(ImVec2(regionW * kTilePx * s_zoom,
+                        regionH * kTilePx * s_zoom));
 
     ImGui::EndChild();
     ImGui::End();
