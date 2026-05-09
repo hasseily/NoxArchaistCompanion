@@ -541,6 +541,29 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md, TileMap& tiles)
         tiles.Observe(loc->region, loc->floor, loc->x, loc->y,
                       regionW, regionH, vis, fog);
 
+    // Diagnostic: live view of the two 17×11 buffers Observe() reads.
+    // Watch this while you walk to verify $0800 / $08BB are the right
+    // addresses and that fog == 0 / non-0 means visible / hidden.
+    if (ImGui::CollapsingHeader("[diag] visible + fog buffers"))
+    {
+        ImGui::Text("$0800 (tiles, hex)         $08BB (fog, hex)");
+        for (int row = 0; row < TileMap::kVisH; ++row)
+        {
+            std::string visRow, fogRow;
+            visRow.reserve(TileMap::kVisW * 3);
+            fogRow.reserve(TileMap::kVisW * 3);
+            for (int col = 0; col < TileMap::kVisW; ++col)
+            {
+                char b1[4], b2[4];
+                std::snprintf(b1, 4, "%02X ", vis[row * TileMap::kVisW + col]);
+                std::snprintf(b2, 4, "%02X ", fog[row * TileMap::kVisW + col]);
+                visRow += b1;
+                fogRow += b2;
+            }
+            ImGui::Text("%s   %s", visRow.c_str(), fogRow.c_str());
+        }
+    }
+
     ImGui::Separator();
 
     static float s_zoom = 1.0f;
