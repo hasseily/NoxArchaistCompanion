@@ -639,19 +639,29 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
         s_zoom = (std::max)(0.1f, (std::min)(zx, zy));
     }
 
-    // Per-floor inset sliders. Each PNG export from GC has its own
-    // chrome (axis labels, title bar, etc.) — different per region —
-    // so the playable tile area sits inside the PNG by some amount on
-    // each side. Adjust here, watch the marker/fog snap into place,
-    // hit Save to commit to floors_meta.json.
+    // Per-floor inset sliders. Each PNG can have residual chrome /
+    // an off-by-one tile around the playable area; sliders work in
+    // whole-tile units (32 px each) since fractional-tile offsets
+    // would shear the marker grid against the underlying PNG. Stored
+    // in pixels in floors_meta.json so the runtime math doesn't have
+    // to care about the unit.
     FloorMeta& meta = md.Meta(loc->region, loc->floor);
-    if (ImGui::CollapsingHeader("Insets (current floor)"))
+    if (ImGui::CollapsingHeader("Insets (current floor, tiles)"))
     {
-        const int maxIn = img.width ? img.width / 2 : 256;
-        ImGui::SliderInt("Left",   &meta.inset_l, 0, maxIn);
-        ImGui::SliderInt("Top",    &meta.inset_t, 0, maxIn);
-        ImGui::SliderInt("Right",  &meta.inset_r, 0, maxIn);
-        ImGui::SliderInt("Bottom", &meta.inset_b, 0, maxIn);
+        constexpr int kPx = 32;
+        const int maxTiles = img.width ? (img.width / kPx) / 2 : 8;
+        int l = meta.inset_l / kPx;
+        int t = meta.inset_t / kPx;
+        int r = meta.inset_r / kPx;
+        int b = meta.inset_b / kPx;
+        ImGui::SliderInt("Left",   &l, 0, maxTiles);
+        ImGui::SliderInt("Top",    &t, 0, maxTiles);
+        ImGui::SliderInt("Right",  &r, 0, maxTiles);
+        ImGui::SliderInt("Bottom", &b, 0, maxTiles);
+        meta.inset_l = l * kPx;
+        meta.inset_t = t * kPx;
+        meta.inset_r = r * kPx;
+        meta.inset_b = b * kPx;
         if (ImGui::Button("Save insets")) md.SaveMeta();
     }
 
