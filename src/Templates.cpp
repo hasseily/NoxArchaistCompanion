@@ -289,7 +289,7 @@ void TemplateInstance::Render()
             if (b == 0) break;
             nm[i] = (char)(b & 0x7F);
         }
-        std::snprintf(title, sizeof(title), "%s — %s###nac_tpl_%d",
+        std::snprintf(title, sizeof(title), "%s - %s###nac_tpl_%d",
                       m_template->name.c_str(),
                       nm[0] ? nm : "(empty)",
                       m_instanceId);
