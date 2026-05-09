@@ -58,15 +58,29 @@ def parse_class_defaults(root):
 
 
 def parse_regions(root):
-    """{ region_id: { name, width, height } } — drives map sizing."""
+    """{ region_id: { name, width, height } } — drives map sizing.
+
+    GC's <grid width=N height=N tilex=T tiley=T> uses width / height as
+    the macro-grid cell count and tilex / tiley as the number of
+    sub-tiles per macro cell. The actual tile count of the region is
+    width * tilex by height * tiley — that's what NAC's map render
+    needs (Wynmar is 16x16 macro × 16x16 sub = 256x256 tiles).
+    """
     out = {}
     for r in root.findall(".//region"):
         rid = int(r.get("id"))
         grid = r.find("grid")
+        if grid is None:
+            out[rid] = {"name": r.get("name"), "width": 0, "height": 0}
+            continue
+        gw = int(grid.get("width"))
+        gh = int(grid.get("height"))
+        tx = int(grid.get("tilex", "1"))
+        ty = int(grid.get("tiley", "1"))
         out[rid] = {
             "name":   r.get("name"),
-            "width":  int(grid.get("width"))  if grid is not None else 0,
-            "height": int(grid.get("height")) if grid is not None else 0,
+            "width":  gw * tx,
+            "height": gh * ty,
         }
     return out
 

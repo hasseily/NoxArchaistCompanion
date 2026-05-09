@@ -2,8 +2,8 @@
   "regions": {
     "1": {
       "name": "Depths of Vacous",
-      "width": 16,
-      "height": 16
+      "width": 256,
+      "height": 256
     },
     "2": {
       "name": "Suurtheld",
@@ -122,13 +122,13 @@
     },
     "256": {
       "name": "Wynmar",
-      "width": 16,
-      "height": 16
+      "width": 256,
+      "height": 256
     },
     "666": {
       "name": "Shadow Plane",
-      "width": 16,
-      "height": 16
+      "width": 80,
+      "height": 80
     }
   },
   "rules": [
