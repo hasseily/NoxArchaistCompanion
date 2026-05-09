@@ -58,6 +58,31 @@ int SampleAtPeekOffset(int peekOffset, uint8_t mapID, uint8_t xpos, uint8_t ypos
 constexpr int kVisionW = 17;
 constexpr int kVisionH = 11;
 
+// Map-type byte at main $267D — Nox writes which kind of map is being
+// rendered into the visible-tile buffer at $0800. $FF means "combat
+// map", which we treat as "don't observe / don't paint into the
+// player's discovered overworld map". The other values are useful as
+// labels in the diag readout.
+constexpr uint16_t kAddrMapType = 0x267D;
+constexpr uint8_t  kMapTypeCombat = 0xFF;
+
+const char* MapTypeName(uint8_t t)
+{
+    switch (t)
+    {
+    case 0x00: return "Surface";
+    case 0x02: return "Undermap";
+    case 0x03: return "Ruin";
+    case 0x04: return "Undermap T";
+    case 0x05: return "Town2";
+    case 0x06: return "Town";
+    case 0x07: return "Castle";
+    case 0x08: return "Keep";
+    case 0xFF: return "Combat";
+    default:   return "?";
+    }
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -530,11 +555,13 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     // Canonical Nox coordinates: X at $6CEB, Y at $6CEC, both in main.
     // Used everywhere — Map panel display, tile observation, teleport
     // write target, party_full sextant template.
-    const uint8_t mapID = Peek(0x2AF9);
-    const uint8_t xpos  = Peek(0x6CEB);
-    const uint8_t ypos  = Peek(0x6CEC);
+    const uint8_t mapID   = Peek(0x2AF9);
+    const uint8_t xpos    = Peek(0x6CEB);
+    const uint8_t ypos    = Peek(0x6CEC);
+    const uint8_t mapType = Peek(kAddrMapType);
 
-    ImGui::Text("mapID $%02X  X=%u  Y=%u", mapID, xpos, ypos);
+    ImGui::Text("mapID $%02X  X=%u  Y=%u  type $%02X (%s)",
+                mapID, xpos, ypos, mapType, MapTypeName(mapType));
 
     // Teleport sub-panel — pick a (region, floor) + (X, Y) and write
     // the matching mapID, $6CEB (X) and $6CEC (Y) bytes into //e main
@@ -615,13 +642,15 @@ void MapPanel::Render(const MapTranslator& tx, MapData& md,
     // (region, floor) TileMap; everything else is left untouched so
     // previously-discovered tiles persist.
     //
-    // Skip during combat — Nox repurposes the same $0800 buffer for
-    // the battle map (PC_INITIATE_COMBAT through PC_END_COMBAT). If
-    // we observed those bytes they'd overwrite the overworld tiles
-    // we'd previously discovered for this floor.
+    // Skip when the map type at $267D is $FF — Nox repurposes the
+    // $0800 buffer for the battle map then, and observing it would
+    // overwrite the overworld tiles we'd previously discovered for
+    // this floor. (g_noxInCombat is a separate signal used by other
+    // code for the combat *loop*; map-type is the right signal for
+    // "is the buffer currently rendering combat".)
     const uint8_t* vis = &g_ramSnapshot.main[0x0800];
     const uint8_t* fog = &g_ramSnapshot.main[0x08BB];
-    if (g_ramSnapshot.valid && !g_noxInCombat)
+    if (g_ramSnapshot.valid && mapType != kMapTypeCombat)
         tiles.Observe(loc->region, loc->floor, loc->x, loc->y,
                       regionW, regionH, vis, fog);
 
