@@ -1076,7 +1076,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     {
         if (ImGui::BeginMenu("Emulator"))
         {
-            if (ImGui::MenuItem("Open HDV...")) OpenHdvDialog(*state);
+            if (ImGui::MenuItem("Open Nox Archaist HDV...")) OpenHdvDialog(*state);
             ImGui::Separator();
             if (ImGui::MenuItem(state->paused ? "Resume" : "Pause", "Ctrl+P"))
                 EmulatorPause(*state, !state->paused);

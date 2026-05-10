@@ -28,7 +28,7 @@ void AboutPanel::Render()
         ImGui::TextWrapped(
             "A desktop companion for the Apple //e game Nox Archaist.");
         ImGui::Separator();
-        ImGui::TextUnformatted("(c) Henri \"Rikkles\" Asseily - MIT License");
+        ImGui::TextUnformatted("(c) Rikkles - MIT License");
         ImGui::Spacing();
         ImGui::TextUnformatted("Built with:");
         ImGui::BulletText("AppleWin emulator (GPL2)");
@@ -40,6 +40,9 @@ void AboutPanel::Render()
         ImGui::Separator();
         ImGui::TextUnformatted(
             "https://github.com/hasseily/NoxArchaistCompanion");
+        ImGui::Separator();
+        ImGui::TextUnformatted(
+            "Visit the Nox Archaist Discord for support");
         ImGui::Spacing();
         if (ImGui::Button("Close", ImVec2(120, 0)))
             ImGui::CloseCurrentPopup();
