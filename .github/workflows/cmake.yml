@@ -12,11 +12,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Opt every JS-based action into Node 24 ahead of the 2026-06-02
-# default flip, silencing the runner's Node-20 deprecation warnings.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     name: ${{ matrix.os }}
@@ -56,9 +51,9 @@ jobs:
             libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
             libibus-1.0-dev
 
-      - name: Install macOS deps
-        if: runner.os == 'macOS'
-        run: brew install ninja
+      # macos-latest already ships Ninja preinstalled, so nothing to
+      # do here — kept the brew/Linux blocks separate for symmetry
+      # in case we ever need a per-runner setup hook.
 
       - name: Configure
         run: cmake -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=Release
@@ -133,7 +128,13 @@ jobs:
           # after unzip on the target machine.
           ditto -c -k --keepParent "$APP" "dist/${{ matrix.artifact }}.zip"
 
+      # Only upload on tag pushes — that's when the release job needs
+      # the artifacts. Skipping uploads on PR / master pushes also
+      # means we don't trigger the actions/upload-artifact@v4 Node-20
+      # deprecation warning on every commit; it'll only show on
+      # release builds until the action publishes a Node-24 version.
       - name: Upload artifact
+        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
