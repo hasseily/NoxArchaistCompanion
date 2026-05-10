@@ -4,7 +4,7 @@ project(NoxArchaistCompanion VERSION 3.0.0 LANGUAGES C CXX)
 # Pre-release suffix appended to NAC_VERSION_STRING in Version.h
 # (e.g. "-rc1", "-beta"). Empty string for stable releases. Bumped
 # alongside project(VERSION ...) above when cutting a release.
-set(NAC_VERSION_SUFFIX "-rc2")
+set(NAC_VERSION_SUFFIX "-rc3")
 
 # Bake the project version into a generated header that the About
 # panel and any other consumer can #include "Version.h" against.
