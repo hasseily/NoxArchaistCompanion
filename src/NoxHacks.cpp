@@ -6,6 +6,7 @@
 #include "Emulator/Memory.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <nlohmann/json.hpp>
 
 #include <cstdio>
@@ -107,10 +108,11 @@ void ConversationLogPanel::Append(char ch, bool flush)
         return;
     }
 
-    // Eat leading spaces after a real newline (otherwise Nox's
-    // per-line indentation prefix shows up at the start of every
-    // paragraph).
-    if (ch == ' ' && !m_buf.empty() && m_buf.back() == '\n')
+    // Eat leading spaces after a real newline AND collapse runs of
+    // spaces (the trap injects an end-of-PRINTSTR space, and Nox's
+    // per-line CR also became a space — sometimes both land in a row).
+    if (ch == ' ' && !m_buf.empty() &&
+        (m_buf.back() == '\n' || m_buf.back() == ' '))
         return;
 
     m_buf.push_back(ch);
@@ -127,20 +129,6 @@ void ConversationLogPanel::Append(char ch, bool flush)
     }
 }
 
-namespace
-{
-struct LogScrollState { bool wantTail; };
-int LogInputCallback(ImGuiInputTextCallbackData* data)
-{
-    if (data->EventFlag & ImGuiInputTextFlags_CallbackAlways)
-    {
-        auto* st = static_cast<LogScrollState*>(data->UserData);
-        if (st && st->wantTail)
-            data->CursorPos = data->BufTextLen;   // jump cursor → InputText scrolls it into view
-    }
-    return 0;
-}
-}
 
 void ConversationLogPanel::RebuildWrappedBuffer(float wrapWidth)
 {
@@ -239,22 +227,79 @@ void ConversationLogPanel::Render()
     if (m_wrappedBufLen != m_buf.size() || m_wrappedWidth != wrapWidth)
         RebuildWrappedBuffer(wrapWidth);
 
-    LogScrollState st{ m_autoScroll && !m_logFocused };
     constexpr ImGuiInputTextFlags kFlags =
         ImGuiInputTextFlags_ReadOnly |
-        ImGuiInputTextFlags_CallbackAlways |
         ImGuiInputTextFlags_NoUndoRedo |
         ImGuiInputTextFlags_NoHorizontalScroll;
+
+    // Capture the parent window + the InputText's stack ID *before*
+    // calling InputTextMultiline so we can locate its internal scroll
+    // child afterwards. ImGui's BeginChildEx names the child as
+    // "<parent_name>/<input_label>_<id_hex>" and hashes the full path
+    // for the window ID — so neither FindWindowByID(GetID(label)) nor
+    // a CallbackAlways callback (which only fires on active edit
+    // inputs, not read-only) work; constructing the path string and
+    // FindWindowByName does.
+    ImGuiWindow* parent  = ImGui::GetCurrentWindow();
+    const ImGuiID childId = ImGui::GetID("##noxlog");
+
     // m_wrappedBuf.data() is mutable (C++17) and NUL-terminated past
     // size(); ImGui won't write through it (ReadOnly).
     ImGui::InputTextMultiline("##noxlog",
                               m_wrappedBuf.data(),
                               m_wrappedBuf.size() + 1,
                               ImVec2(-FLT_MIN, -FLT_MIN),
-                              kFlags,
-                              &LogInputCallback,
-                              &st);
-    m_logFocused = ImGui::IsItemFocused();
+                              kFlags);
+
+    // Sticky follow-tail. The naive "snap if at bottom" check fails
+    // because Scroll.y lags ScrollMax.y by one frame whenever new
+    // content arrives, so atBottom reads false and we'd stop pinning
+    // immediately. Instead we track intent in m_followTail:
+    //
+    //   * disengage when the user scrolls below LAST frame's max
+    //     (ScrollMax never shrinks on append, so being under it can
+    //     only mean a user-driven scroll up — wheel, scrollbar drag,
+    //     keyboard, etc.)
+    //   * re-engage when they scroll back to the current max
+    //
+    // The flag persists across frames so newly-appended content keeps
+    // pinning the view to the bottom without our snap competing with
+    // the user's own input.
+    if (m_autoScroll && parent)
+    {
+        char childName[256];
+        std::snprintf(childName, sizeof(childName), "%s/##noxlog_%08X",
+                      parent->Name, (unsigned)childId);
+        if (ImGuiWindow* child = ImGui::FindWindowByName(childName))
+        {
+            constexpr float kSlopPx = 8.0f;
+            const float maxY = child->ScrollMax.y;
+            const float curY = child->Scroll.y;
+
+            if (m_followTail)
+            {
+                if (curY < m_lastScrollMax - kSlopPx)
+                    m_followTail = false;
+            }
+            else
+            {
+                if (curY >= maxY - kSlopPx)
+                    m_followTail = true;
+            }
+
+            if (m_followTail && maxY > 0.0f)
+                ImGui::SetScrollY(child, maxY);
+
+            m_lastScrollMax = maxY;
+        }
+    }
+    else
+    {
+        // Auto-scroll off → next time it's switched on, start tailing
+        // again from wherever the buffer ended up.
+        m_followTail = true;
+        m_lastScrollMax = 0.0f;
+    }
 
     ImGui::End();
 }

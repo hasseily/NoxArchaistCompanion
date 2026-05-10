@@ -330,11 +330,13 @@ static __forceinline void NoxFetchTrap(USHORT PC)
 
 	if (PC == cpuconstants.PC_PRINTSTR)
 	{
-		// Don't inject a newline between PRINTSTR calls — Nox calls
-		// PRINTSTR per word (one call per column-wrapped token in the
-		// narrow right scroll panel), so a per-PRINTSTR break puts
-		// every word on its own line. The frontend collapses Nox's
-		// own CRs into spaces, which is the right joiner.
+		// Inject a space whenever a right-panel PRINTSTR ends — Nox
+		// calls PRINTSTR per word for the narrow column wrap, and
+		// without an inter-call separator runs of words can otherwise
+		// glue together when neighbouring calls don't emit their own
+		// trailing CR. The frontend collapses runs of spaces.
+		if (g_noxInPrintRight)
+			g_noxLogCallback(' ', false);
 		g_noxInPrintRight =
 		    (regs.a == cpuconstants.A_PRINT_RIGHT) &&
 		    (!inCombat || g_noxLogIncludeCombat);

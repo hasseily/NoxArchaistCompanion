@@ -45,7 +45,8 @@ private:
     bool        m_open       = false;
     bool        m_autoScroll = true;
     bool        m_includeCombat = false;
-    bool        m_logFocused = false;   // suppresses auto-scroll while user is selecting
+    bool        m_followTail = true;        // sticky: true while we're tailing the bottom
+    float       m_lastScrollMax = 0.0f;     // ScrollMax.y from the previous frame
     std::string m_buf;
 
     // m_buf is the raw text from the trap (Nox CRs already collapsed
