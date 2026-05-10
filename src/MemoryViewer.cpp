@@ -2,6 +2,7 @@
 
 #include "MemoryViewer.h"
 
+#include "AppleStyle.h"
 #include "Emulator/Memory.h"
 
 #include <imgui.h>
@@ -24,6 +25,13 @@ void MemoryViewerPanel::Render()
         return;
     }
 
+    // Hex grids need a non-proportional font so the columns line up.
+    // Berkelium II HGR (the default) is monospace too but at 16px
+    // each row is fat — ProggyTiny at 10px gives about 3× the rows
+    // on screen and is plenty legible for hex / ASCII columns.
+    ImFont* mono = MonoFont();
+    if (mono) ImGui::PushFont(mono);
+
     // Bank selector + jump-to-address.
     ImGui::RadioButton("Main", &m_bank, 0); ImGui::SameLine();
     ImGui::RadioButton("Aux",  &m_bank, 1); ImGui::SameLine();
@@ -40,7 +48,7 @@ void MemoryViewerPanel::Render()
     // pattern (classic memory-scanner narrowing — search FF, walk in
     // game, refine DE to find the bytes that flipped). Both operate
     // on the active bank only.
-    ImGui::SetNextItemWidth(220.0f);
+    ImGui::SetNextItemWidth(110.0f);
     const bool searchRequested = ImGui::InputText("Search hex",
         m_searchInput, sizeof(m_searchInput),
         ImGuiInputTextFlags_EnterReturnsTrue);
@@ -168,6 +176,7 @@ void MemoryViewerPanel::Render()
     if (!bank)
     {
         ImGui::TextDisabled("(bank not allocated)");
+        if (mono) ImGui::PopFont();
         ImGui::End();
         return;
     }
@@ -267,6 +276,7 @@ void MemoryViewerPanel::Render()
     }
 
     ImGui::EndChild();
+    if (mono) ImGui::PopFont();
     ImGui::End();
 }
 

@@ -11,27 +11,30 @@ namespace nac
 namespace
 {
 
-// Walk up from the executable looking for assets/BerkeliumIIHGR.ttf
-// (CMake stages it next to the binary; macOS has it in the bundle's
-// Resources). Same pattern as FindResourcesDir / FindAssetsDir in
-// main.cpp — kept local here because AppleStyle runs at Renderer init
-// time, before main has resolved its own paths.
-std::filesystem::path FindFontPath()
+// Walk up from the executable looking for assets/<name> (CMake
+// stages the assets next to the binary; macOS has them in the
+// bundle's Resources). Same pattern as FindResourcesDir /
+// FindAssetsDir in main.cpp — kept local here because AppleStyle
+// runs at Renderer init time, before main has resolved its own
+// paths.
+std::filesystem::path FindAssetPath(const char* name)
 {
     const char* base = SDL_GetBasePath();
     std::filesystem::path dir = base ? base : ".";
     for (int i = 0; i < 5; ++i)
     {
-        const auto candidate = dir / "assets" / "BerkeliumIIHGR.ttf";
+        const auto candidate = dir / "assets" / name;
         if (std::filesystem::exists(candidate)) return candidate;
         // Fall-through to the source-tree layout (running from build-win/).
-        const auto srcCandidate = dir / "assets" / "pp" / "assets" / "BerkeliumIIHGR.ttf";
+        const auto srcCandidate = dir / "assets" / "pp" / "assets" / name;
         if (std::filesystem::exists(srcCandidate)) return srcCandidate;
         dir = dir.parent_path();
         if (dir.empty()) break;
     }
     return {};
 }
+
+ImFont* g_monoFont = nullptr;
 
 struct Palette
 {
@@ -73,14 +76,24 @@ void ApplyAppleStyle(InterfaceColor color)
     if (!s_fontLoaded)
     {
         ImGuiIO& io = ImGui::GetIO();
-        const auto fontPath = FindFontPath();
-        if (!fontPath.empty())
+        const auto berkelium  = FindAssetPath("BerkeliumIIHGR.ttf");
+        const auto proggyTiny = FindAssetPath("ProggyTiny.ttf");
+        if (!berkelium.empty())
         {
             // 16px is a good readable size for Berkelium II HGR — the
             // glyphs are inherently 7×8 so anything smaller blurs even
-            // with NEAREST sampling.
+            // with NEAREST sampling. First-loaded font is the default.
             io.Fonts->Clear();
-            io.Fonts->AddFontFromFileTTF(fontPath.string().c_str(), 16.0f);
+            io.Fonts->AddFontFromFileTTF(berkelium.string().c_str(), 16.0f);
+        }
+        if (!proggyTiny.empty())
+        {
+            // ProggyTiny is a 10px monospace bitmap font — much denser
+            // than Berkelium and rasterises crisply at its native size.
+            // Used by panels (memory hex viewer) that need columnar
+            // alignment + lots of rows on screen.
+            g_monoFont = io.Fonts->AddFontFromFileTTF(
+                proggyTiny.string().c_str(), 10.0f);
         }
         s_fontLoaded = true;
     }
@@ -159,5 +172,7 @@ void ApplyAppleStyle(InterfaceColor color)
     s.ScrollbarSize     = 12.0f;
     s.GrabMinSize       = 12.0f;
 }
+
+ImFont* MonoFont() { return g_monoFont; }
 
 } // namespace nac

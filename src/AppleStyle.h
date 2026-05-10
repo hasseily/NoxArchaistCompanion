@@ -1,5 +1,7 @@
 #pragma once
 
+struct ImFont;
+
 namespace nac
 {
 
@@ -23,5 +25,11 @@ enum InterfaceColor
 // assets/pp/assets/ by the CMake build). Falls back to ImGui's
 // default font if the file isn't found.
 void ApplyAppleStyle(InterfaceColor color);
+
+// Secondary smaller monospace font (ProggyTiny). Used by panels that
+// want denser, non-decorative text — e.g. the memory hex viewer.
+// Returns nullptr if the font wasn't loadable, in which case the
+// caller should just render with the default font.
+::ImFont* MonoFont();
 
 } // namespace nac
