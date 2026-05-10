@@ -273,32 +273,13 @@ void TemplateInstance::Render()
     if (!m_open || !m_template) return;
 
     // Stable per-instance ID so ImGui persists position+size separately
-    // per window AND survives member changes on character windows. The
-    // triple-hash form means ImGui hashes only the "###..." suffix for
-    // the window ID — the visible title can update freely (name swap on
-    // member change) without ImGui treating it as a brand-new window.
+    // per window. The triple-hash form means ImGui hashes only the
+    // "###..." suffix for the window ID; the visible title comes from
+    // the template name. Character windows show the per-member name in
+    // their own combo below, so we don't repeat it in the title.
     char title[160];
-    if (m_template->kind == "character" && cpuconstants.MEM_PARTY != 0)
-    {
-        char nm[17] = {};
-        for (int i = 0; i < 16; ++i)
-        {
-            uint8_t b;
-            if (!ReadByte(cpuconstants.MEM_PARTY + (uint32_t)m_memberIndex * 0x80u + 0x4Bu + (uint32_t)i, b))
-                break;
-            if (b == 0) break;
-            nm[i] = (char)(b & 0x7F);
-        }
-        std::snprintf(title, sizeof(title), "%s - %s###nac_tpl_%d",
-                      m_template->name.c_str(),
-                      nm[0] ? nm : "(empty)",
-                      m_instanceId);
-    }
-    else
-    {
-        std::snprintf(title, sizeof(title), "%s###nac_tpl_%d",
-                      m_template->name.c_str(), m_instanceId);
-    }
+    std::snprintf(title, sizeof(title), "%s###nac_tpl_%d",
+                  m_template->name.c_str(), m_instanceId);
 
     ImGui::SetNextWindowSize(ImVec2(m_template->default_w, m_template->default_h),
                              ImGuiCond_FirstUseEver);
@@ -328,7 +309,7 @@ void TemplateInstance::Render()
             items[k] = names[k][0] ? names[k] : "(empty)";
         }
         if (m_memberIndex < 0 || m_memberIndex > 5) m_memberIndex = 0;
-        if (ImGui::Combo("Member", &m_memberIndex, items, 6))
+        if (ImGui::Combo("##member", &m_memberIndex, items, 6))
             m_blockCache.clear();   // values now belong to a different slot
         ImGui::Separator();
     }

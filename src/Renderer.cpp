@@ -1,5 +1,7 @@
 #include "Renderer.h"
 
+#include "AppleStyle.h"
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_video.h>
 
@@ -77,6 +79,11 @@ bool Renderer::Init(const char* title, int width, int height)
     // imgui.ini is set externally by main.cpp (under SDL_GetPrefPath) so
     // window layout / docking persists across sessions. nullptr disables.
     ImGui::StyleColorsDark();
+    // Initial pass uses the default (Green). main.cpp reapplies after
+    // LoadSettings reads the persisted choice, but doing it here too
+    // means we get the font + sharp borders for the very first frame
+    // (and for any code path that renders before LoadSettings runs).
+    nac::ApplyAppleStyle(nac::InterfaceColor_Green);
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glctx);
     ImGui_ImplOpenGL3_Init("#version 410");
 

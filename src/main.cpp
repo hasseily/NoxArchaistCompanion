@@ -16,6 +16,8 @@
 #include "Emulator/StdAfx.h"
 
 #include "Renderer.h"
+#include "AppleStyle.h"
+#include "Background.h"
 #include "Frame.h"
 #include "Templates.h"
 #include "Map.h"
@@ -121,6 +123,7 @@ constexpr uint32_t kMBAtten[5]   = { kVolumeMax, kVolumeMax*35/100, kVolumeMax*2
 struct AppState
 {
     nac::Renderer         renderer;
+    nac::Background       background;
     nac::TemplateRegistry templates;
     std::vector<std::unique_ptr<nac::TemplateInstance>> instances;
     int                   nextInstanceId = 1;
@@ -143,12 +146,19 @@ struct AppState
     bool                  reset_layout_pending = false;  // one-frame flag set by Reset Layout
     bool                  gamelink_enabled = true;       // user-facing toggle (vs gamelink_up which means GameLink::Init succeeded)
     int                   speed_idx        = kSpeedDefault;
+    int                   speed_idx_before_warp = -1;     // -1 = not warping; else saved speed_idx
+
     int                   video_idx        = 0;          // 0..3 color preset
     int                   mono_idx         = 0;          // 0=off, 1=white, 2=amber, 3=green
     int                   vol_speaker      = 3;          // 0..4 (Loud)
     int                   vol_mb           = 3;
     int                   window_w         = 0;          // 0 = use default
     int                   window_h         = 0;
+    int                   interface_color  = (int)nac::InterfaceColor_Green;
+    bool                  quit_dont_ask    = false;       // persisted: skip the quit-confirm modal
+    bool                  quit_requested   = false;       // open the quit-confirm modal next render
+    bool                  quit_confirmed   = false;       // modal Quit clicked → SDL_EVENT_QUIT may pass through
+    bool                  quit_dont_ask_pending = false;  // checkbox state inside the quit modal
     std::string           imgui_ini_path;               // outlives ImGui's IO struct
     std::filesystem::path pref_dir;                     // SDL pref dir
     std::filesystem::path hdv_path;                     // current HDV (argv[1] or last opened)
@@ -205,6 +215,10 @@ void SaveSettings(const AppState& s)
     j["hack_poke_addr"]  = const_cast<nac::HackPanel&>(s.hackPanel).PokeAddrRef();
     j["map_open"]        = const_cast<nac::MapPanel&>(s.mapPanel).OpenRef();
     j["map_color_scheme"] = const_cast<nac::MapPanel&>(s.mapPanel).ColorSchemeRef();
+    j["interface_color"] = s.interface_color;
+    j["quit_dont_ask"]   = s.quit_dont_ask;
+    j["bg_enabled"]      = const_cast<nac::Background&>(s.background).EnabledRef();
+    j["bg_dim"]          = const_cast<nac::Background&>(s.background).DimRef();
     j["pp_settings_open"] = sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen;
 
     // Persist open template instances so the user gets the same window
@@ -277,6 +291,11 @@ void LoadSettings(AppState& s)
         s.mapPanel.OpenRef()       = j.value("map_open",  false);
         s.mapPanel.ColorSchemeRef() = j.value("map_color_scheme",
                                               s.mapPanel.ColorSchemeRef());
+        s.interface_color = j.value("interface_color", s.interface_color);
+        s.quit_dont_ask   = j.value("quit_dont_ask",   s.quit_dont_ask);
+        s.background.EnabledRef() = j.value("bg_enabled", s.background.EnabledRef());
+        s.background.DimRef()     = j.value("bg_dim",     s.background.DimRef());
+        nac::ApplyAppleStyle((nac::InterfaceColor)s.interface_color);
         sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen =
             j.value("pp_settings_open", false);
         sa2::PostProcessor::GetInstance()->SetActive(s.pp_enabled);
@@ -665,6 +684,10 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     }
     sa2::PostProcessor::GetInstance()->SetActive(true);
 
+    // Cover-art background (assets/nox_cover.jpg). Failure is silent —
+    // a missing file just leaves the GL clear color showing.
+    state->background.Init();
+
     // ImGui's IO struct only exists after Renderer::Init() created the
     // GL context — point it at the same imgui.ini we resolved earlier.
     if (!state->imgui_ini_path.empty())
@@ -797,7 +820,15 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
     switch (event->type)
     {
     case SDL_EVENT_QUIT:
-        return SDL_APP_SUCCESS;
+        // Don't quit unconditionally — give the user a confirm modal
+        // unless they've ticked "Don't show this again" before. The
+        // modal's Quit button sets quit_confirmed and re-pushes
+        // SDL_EVENT_QUIT, which falls through here to the real exit.
+        if (state->quit_confirmed || state->quit_dont_ask)
+            return SDL_APP_SUCCESS;
+        state->quit_requested = true;
+        state->quit_dont_ask_pending = false;
+        return SDL_APP_CONTINUE;
 
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         // Right-click toggles the menu bar. While the bar is visible we
@@ -815,9 +846,14 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
     case SDL_EVENT_KEY_DOWN:
     {
-        // Alt+F4 quits.
+        // Alt+F4 quits — through the same confirm path as Ctrl+Q so
+        // the modal's "don't ask again" toggle covers both shortcuts.
         if (event->key.key == SDLK_F4 && (event->key.mod & SDL_KMOD_ALT))
-            return SDL_APP_SUCCESS;
+        {
+            SDL_Event quit{}; quit.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&quit);
+            break;
+        }
 
         // Alt+Enter toggles fullscreen — universal cross-platform shortcut.
         if ((event->key.key == SDLK_RETURN || event->key.key == SDLK_KP_ENTER) &&
@@ -827,7 +863,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
             break;
         }
 
-        // Ctrl+P toggles pause; Alt+R reboots.
+        // Ctrl+P toggles pause; Alt+R reboots; Ctrl+Q quits.
         if (event->key.key == SDLK_P && (event->key.mod & SDL_KMOD_CTRL))
         {
             EmulatorPause(*state, !state->paused);
@@ -836,6 +872,46 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         if (event->key.key == SDLK_R && (event->key.mod & SDL_KMOD_ALT))
         {
             EmulatorReboot();
+            break;
+        }
+        if (event->key.key == SDLK_Q && (event->key.mod & SDL_KMOD_CTRL))
+        {
+            SDL_Event quit{}; quit.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&quit);
+            break;
+        }
+
+        // Ctrl+1..Ctrl+7 jump straight to a speed preset (mirrors the
+        // Emulator → Speed submenu order: Sloth, Retro, Turbo, Ford
+        // GT, MiG-31, Pro, Demigod). Intercepted before the //e
+        // keyboard path so Nox doesn't see the digit.
+        if ((event->key.mod & SDL_KMOD_CTRL) &&
+            event->key.key >= SDLK_1 && event->key.key <= SDLK_7)
+        {
+            const int idx = (int)(event->key.key - SDLK_1);
+            constexpr int kSpeedCount =
+                (int)(sizeof(kSpeedPresets) / sizeof(kSpeedPresets[0]));
+            if (idx < kSpeedCount)
+            {
+                state->speed_idx = idx;
+                ApplySpeedSetting(idx);
+            }
+            break;
+        }
+
+        // Scroll Lock held → momentary warp to max speed. KEY_UP
+        // restores the previously-active preset. Skip auto-repeats so
+        // the saved speed only latches on the first KEY_DOWN.
+        if (event->key.key == SDLK_SCROLLLOCK)
+        {
+            if (!event->key.repeat && state->speed_idx_before_warp < 0)
+            {
+                constexpr int kMaxSpeed =
+                    (int)(sizeof(kSpeedPresets) / sizeof(kSpeedPresets[0])) - 1;
+                state->speed_idx_before_warp = state->speed_idx;
+                state->speed_idx = kMaxSpeed;
+                ApplySpeedSetting(kMaxSpeed);
+            }
             break;
         }
 
@@ -864,6 +940,18 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         }
         break;
     }
+
+    case SDL_EVENT_KEY_UP:
+        // Scroll Lock release ends the momentary warp started in
+        // KEY_DOWN, restoring whatever preset was active before.
+        if (event->key.key == SDLK_SCROLLLOCK &&
+            state->speed_idx_before_warp >= 0)
+        {
+            state->speed_idx = state->speed_idx_before_warp;
+            ApplySpeedSetting(state->speed_idx);
+            state->speed_idx_before_warp = -1;
+        }
+        break;
 
     case SDL_EVENT_TEXT_INPUT:
         // Intentionally ignored — KEY_DOWN above already covers
@@ -968,6 +1056,11 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     state->renderer.BeginImGui();
 
+    // Cover-art background goes on the viewport's background draw
+    // list, so it sits behind every window. PassthruCentralNode on
+    // the dockspace below lets it show through unsplit areas.
+    state->background.Render();
+
     // Invisible dockspace covering the whole host window so the user can
     // dock the Apple //e and any panel into the main area, splits, etc.
     // PassthruCentralNode lets the GL clear (black background) show
@@ -987,14 +1080,25 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::Separator();
             if (ImGui::BeginMenu("Speed"))
             {
-                for (int i = 0; i < (int)(sizeof(kSpeedPresets)/sizeof(kSpeedPresets[0])); ++i)
+                constexpr int kSpeedCount =
+                    (int)(sizeof(kSpeedPresets) / sizeof(kSpeedPresets[0]));
+                char shortcut[8];
+                for (int i = 0; i < kSpeedCount; ++i)
                 {
-                    if (ImGui::MenuItem(kSpeedPresets[i].label, nullptr, state->speed_idx == i))
+                    const char* sc = nullptr;
+                    if (i < 9)   // Ctrl+1..Ctrl+9 only; we currently have 7 presets
+                    {
+                        std::snprintf(shortcut, sizeof(shortcut), "Ctrl+%d", i + 1);
+                        sc = shortcut;
+                    }
+                    if (ImGui::MenuItem(kSpeedPresets[i].label, sc, state->speed_idx == i))
                     {
                         state->speed_idx = i;
                         ApplySpeedSetting(i);
                     }
                 }
+                ImGui::Separator();
+                ImGui::MenuItem("Hold Scroll Lock to warp", nullptr, false, false);
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Color"))
@@ -1055,6 +1159,12 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                 state->gamelink_enabled = !state->gamelink_enabled;
                 GameLink::SetGameLinkEnabled(state->gamelink_enabled);
             }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Quit", "Ctrl+Q"))
+            {
+                SDL_Event quit{}; quit.type = SDL_EVENT_QUIT;
+                SDL_PushEvent(&quit);
+            }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("View"))
@@ -1063,6 +1173,30 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                 SetFullscreen(*state, !state->fullscreen);
             if (ImGui::MenuItem("Reset Layout"))
                 ResetLayout(*state);
+            if (ImGui::BeginMenu("Interface Color"))
+            {
+                struct { const char* label; nac::InterfaceColor v; } kEntries[] = {
+                    { "White", nac::InterfaceColor_White },
+                    { "Green", nac::InterfaceColor_Green },
+                    { "Amber", nac::InterfaceColor_Amber },
+                };
+                for (const auto& e : kEntries)
+                {
+                    if (ImGui::MenuItem(e.label, nullptr, state->interface_color == (int)e.v))
+                    {
+                        state->interface_color = (int)e.v;
+                        nac::ApplyAppleStyle(e.v);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Background"))
+            {
+                ImGui::MenuItem("Show cover art", nullptr, &state->background.EnabledRef());
+                ImGui::SetNextItemWidth(160.0f);
+                ImGui::SliderFloat("Dim", &state->background.DimRef(), 0.0f, 1.0f, "%.2f");
+                ImGui::EndMenu();
+            }
             ImGui::Separator();
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
             ImGui::MenuItem("Conversation log", nullptr, state->conversationLog.OpenFlag());
@@ -1198,6 +1332,40 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                            state->tileset, state->tileMap);
     state->memoryViewer.Render();
     state->hgrViewer.Render();
+
+    // Quit confirmation modal. Opened from the SDL_EVENT_QUIT path
+    // (window close, Ctrl+Q, Alt+F4, Emulator → Quit). Confirming
+    // re-pushes SDL_EVENT_QUIT with quit_confirmed set so the event
+    // handler lets it through to SDL_APP_SUCCESS.
+    if (state->quit_requested)
+    {
+        ImGui::OpenPopup("Quit NAC");
+        state->quit_requested = false;
+    }
+    if (ImGui::BeginPopupModal("Quit NAC", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::TextUnformatted("Are you sure you want to quit?");
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Make sure to save your game first!");
+        ImGui::Spacing();
+        ImGui::Checkbox("Don't show this again",
+                        &state->quit_dont_ask_pending);
+        ImGui::Spacing();
+        if (ImGui::Button("Quit", ImVec2(120, 0)))
+        {
+            state->quit_dont_ask  = state->quit_dont_ask_pending;
+            state->quit_confirmed = true;
+            SDL_Event quit{}; quit.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&quit);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+
     state->reset_layout_pending = false;   // single-frame condition consumed
     state->renderer.EndImGui();
 
@@ -1215,6 +1383,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult /*result*/)
         state->tileMap.Save();
         ShutdownEmulator();
         if (state->gamelink_up) GameLink::Term();
+        state->background.Shutdown();
         state->renderer.Shutdown();
         delete state;
     }

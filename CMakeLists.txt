@@ -128,6 +128,8 @@ add_executable(nac WIN32 MACOSX_BUNDLE
     src/MemoryViewer.cpp
     src/HGRViewer.cpp
     src/RamSnapshot.cpp
+    src/AppleStyle.cpp
+    src/Background.cpp
     ${GAMELINK_SOURCES}
     $<$<BOOL:${APPLE}>:${NAC_ICON_FILE}>
 )
