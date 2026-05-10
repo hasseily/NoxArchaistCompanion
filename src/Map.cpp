@@ -494,13 +494,18 @@ void TileMap::Load(const std::filesystem::path& prefDir)
         if (!j.is_array()) return;
         for (const auto& fjson : j)
         {
-            const int region = fjson.value("region", 0);
+            // Skip pre-rc3 entries (keyed by region/floor, no map_id).
+            if (!fjson.contains("map_id")) continue;
+            const int mapID = fjson.value("map_id", -1);
+            if (mapID < 0 || mapID > 255) continue;
+            const int region = fjson.value("region_id", 0);
             const std::string floor = fjson.value("floor", std::string{});
+            const std::string regionName = fjson.value("region_name", std::string{});
             const int w = fjson.value("w", 0);
             const int h = fjson.value("h", 0);
             const std::string b64 = fjson.value("tiles_b64", std::string{});
-            if (region == 0 || floor.empty() || w <= 0 || h <= 0) continue;
-            Floor& fl = EnsureFloor(region, floor, w, h);
+            if (w <= 0 || h <= 0) continue;
+            Floor& fl = EnsureFloor((uint8_t)mapID, region, floor, regionName, w, h);
             const auto bytes = DecodeB64(b64);
             const size_t n = (std::min)(bytes.size(), (size_t)w * (size_t)h);
             std::memcpy(fl.tiles.data(), bytes.data(), n);
@@ -516,14 +521,16 @@ void TileMap::Save() const
 {
     if (!m_dirty || m_path.empty()) return;
     nlohmann::json arr = nlohmann::json::array();
-    for (const auto& [k, fl] : m_floors)
+    for (const auto& [mapID, fl] : m_floors)
     {
         arr.push_back({
-            {"region",    k.first},
-            {"floor",     k.second},
-            {"w",         fl.width},
-            {"h",         fl.height},
-            {"tiles_b64", EncodeB64(fl.tiles)},
+            {"map_id",      (int)mapID},
+            {"region_id",   fl.region_id},
+            {"floor",       fl.floor},
+            {"region_name", fl.region_name},
+            {"w",           fl.width},
+            {"h",           fl.height},
+            {"tiles_b64",   EncodeB64(fl.tiles)},
         });
     }
     try
@@ -535,26 +542,36 @@ void TileMap::Save() const
     catch (...) {}
 }
 
-TileMap::Floor& TileMap::EnsureFloor(int region_id, const std::string& floor,
+TileMap::Floor& TileMap::EnsureFloor(uint8_t mapID,
+                                     int region_id, const std::string& floor,
+                                     const std::string& region_name,
                                      int floorWidth, int floorHeight)
 {
-    auto& fl = m_floors[{region_id, floor}];
+    auto& fl = m_floors[mapID];
     if ((int)fl.tiles.size() != floorWidth * floorHeight)
     {
         fl.width  = floorWidth;
         fl.height = floorHeight;
         fl.tiles.assign((size_t)floorWidth * (size_t)floorHeight, 0);
     }
+    // Refresh the labels in case the rule mapping changed (also lets
+    // a freshly-observed mapID pick up the names from this Observe).
+    fl.region_id   = region_id;
+    fl.floor       = floor;
+    fl.region_name = region_name;
     return fl;
 }
 
-void TileMap::Observe(int region_id, const std::string& floor,
+void TileMap::Observe(uint8_t mapID,
+                      int region_id, const std::string& floor,
+                      const std::string& region_name,
                       int playerX, int playerY,
                       int floorWidth, int floorHeight,
                       const uint8_t* vis, const uint8_t* fog)
 {
     if (!vis || !fog || floorWidth <= 0 || floorHeight <= 0) return;
-    Floor& fl = EnsureFloor(region_id, floor, floorWidth, floorHeight);
+    Floor& fl = EnsureFloor(mapID, region_id, floor, region_name,
+                            floorWidth, floorHeight);
 
     // Nox's visible window stops scrolling when the avatar approaches
     // a map edge — the camera clamps to (0..floor_w-kVisW), and the
@@ -590,23 +607,36 @@ void TileMap::Observe(int region_id, const std::string& floor,
     }
 }
 
-uint8_t TileMap::TileAt(int region_id, const std::string& floor, int x, int y) const
+uint8_t TileMap::TileAt(uint8_t mapID, int x, int y) const
 {
-    auto it = m_floors.find({region_id, floor});
+    auto it = m_floors.find(mapID);
     if (it == m_floors.end()) return 0;
     const Floor& fl = it->second;
     if (x < 0 || x >= fl.width || y < 0 || y >= fl.height) return 0;
     return fl.tiles[y * fl.width + x];
 }
 
-std::vector<std::pair<int, std::string>> TileMap::ObservedFloors() const
+bool TileMap::Dims(uint8_t mapID, int& width, int& height) const
 {
-    std::vector<std::pair<int, std::string>> out;
+    auto it = m_floors.find(mapID);
+    if (it == m_floors.end()) return false;
+    width  = it->second.width;
+    height = it->second.height;
+    return true;
+}
+
+std::vector<TileMap::Entry> TileMap::ObservedMaps() const
+{
+    std::vector<Entry> out;
     out.reserve(m_floors.size());
-    for (const auto& [k, fl] : m_floors)
+    for (const auto& [mapID, fl] : m_floors)
     {
         for (uint8_t b : fl.tiles)
-            if (b != 0) { out.push_back(k); break; }
+            if (b != 0)
+            {
+                out.push_back({mapID, fl.region_id, fl.floor, fl.region_name});
+                break;
+            }
     }
     return out;
 }
@@ -650,29 +680,33 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
         const int liveH = (std::max)(1, liveLoc->height);
         const uint8_t* vis = &g_ramSnapshot.main[0x0800];
         const uint8_t* fog = &g_ramSnapshot.main[0x08BB];
-        tiles.Observe(liveLoc->region, liveLoc->floor,
+        tiles.Observe(mapID, liveLoc->region, liveLoc->floor,
+                      liveLoc->region_name,
                       liveLoc->x, liveLoc->y, liveW, liveH, vis, fog);
     }
 
-    // Map pulldown: "Live (auto)" plus every (region, floor) the
-    // player has ever observed.
-    auto observed = tiles.ObservedFloors();
+    // Map pulldown: "Live (auto)" plus every observed mapID. Multiple
+    // mapIDs can share the same (region, floor) label (e.g. Bayport's
+    // ground floor is four quadrant mapIDs), so the mapID hex suffix
+    // disambiguates them.
+    auto observed = tiles.ObservedMaps();
     {
         std::vector<std::string> labels;
         labels.reserve(observed.size() + 1);
         labels.emplace_back("Live (auto)");
-        for (const auto& [r, f] : observed)
+        for (const auto& e : observed)
         {
-            std::string name = tx.RegionName(r);
-            if (name.empty()) name = std::to_string(r);
-            labels.push_back(name + " / " + f);
+            std::string name = e.region_name;
+            if (name.empty()) name = std::to_string(e.region_id);
+            char suffix[16];
+            std::snprintf(suffix, sizeof(suffix), " ($%02X)", e.map_id);
+            labels.push_back(name + " / " + e.floor + suffix);
         }
         int sel = 0;
-        if (m_viewRegion >= 0)
+        if (m_viewMapID >= 0)
         {
             for (size_t i = 0; i < observed.size(); ++i)
-                if (observed[i].first == m_viewRegion &&
-                    observed[i].second == m_viewFloor)
+                if ((int)observed[i].map_id == m_viewMapID)
                 { sel = (int)(i + 1); break; }
         }
         ImGui::SetNextItemWidth(280.0f);
@@ -683,12 +717,11 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
                 const bool s = (i == sel);
                 if (ImGui::Selectable(labels[i].c_str(), s) && i != sel)
                 {
-                    if (i == 0) { m_viewRegion = -1; m_viewFloor.clear(); }
+                    if (i == 0) { m_viewMapID = -1; }
                     else
                     {
-                        m_viewRegion = observed[i - 1].first;
-                        m_viewFloor  = observed[i - 1].second;
-                        // Fresh stored-map view → frame the whole floor
+                        m_viewMapID = (int)observed[i - 1].map_id;
+                        // Fresh stored-map view → frame the whole map
                         // and reset any previous pan from another map.
                         m_needFit = true;
                     }
@@ -712,13 +745,12 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     }
     const ColorScheme colorScheme = (ColorScheme)m_colorScheme_int;
 
-    // Resolve the floor we're actually rendering — live or stored.
-    int         renderRegion = -1;
-    std::string renderFloor;
+    // Resolve the map we're actually rendering — live or stored.
+    uint8_t     renderMapID = 0;
     int         renderW = 0, renderH = 0;
     float       centreTileX = 0.0f, centreTileY = 0.0f;
     bool        showAvatar = false;
-    const bool  liveView = (m_viewRegion < 0);
+    const bool  liveView = (m_viewMapID < 0);
 
     if (liveView)
     {
@@ -728,8 +760,7 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
             ImGui::End();
             return;
         }
-        renderRegion = liveLoc->region;
-        renderFloor  = liveLoc->floor;
+        renderMapID  = mapID;
         renderW      = (std::max)(1, liveLoc->width);
         renderH      = (std::max)(1, liveLoc->height);
         centreTileX  = (float)liveLoc->x;
@@ -742,19 +773,37 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     }
     else
     {
-        renderRegion = m_viewRegion;
-        renderFloor  = m_viewFloor;
-        tx.RegionDims(renderRegion, renderW, renderH);
+        renderMapID = (uint8_t)m_viewMapID;
+        if (!tiles.Dims(renderMapID, renderW, renderH))
+        {
+            // The stored entry was removed under us — snap back to live.
+            m_viewMapID = -1;
+            ImGui::End();
+            return;
+        }
         if (renderW <= 0) renderW = 1;
         if (renderH <= 0) renderH = 1;
         // Stored view starts framed on the floor's centre; m_panX/Y
         // shifts that as the user drags inside the canvas.
-        centreTileX  = renderW * 0.5f + m_panX;
-        centreTileY  = renderH * 0.5f + m_panY;
+        centreTileX = renderW * 0.5f + m_panX;
+        centreTileY = renderH * 0.5f + m_panY;
 
-        ImGui::Text("Region %d (%s) - Floor %s - viewing stored map",
-                    renderRegion, tx.RegionName(renderRegion).c_str(),
-                    renderFloor.c_str());
+        // Pick the human label off the matching ObservedMaps entry.
+        std::string regionName, floorLabel;
+        int regionId = 0;
+        for (const auto& e : observed)
+        {
+            if (e.map_id == renderMapID)
+            {
+                regionName = e.region_name;
+                floorLabel = e.floor;
+                regionId   = e.region_id;
+                break;
+            }
+        }
+        ImGui::Text("Region %d (%s) - Floor %s - mapID $%02X - stored",
+                    regionId, regionName.c_str(),
+                    floorLabel.c_str(), renderMapID);
     }
 
     ImGui::Separator();
@@ -862,7 +911,7 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     {
         for (int tx_ = x0; tx_ <= x1; ++tx_)
         {
-            const uint8_t id = tiles.TileAt(renderRegion, renderFloor, tx_, ty);
+            const uint8_t id = tiles.TileAt(renderMapID, tx_, ty);
             if (id == 0) continue;
             const float px0 = centreX + (tx_ - centreTileX - 0.5f) * kTileW * s_zoom;
             const float py0 = centreY + (ty  - centreTileY - 0.5f) * kTileH * s_zoom;

@@ -126,11 +126,18 @@ private:
     uint8_t  m_pixelsColor[kAtlasW * kAtlasH * 4] = {};
 };
 
-// Per-(region, floor) "what tile has the player seen here" map. Each
-// cell holds the byte tile-id last observed in Nox's 17×11 visible
-// window at $0800, or 0 for "never seen". Driven from the snapshot
-// each frame: every non-zero tile in the visible window updates the
+// Per-mapID "what tile has the player seen here" map. Each cell
+// holds the byte tile-id last observed in Nox's 17×11 visible window
+// at $0800, or 0 for "never seen". Driven from the snapshot each
+// frame: every non-zero tile in the visible window updates the
 // stored id, zeros are skipped (we keep the previous observation).
+//
+// Keyed by Nox's mapID byte at $2AF9 — the only unique-per-map ID
+// the game has. Multiple mapIDs can resolve to the same human-
+// readable (region, floor) label (e.g. Bayport's ground floor is
+// four separate quadrant mapIDs), so we'd corrupt the stored grid
+// if we keyed by (region, floor) — the quadrants would overwrite
+// each other. Per-mapID storage gives each map its own grid.
 //
 // Persisted to <pref_dir>/seen_tiles.json so the discovered map
 // survives app restarts.
@@ -144,36 +151,57 @@ public:
     void Save() const;
 
     // Pull Nox's 17×11 visible buffer (`vis` points to 187 contiguous
-    // bytes, row-major) into the (region, floor) map, centred on the
+    // bytes, row-major) into the per-mapID grid, centred on the
     // player. `fog` points to the matching 17×11 visibility mask at
-    // $08BB — byte == 0 means the cell is currently visible to the
-    // player; non-zero means hidden by walls / dark / off-screen edge.
-    // Only cells that are both visible AND non-zero get written.
-    void Observe(int region_id, const std::string& floor,
+    // $08BB — byte == 0 means the cell is currently visible; non-zero
+    // means hidden. Only cells that are visible AND non-zero get
+    // written. The (region_id, floor, region_name) triple is stashed
+    // alongside the tile bytes so the dropdown can label the entry
+    // without having to re-resolve the translation rule for every
+    // stored map (some rules are position-dependent and can't be
+    // re-resolved when the player isn't standing on the map).
+    void Observe(uint8_t mapID,
+                 int region_id, const std::string& floor,
+                 const std::string& region_name,
                  int playerX, int playerY,
                  int floorWidth, int floorHeight,
                  const uint8_t* vis, const uint8_t* fog);
 
-    // Tile id at (x, y), 0 = never observed.
-    uint8_t TileAt(int region_id, const std::string& floor, int x, int y) const;
+    // Tile id at (x, y) in mapID's grid, 0 = never observed.
+    uint8_t TileAt(uint8_t mapID, int x, int y) const;
 
-    // (region_id, floor) pairs with at least one observed (non-zero)
-    // tile. Drives the Map panel's "Map" pulldown.
-    std::vector<std::pair<int, std::string>> ObservedFloors() const;
+    // Dimensions stored at observation time, false if mapID unknown.
+    bool Dims(uint8_t mapID, int& width, int& height) const;
+
+    struct Entry
+    {
+        uint8_t     map_id;
+        int         region_id;
+        std::string floor;          // "G", "B1", ... — friendly floor label
+        std::string region_name;    // human-readable region name
+    };
+    // Every mapID with at least one observed (non-zero) tile, with
+    // the (region, floor) labels captured at observation time.
+    // Drives the Map panel's "Map" pulldown.
+    std::vector<Entry> ObservedMaps() const;
 
 private:
-    using Key = std::pair<int, std::string>;
     struct Floor
     {
-        int width = 0, height = 0;
+        int                  width = 0, height = 0;
+        int                  region_id = 0;
+        std::string          floor;
+        std::string          region_name;
         std::vector<uint8_t> tiles;    // size = width*height; 0 = unseen
     };
-    Floor& EnsureFloor(int region_id, const std::string& floor,
+    Floor& EnsureFloor(uint8_t mapID,
+                       int region_id, const std::string& floor,
+                       const std::string& region_name,
                        int floorWidth, int floorHeight);
 
-    std::filesystem::path m_path;
-    std::map<Key, Floor>  m_floors;
-    mutable bool          m_dirty = false;
+    std::filesystem::path     m_path;
+    std::map<uint8_t, Floor>  m_floors;
+    mutable bool              m_dirty = false;
 };
 
 class MapPanel
@@ -190,13 +218,12 @@ public:
 private:
     bool m_open = false;
 
-    // Map view selector. m_viewRegion == -1 means "follow the live
-    // current map" (avatar visible, auto-centred). Anything else means
-    // "show this stored (region, floor) instead" — observation still
+    // Map view selector. m_viewMapID == -1 means "follow the live
+    // current map" (avatar visible, auto-centred). Anything in [0,255]
+    // means "show this stored mapID instead" — observation still
     // writes into the live map, but the panel renders the chosen one
     // and hides the avatar marker.
-    int         m_viewRegion = -1;
-    std::string m_viewFloor;
+    int         m_viewMapID = -1;
     // Backed as int so SaveSettings / LoadSettings can round-trip it
     // through nlohmann::json without a custom enum (de)serialiser. The
     // Render path reads this through the ColorScheme enum cast.
