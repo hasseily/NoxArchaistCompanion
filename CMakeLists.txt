@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
 project(NoxArchaistCompanion VERSION 2.2.4 LANGUAGES C CXX)
 
+# Bake the project version into a generated header that the About
+# panel and any other consumer can #include "Version.h" against.
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/Version.h
+    @ONLY)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -130,6 +137,7 @@ add_executable(nac WIN32 MACOSX_BUNDLE
     src/RamSnapshot.cpp
     src/AppleStyle.cpp
     src/Background.cpp
+    src/About.cpp
     ${GAMELINK_SOURCES}
     $<$<BOOL:${APPLE}>:${NAC_ICON_FILE}>
 )
@@ -138,6 +146,7 @@ target_include_directories(nac PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/NoxArchaistCompanion
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
 target_link_libraries(nac PRIVATE

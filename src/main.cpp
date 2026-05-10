@@ -16,10 +16,12 @@
 #include "Emulator/StdAfx.h"
 
 #include "Renderer.h"
+#include "About.h"
 #include "AppleStyle.h"
 #include "Background.h"
 #include "Frame.h"
 #include "Templates.h"
+#include "Version.h"
 #include "Map.h"
 #include "MemoryViewer.h"
 #include "HGRViewer.h"
@@ -124,6 +126,7 @@ struct AppState
 {
     nac::Renderer         renderer;
     nac::Background       background;
+    nac::AboutPanel       aboutPanel;
     nac::TemplateRegistry templates;
     std::vector<std::unique_ptr<nac::TemplateInstance>> instances;
     int                   nextInstanceId = 1;
@@ -670,7 +673,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     const int initW = state->window_w > 0 ? state->window_w : kWindowWidth;
     const int initH = state->window_h > 0 ? state->window_h : kWindowHeight;
-    if (!state->renderer.Init("Nox Archaist Companion", initW, initH))
+    if (!state->renderer.Init("Nox Archaist Companion " NAC_VERSION_STRING,
+                              initW, initH))
     {
         return SDL_APP_FAILURE;
     }
@@ -1226,6 +1230,12 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             }
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu("Help"))
+        {
+            if (ImGui::MenuItem("About NAC..."))
+                state->aboutPanel.Open();
+            ImGui::EndMenu();
+        }
         // Right-aligned close button so a fullscreen user has an
         // always-visible quit affordance (the OS title bar is hidden
         // in fullscreen). Routes through SDL_EVENT_QUIT so the
@@ -1345,6 +1355,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                            state->tileset, state->tileMap);
     state->memoryViewer.Render();
     state->hgrViewer.Render();
+    state->aboutPanel.Render();
 
     // Quit confirmation modal. Opened from the SDL_EVENT_QUIT path
     // (window close, Ctrl+Q, Alt+F4, Emulator → Quit). Confirming

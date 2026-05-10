@@ -1,0 +1,10 @@
+#pragma once
+
+// Generated from src/Version.h.in by CMake — do not edit by hand.
+// The values come from the project(... VERSION x.y.z) line in the
+// top-level CMakeLists.txt; bump there to roll a release.
+
+#define NAC_VERSION_MAJOR  @PROJECT_VERSION_MAJOR@
+#define NAC_VERSION_MINOR  @PROJECT_VERSION_MINOR@
+#define NAC_VERSION_PATCH  @PROJECT_VERSION_PATCH@
+#define NAC_VERSION_STRING "@PROJECT_VERSION@"
