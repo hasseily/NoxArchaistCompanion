@@ -1226,6 +1226,19 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             }
             ImGui::EndMenu();
         }
+        // Right-aligned close button so a fullscreen user has an
+        // always-visible quit affordance (the OS title bar is hidden
+        // in fullscreen). Routes through SDL_EVENT_QUIT so the
+        // confirm modal still gates exit.
+        const float btnW = ImGui::CalcTextSize("X").x +
+                           ImGui::GetStyle().FramePadding.x * 2.0f;
+        ImGui::SameLine(ImGui::GetWindowWidth() - btnW -
+                        ImGui::GetStyle().ItemSpacing.x);
+        if (ImGui::SmallButton("X"))
+        {
+            SDL_Event quit{}; quit.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&quit);
+        }
         ImGui::EndMainMenuBar();
     }
 
@@ -1280,7 +1293,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             vp->WorkPos.y + (vp->WorkSize.y - appleSize.y) * 0.5f);
         ImGui::SetNextWindowSize(appleSize, appleCond);
         ImGui::SetNextWindowPos(applePos,  appleCond);
-        if (ImGui::Begin("Apple //e", &state->apple_open, ImGuiWindowFlags_NoCollapse))
+        if (ImGui::Begin("Apple //e", nullptr, ImGuiWindowFlags_NoCollapse))
         {
             const ImVec2 avail = ImGui::GetContentRegionAvail();
             if (rfbW > 0 && rfbH > 0 && avail.x > 0 && avail.y > 0)
