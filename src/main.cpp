@@ -602,20 +602,50 @@ void ShutdownEmulator()
     GetFrame().Destroy();
 }
 
-// Mid-session HDV change — unload anything currently inserted, load the
-// new image, refresh the program-info handshake + cpuconstants, then
-// reboot the //e so the game boots cleanly.
+// Mid-session HDV change — unload anything currently inserted, load
+// the new image, refresh the program-info handshake + cpuconstants,
+// then reboot the //e so the game boots cleanly.
+//
+// Hardened: validates the path before touching the running emulator
+// (so a typo / missing file doesn't leave the //e disk-less), rolls
+// back to the previous HDV if the new Insert fails, and invalidates
+// the cached RAM snapshot so panels don't paint the previous game's
+// state during the new game's boot. SDL3 calls our event + iterate
+// hooks serially, so this whole function runs while the CPU is
+// between ticks — no extra pause-the-CPU dance required.
 void LoadHDV(AppState& state, const std::filesystem::path& path)
 {
+    if (path.empty() || !std::filesystem::exists(path))
+    {
+        std::fprintf(stderr, "LoadHDV: missing path '%s'\n",
+                     path.string().c_str());
+        return;
+    }
+
     auto* hdc = static_cast<HarddiskInterfaceCard*>(GetCardMgr().GetObj(SLOT7));
     if (!hdc) return;
+
+    const std::filesystem::path oldPath = state.hdv_path;
     hdc->Unplug(HARDDISK_1);
     if (!hdc->Insert(HARDDISK_1, path.string()))
     {
-        std::fprintf(stderr, "HD_Insert failed for %s\n", path.string().c_str());
+        std::fprintf(stderr, "LoadHDV: Insert failed for '%s'; "
+                             "rolling back to '%s'\n",
+                     path.string().c_str(), oldPath.string().c_str());
+        // Best-effort rollback so we don't leave the //e running
+        // against an empty SmartPort slot.
+        if (!oldPath.empty()) hdc->Insert(HARDDISK_1, oldPath.string());
         return;
     }
+
     state.hdv_path = path;
+
+    // Invalidate the cached RAM snapshot. Consumers (TakeRamSnapshot
+    // gate, HasParty, MapPanel observation) all check
+    // g_ramSnapshot.valid first, so this stops the panels rendering
+    // the previous game's $0800 buffer / party data until the new
+    // game's first $C000 keyboard read repopulates it.
+    nac::g_ramSnapshot.valid = false;
 
     const auto        assetsDir = FindAssetsDir();
     const std::string version   = DetectNoxVersion(path, assetsDir);
@@ -623,8 +653,13 @@ void LoadHDV(AppState& state, const std::filesystem::path& path)
     const std::string name      = version.empty() ? path.stem().string()
                                                   : std::string("NOXARCHAIST");
     GameLink::SetProgramInfo(name, 0, 0, 0, sig);
+    // LoadNoxConstants memsets cpuconstants first, so a non-Nox HDV
+    // leaves all fields zero and the conversation-log / snapshot
+    // traps stay quietly off.
     nac::LoadNoxConstants(assetsDir, version);
-    EmulatorReboot();
+
+    EmulatorReboot();           // sets g_nAppMode = MODE_RUNNING
+    state.paused = false;       // sync AppState's view of MODE
 }
 
 void SDLCALL HdvDialogCallback(void* userdata, const char* const* filelist, int /*filter*/)
