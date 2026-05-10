@@ -5,7 +5,7 @@
  * loaded. Walks every region × floor and prints a structured text dump
  * to GC's console; save that console output to a file (default name
  * "maps.txt") and feed it through tools/pack_maps.py to produce the
- * Assets/maps/maps.bin NAC consumes at runtime.
+ * NoxData/maps/maps.bin NAC consumes at runtime.
  *
  * Output format (text, line-based):
  *
@@ -18,7 +18,7 @@
  *
  * <region_name> is GCRegion.Name() — a string, possibly with spaces.
  * The Python packer maps name → integer region id via the same
- * Assets/maps/translation.json the runtime already uses, so we don't
+ * NoxData/maps/translation.json the runtime already uses, so we don't
  * need GC to expose the numeric id.
  *
  * <ox, oy> is FindBound's min_x / min_y. We export from that origin so

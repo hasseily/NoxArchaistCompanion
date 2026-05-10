@@ -5,7 +5,7 @@
  * loaded. Walks every region × floor and saves a PNG of each via
  * GCExport.Image to OUTPUT_DIR. Edit OUTPUT_DIR below to your liking
  * before running. Once done, copy the resulting PNGs into
- *   NoxArchaistCompanion/Assets/maps/floors/
+ *   NoxArchaistCompanion/NoxData/maps/floors/
  * in the NAC source tree; NAC loads them lazily at first display.
  *
  * Filenames: "<RegionName>_<FloorFriendly>.png" — e.g.

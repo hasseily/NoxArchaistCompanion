@@ -1,7 +1,7 @@
 # Automap data export workflow
 
 NAC's automap consumes a single binary file at runtime —
-`NoxArchaistCompanion/Assets/maps/maps.bin` — that holds every region
+`NoxArchaistCompanion/NoxData/maps/maps.bin` — that holds every region
 × floor's tile grid for Nox Archaist. The file is generated from the
 authoritative `Nox_Archaist - Realistic Maps.gct` map in the upstream
 [`GridCartographer-Mapping`](https://github.com/hasseily/GridCartographer-Mapping)
@@ -30,7 +30,7 @@ python tools/pack_maps.py
 ```
 
 Reads `tools/maps.txt`, writes
-`NoxArchaistCompanion/Assets/maps/maps.bin`. Idempotent. Add `--in`
+`NoxArchaistCompanion/NoxData/maps/maps.bin`. Idempotent. Add `--in`
 or `--out` for non-default paths.
 
 ## Binary layout
@@ -67,7 +67,7 @@ straight `(region_id, floor)` → `FloorRecord*` hash map.
 
 ## Tileset PNG
 
-Separate from `maps.bin` — `Assets/maps/tileset.png`, 14×16 px tiles
+Separate from `maps.bin` — `NoxData/maps/tileset.png`, 14×16 px tiles
 in a grid. Source TBD (extracted from the `.gct` itself or from
 `GridCartographer-Mapping/Tilesets/`). Loaded as a single GL texture
 at startup; tile id N indexes into the grid.

@@ -350,21 +350,24 @@ std::filesystem::path FindResourcesDir()
     return "Resources";
 }
 
-// Walk-up for Assets/ (Versions.json, Templates/, nox-tables.json).
+// Walk-up for NoxData/ (Versions.json, Templates/, maps/, nox-tables.json).
+// Renamed from "Assets" to disambiguate from the postprocessor's
+// lowercase "assets/" — Windows is case-insensitive and the two
+// merging at runtime caused real packaging headaches in CI.
 std::filesystem::path FindAssetsDir()
 {
     const char* base = SDL_GetBasePath();
     std::filesystem::path dir = base ? base : ".";
     for (int i = 0; i < 5; ++i)
     {
-        const auto candidate = dir / "Assets";
+        const auto candidate = dir / "NoxData";
         if (std::filesystem::exists(candidate / "Versions.json")) return candidate;
-        const auto nacCandidate = dir / "NoxArchaistCompanion" / "Assets";
+        const auto nacCandidate = dir / "NoxArchaistCompanion" / "NoxData";
         if (std::filesystem::exists(nacCandidate / "Versions.json")) return nacCandidate;
         dir = dir.parent_path();
         if (dir.empty()) break;
     }
-    return "Assets";
+    return "NoxData";
 }
 
 // Probe an .hdv file for the Nox Archaist version string by reading the

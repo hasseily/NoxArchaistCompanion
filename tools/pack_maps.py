@@ -2,12 +2,12 @@
 """NAC automap — Stage 2 packer.
 
 Reads the text output of tools/EXPORTMAP.NUT (`maps.txt` by default)
-and writes the binary `NoxArchaistCompanion/Assets/maps/maps.bin` that
+and writes the binary `NoxArchaistCompanion/NoxData/maps/maps.bin` that
 NAC's MapData loader consumes.
 
 The text input identifies regions by their human-readable name (which
 GCRegion.Name() returns); we map that back to the integer region id
-via Assets/maps/translation.json (which we already ship).
+via NoxData/maps/translation.json (which we already ship).
 
 Binary format (little-endian throughout):
 
@@ -41,8 +41,8 @@ from pathlib import Path
 
 REPO_ROOT   = Path(__file__).resolve().parents[1]
 DEFAULT_IN  = REPO_ROOT / "tools" / "maps.txt"
-DEFAULT_OUT = REPO_ROOT / "NoxArchaistCompanion" / "Assets" / "maps" / "maps.bin"
-TRANSLATION = REPO_ROOT / "NoxArchaistCompanion" / "Assets" / "maps" / "translation.json"
+DEFAULT_OUT = REPO_ROOT / "NoxArchaistCompanion" / "NoxData" / "maps" / "maps.bin"
+TRANSLATION = REPO_ROOT / "NoxArchaistCompanion" / "NoxData" / "maps" / "translation.json"
 
 MAGIC   = b"NMAP"
 VERSION = 1

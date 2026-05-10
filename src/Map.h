@@ -64,7 +64,7 @@ struct FloorRecord
 };
 
 
-// Loads Assets/maps/maps.bin (produced by tools/pack_maps.py) and
+// Loads NoxData/maps/maps.bin (produced by tools/pack_maps.py) and
 // indexes it by (region_id, floor) for cheap lookup. Drives the
 // teleport combo's list of known floors.
 class MapData

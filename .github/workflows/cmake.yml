@@ -12,6 +12,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Opt every JS-based action into Node 24 ahead of the 2026-06-02
+# default flip, silencing the runner's Node-20 deprecation warnings.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: ${{ matrix.os }}
@@ -71,7 +76,7 @@ jobs:
           mkdir -p "$OUT"
           cp build/nac "$OUT/"
           # All staged data dirs land alongside nac on Linux/Windows.
-          for d in Resources Assets assets presets shaders; do
+          for d in Resources NoxData assets presets shaders; do
             cp -r "build/$d" "$OUT/"
           done
           # Bundle libSDL3.so* and rewrite the binary's RPATH so it
@@ -90,7 +95,7 @@ jobs:
           # Multi-config generator → binaries + staged data live under build/Release.
           Copy-Item build/Release/nac.exe   $out/
           Copy-Item build/Release/SDL3.dll  $out/
-          foreach ($d in 'Resources','Assets','assets','presets','shaders') {
+          foreach ($d in 'Resources','NoxData','assets','presets','shaders') {
               Copy-Item -Recurse "build/Release/$d" "$out/"
           }
           Compress-Archive -Path "$out/*" -DestinationPath "dist/${{ matrix.artifact }}.zip"

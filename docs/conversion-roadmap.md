@@ -268,8 +268,8 @@ the app loads via `SDL_GetBasePath()`).
   was generalised to copy into `Contents/Resources/` on macOS and next
   to the binary on Windows / Linux. `FindResourcesDir`/`FindProfilesDir`/
   `FindAssetsDir` already walk up from `SDL_GetBasePath()` looking for
-  `Resources/`, `Profiles/`, `Assets/Versions.json` — those resolve
-  against `nac.app/Contents/Resources/{Resources,Profiles,assets}/`
+  `Resources/`, `Profiles/`, `NoxData/Versions.json` — those resolve
+  against `nac.app/Contents/Resources/{Resources,Profiles,NoxData}/`
   with no source change.
 
 * **GL deprecation** — Apple deprecated OpenGL in 10.14. We're sticking

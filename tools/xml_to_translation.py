@@ -24,7 +24,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 XML_PATH  = Path(__file__).resolve().parents[1].parent / "GridCartographer-Mapping" / "Profiles" / "Nox_Archaist.xml"
-JSON_PATH = Path(__file__).resolve().parents[1] / "NoxArchaistCompanion" / "Assets" / "maps" / "translation.json"
+JSON_PATH = Path(__file__).resolve().parents[1] / "NoxArchaistCompanion" / "NoxData" / "maps" / "translation.json"
 
 
 def hexint(s, default=None):

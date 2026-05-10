@@ -211,7 +211,7 @@ add_custom_command(TARGET nac POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets/pp/shaders  ${NAC_RESOURCE_DIR}/shaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Assets    ${NAC_RESOURCE_DIR}/Assets
+        ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/NoxData    ${NAC_RESOURCE_DIR}/NoxData
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Emulator/Resources  ${NAC_RESOURCE_DIR}/Resources
 )

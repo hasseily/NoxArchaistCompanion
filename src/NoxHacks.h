@@ -7,7 +7,7 @@ namespace nac
 {
 
 // Populate the emulator-side noxcpuconstants struct from the matching
-// version entry in Assets/Versions.json. Returns true if a matching
+// version entry in NoxData/Versions.json. Returns true if a matching
 // version was found and the constants were applied. Without this, the
 // CPU Fetch trap stays dormant (cpuconstants.PC_PRINTSTR == 0) and the
 // hack panel can't address the right party-data offsets.
