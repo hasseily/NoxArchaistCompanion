@@ -2,11 +2,12 @@ name: CMake
 
 on:
   push:
-    branches: [master, sdl3-multiplatform]
+    branches: [master]
+    tags: ['[0-9]*']
   pull_request:
-    branches: [master, sdl3-multiplatform]
+    branches: [master]
 
-# Cancel in-flight runs for the same branch / PR when a new commit lands.
+# Cancel in-flight runs for the same branch / PR / tag when a new commit lands.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -21,8 +22,13 @@ jobs:
         include:
           - os: ubuntu-latest
             generator: Ninja
+            artifact: nac-linux-x64
           - os: windows-latest
             generator: "Visual Studio 17 2022"
+            artifact: nac-windows-x64
+          - os: macos-latest
+            generator: Ninja
+            artifact: nac-macos-arm64
 
     steps:
       - uses: actions/checkout@v5
@@ -31,12 +37,13 @@ jobs:
       # the X11 / Wayland / audio / GL dev headers SDL's CMake probes for.
       # Without these, SDL's configure picks a degenerate backend set and
       # the resulting libSDL3.so is missing video/audio symbols nac links.
+      # patchelf is used at packaging time to set RPATH=$ORIGIN.
       - name: Install Linux deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ninja-build \
+            ninja-build patchelf \
             libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
             libxfixes-dev libxi-dev libxss-dev libxkbcommon-dev \
@@ -44,17 +51,110 @@ jobs:
             libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
             libibus-1.0-dev
 
+      - name: Install macOS deps
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
       - name: Configure
         run: cmake -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      # Sanity check: the binary exists and links cleanly.
-      - name: Show build output
+      # ----- Package: produce dist/<artifact>.{tar.gz,zip} per platform. -----
+
+      - name: Package Linux
         if: runner.os == 'Linux'
-        run: file build/nac
-      - name: Show build output
+        run: |
+          set -e
+          OUT="dist/${{ matrix.artifact }}"
+          mkdir -p "$OUT"
+          cp build/nac "$OUT/"
+          # All staged data dirs land alongside nac on Linux/Windows.
+          for d in Resources Assets assets presets shaders; do
+            cp -r "build/$d" "$OUT/"
+          done
+          # Bundle libSDL3.so* and rewrite the binary's RPATH so it
+          # finds the SDL3 next to itself rather than in the CI build
+          # tree path baked in at link time.
+          cp -P build/_deps/sdl3-build/libSDL3.so* "$OUT/"
+          patchelf --set-rpath '$ORIGIN' "$OUT/nac"
+          (cd dist && tar -czf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }})
+
+      - name: Package Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Get-Item build/Release/nac.exe
+        run: |
+          $out = "dist/${{ matrix.artifact }}"
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          # Multi-config generator → binaries + staged data live under build/Release.
+          Copy-Item build/Release/nac.exe   $out/
+          Copy-Item build/Release/SDL3.dll  $out/
+          foreach ($d in 'Resources','Assets','assets','presets','shaders') {
+              Copy-Item -Recurse "build/Release/$d" "$out/"
+          }
+          Compress-Archive -Path "$out/*" -DestinationPath "dist/${{ matrix.artifact }}.zip"
+
+      - name: Package macOS
+        if: runner.os == 'macOS'
+        run: |
+          set -e
+          APP="build/nac.app"
+          # Embed libSDL3 inside the bundle's Frameworks/ and rewrite
+          # install names so the binary finds it relative to itself
+          # instead of via the CI build dir baked in at link time.
+          mkdir -p "$APP/Contents/Frameworks"
+          SDL_DYLIB=$(ls build/_deps/sdl3-build/libSDL3*.dylib 2>/dev/null \
+                       | grep -v '^l' | head -1 || true)
+          if [ -z "$SDL_DYLIB" ]; then
+            SDL_DYLIB=$(find build/_deps/sdl3-build -name 'libSDL3*.dylib' \
+                         -type f | head -1)
+          fi
+          BASE=$(basename "$SDL_DYLIB")
+          # Copy the dylib + any symlinks pointing to it.
+          cp -P build/_deps/sdl3-build/libSDL3*.dylib "$APP/Contents/Frameworks/"
+          install_name_tool -id "@rpath/$BASE" \
+              "$APP/Contents/Frameworks/$BASE"
+          OLD=$(otool -L "$APP/Contents/MacOS/nac" \
+                 | awk '/libSDL3/{print $1; exit}')
+          if [ -n "$OLD" ]; then
+            install_name_tool -change "$OLD" "@rpath/$BASE" \
+                "$APP/Contents/MacOS/nac"
+          fi
+          install_name_tool -add_rpath "@executable_path/../Frameworks" \
+              "$APP/Contents/MacOS/nac" 2>/dev/null || true
+          mkdir -p dist
+          # ditto preserves symlinks + xattrs so the .app stays runnable
+          # after unzip on the target machine.
+          ditto -c -k --keepParent "$APP" "dist/${{ matrix.artifact }}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}.*
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      # Drafts the release so you can review + add changelog notes
+      # before publishing. Pre-release flag is auto-set when the tag
+      # has a hyphen suffix (3.0.0-rc1), matching SemVer convention.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
