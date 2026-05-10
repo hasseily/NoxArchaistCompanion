@@ -19,7 +19,7 @@
  * prompting. Make sure OUTPUT_DIR exists.
  */
 
-OUTPUT_DIR <- @"C:\Users\hasse\nac_floors\";
+OUTPUT_DIR <- @"C:\Users\hasse\Downloads\floors\";
 
 function main(args) {
     GCKernel.SetBlockingMode(true);
