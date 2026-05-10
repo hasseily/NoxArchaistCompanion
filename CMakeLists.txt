@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
-project(NoxArchaistCompanion VERSION 2.2.4 LANGUAGES C CXX)
+project(NoxArchaistCompanion VERSION 3.0.0 LANGUAGES C CXX)
+
+# Pre-release suffix appended to NAC_VERSION_STRING in Version.h
+# (e.g. "-rc1", "-beta"). Empty string for stable releases. Bumped
+# alongside project(VERSION ...) above when cutting a release.
+set(NAC_VERSION_SUFFIX "-rc1")
 
 # Bake the project version into a generated header that the About
 # panel and any other consumer can #include "Version.h" against.

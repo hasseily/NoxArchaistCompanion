@@ -7,4 +7,7 @@
 #define NAC_VERSION_MAJOR  @PROJECT_VERSION_MAJOR@
 #define NAC_VERSION_MINOR  @PROJECT_VERSION_MINOR@
 #define NAC_VERSION_PATCH  @PROJECT_VERSION_PATCH@
-#define NAC_VERSION_STRING "@PROJECT_VERSION@"
+// Optional pre-release suffix (e.g. "-rc1", "-beta"), driven by
+// NAC_VERSION_SUFFIX in CMakeLists.txt. Empty for stable releases.
+#define NAC_VERSION_SUFFIX "@NAC_VERSION_SUFFIX@"
+#define NAC_VERSION_STRING "@PROJECT_VERSION@@NAC_VERSION_SUFFIX@"
