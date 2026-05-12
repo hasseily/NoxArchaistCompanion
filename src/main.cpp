@@ -61,6 +61,7 @@
 #include <fstream>
 #include <algorithm>
 #include <memory>
+#include <random>
 #include <vector>
 #include <string>
 
@@ -122,6 +123,54 @@ constexpr const char* kVolumeLabels[] = { "Off", "Soft", "Medium", "Loud", "Extr
 constexpr uint32_t kSpkrAtten[5] = { kVolumeMax, kVolumeMax*40/100, kVolumeMax*30/100, kVolumeMax*25/100, 5 };
 constexpr uint32_t kMBAtten[5]   = { kVolumeMax, kVolumeMax*35/100, kVolumeMax*25/100, kVolumeMax*15/100, 0 };
 
+// Primary modifier for app shortcuts (Quit, Pause, speed presets):
+// Cmd on macOS, Ctrl elsewhere. Matches each platform's own
+// keyboard conventions. kPrimaryLabel is what we print in menus.
+#if defined(__APPLE__)
+constexpr SDL_Keymod kPrimaryMod = SDL_KMOD_GUI;
+constexpr const char* kPrimaryLabel = "Cmd";
+// Reboot lives on Cmd+R on Mac (browsers' reload mnemonic), but
+// Win/Linux keep the older Alt+R — Ctrl+R isn't free there if the
+// user reflexively expects browser-style reload.
+constexpr SDL_Keymod kRebootMod = SDL_KMOD_GUI;
+constexpr const char* kRebootLabel = "Cmd+R";
+#else
+constexpr SDL_Keymod kPrimaryMod = SDL_KMOD_CTRL;
+constexpr const char* kPrimaryLabel = "Ctrl";
+constexpr SDL_Keymod kRebootMod = SDL_KMOD_ALT;
+constexpr const char* kRebootLabel = "Alt+R";
+#endif
+
+// Rotates through the quit modal. Picked once when the dialog opens
+// (not per frame) so the line stays put while the user reads it.
+constexpr const char* kSnarkyQuitLines[] = {
+    "Already? The orcs were just warming up.",
+    "Sure, leave. The realm will cope. Probably.",
+    "You haven't even rescued the cat yet.",
+    "Did you remember to save? Of course not.",
+    "Walking away from glory. Bold choice.",
+    "The Mockingboard was just warming up.",
+    "I always knew you were a QUITTER.",
+    "There's still a dragon waiting. Just so you know.",
+    "Even Nox Ffredrika quits eventually, I suppose.",
+    "The bards will write a very short song about this.",
+    "Bold. The fog of war remembers everything.",
+    "Going so soon? The tavern was just filling up.",
+    "Real adventurers don't take coffee breaks.",
+    "Your party would like a word. About snacks.",
+    "The //e never forgets. Just so you know.",
+    "As the cats would say: Die in dishonor.",
+};
+constexpr int kSnarkyQuitCount =
+    (int)(sizeof(kSnarkyQuitLines) / sizeof(kSnarkyQuitLines[0]));
+
+int PickSnarkyQuitLine()
+{
+    static std::mt19937 rng{std::random_device{}()};
+    std::uniform_int_distribution<int> dist(0, kSnarkyQuitCount - 1);
+    return dist(rng);
+}
+
 struct AppState
 {
     nac::Renderer         renderer;
@@ -136,6 +185,7 @@ struct AppState
     nac::MapData          mapData;
     nac::TilesetTexture   tileset;
     nac::TileMap          tileMap;
+    nac::MapAnnotations   mapNotes;
     nac::MapPanel         mapPanel;
     nac::MemoryViewerPanel memoryViewer;
     nac::HGRViewerPanel    hgrViewer;
@@ -162,6 +212,7 @@ struct AppState
     bool                  quit_requested   = false;       // open the quit-confirm modal next render
     bool                  quit_confirmed   = false;       // modal Quit clicked → SDL_EVENT_QUIT may pass through
     bool                  quit_dont_ask_pending = false;  // checkbox state inside the quit modal
+    int                   quit_snark_idx   = -1;          // picked when modal opens, reused while it's up
     std::string           imgui_ini_path;               // outlives ImGui's IO struct
     std::filesystem::path pref_dir;                     // SDL pref dir
     std::filesystem::path hdv_path;                     // current HDV (argv[1] or last opened)
@@ -759,6 +810,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     state->mapTranslator.Load(FindAssetsDir());
     state->mapData.Load(FindAssetsDir());
     state->tileMap.Load(state->pref_dir);
+    state->mapNotes.Load(state->pref_dir);
 
     // LoadSettings before InitEmulator so we can carry forward the saved
     // hdv_path and audio volumes into the first init.
@@ -905,29 +957,30 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
             break;
         }
 
-        // Ctrl+P toggles pause; Alt+R reboots; Ctrl+Q quits.
-        if (event->key.key == SDLK_P && (event->key.mod & SDL_KMOD_CTRL))
+        // Cmd/Ctrl+P toggles pause; Alt+R reboots; Cmd/Ctrl+Q quits.
+        // The primary modifier is platform-aware (Cmd on macOS).
+        if (event->key.key == SDLK_P && (event->key.mod & kPrimaryMod))
         {
             EmulatorPause(*state, !state->paused);
             break;
         }
-        if (event->key.key == SDLK_R && (event->key.mod & SDL_KMOD_ALT))
+        if (event->key.key == SDLK_R && (event->key.mod & kRebootMod))
         {
             EmulatorReboot();
             break;
         }
-        if (event->key.key == SDLK_Q && (event->key.mod & SDL_KMOD_CTRL))
+        if (event->key.key == SDLK_Q && (event->key.mod & kPrimaryMod))
         {
             SDL_Event quit{}; quit.type = SDL_EVENT_QUIT;
             SDL_PushEvent(&quit);
             break;
         }
 
-        // Ctrl+1..Ctrl+7 jump straight to a speed preset (mirrors the
+        // Cmd/Ctrl+1..7 jump straight to a speed preset (mirrors the
         // Emulator → Speed submenu order: Sloth, Retro, Turbo, Ford
         // GT, MiG-31, Pro, Demigod). Intercepted before the //e
         // keyboard path so Nox doesn't see the digit.
-        if ((event->key.mod & SDL_KMOD_CTRL) &&
+        if ((event->key.mod & kPrimaryMod) &&
             event->key.key >= SDLK_1 && event->key.key <= SDLK_7)
         {
             const int idx = (int)(event->key.key - SDLK_1);
@@ -1116,9 +1169,11 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         {
             if (ImGui::MenuItem("Open Nox Archaist HDV...")) OpenHdvDialog(*state);
             ImGui::Separator();
-            if (ImGui::MenuItem(state->paused ? "Resume" : "Pause", "Ctrl+P"))
+            char pauseShortcut[8];
+            std::snprintf(pauseShortcut, sizeof(pauseShortcut), "%s+P", kPrimaryLabel);
+            if (ImGui::MenuItem(state->paused ? "Resume" : "Pause", pauseShortcut))
                 EmulatorPause(*state, !state->paused);
-            if (ImGui::MenuItem("Reboot", "Alt+R")) EmulatorReboot();
+            if (ImGui::MenuItem("Reboot", kRebootLabel)) EmulatorReboot();
             ImGui::Separator();
             if (ImGui::BeginMenu("Speed"))
             {
@@ -1128,9 +1183,9 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                 for (int i = 0; i < kSpeedCount; ++i)
                 {
                     const char* sc = nullptr;
-                    if (i < 9)   // Ctrl+1..Ctrl+9 only; we currently have 7 presets
+                    if (i < 9)   // Cmd/Ctrl+1..9 only; we currently have 7 presets
                     {
-                        std::snprintf(shortcut, sizeof(shortcut), "Ctrl+%d", i + 1);
+                        std::snprintf(shortcut, sizeof(shortcut), "%s+%d", kPrimaryLabel, i + 1);
                         sc = shortcut;
                     }
                     if (ImGui::MenuItem(kSpeedPresets[i].label, sc, state->speed_idx == i))
@@ -1202,7 +1257,9 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                 GameLink::SetGameLinkEnabled(state->gamelink_enabled);
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Quit", "Ctrl+Q"))
+            char quitShortcut[8];
+            std::snprintf(quitShortcut, sizeof(quitShortcut), "%s+Q", kPrimaryLabel);
+            if (ImGui::MenuItem("Quit", quitShortcut))
             {
                 SDL_Event quit{}; quit.type = SDL_EVENT_QUIT;
                 SDL_PushEvent(&quit);
@@ -1243,7 +1300,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
             ImGui::MenuItem("Conversation log", nullptr, state->conversationLog.OpenFlag());
             ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
-            ImGui::MenuItem("Map", nullptr, state->mapPanel.OpenFlag());
+            ImGui::MenuItem("AutoMap", nullptr, state->mapPanel.OpenFlag());
             ImGui::MenuItem("Memory", nullptr, state->memoryViewer.OpenFlag());
             ImGui::MenuItem("HGR viewer", nullptr, state->hgrViewer.OpenFlag());
             ImGui::Separator();
@@ -1390,7 +1447,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     state->conversationLog.Render();
     state->hackPanel.Render();
     state->mapPanel.Render(state->mapTranslator, state->mapData,
-                           state->tileset, state->tileMap);
+                           state->tileset, state->tileMap,
+                           state->mapNotes);
     state->memoryViewer.Render();
     state->hgrViewer.Render();
     state->aboutPanel.Render();
@@ -1401,20 +1459,34 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     // handler lets it through to SDL_APP_SUCCESS.
     if (state->quit_requested)
     {
-        ImGui::OpenPopup("Quit NAC");
+        ImGui::OpenPopup("Quit NAC (Save first!)");
         state->quit_requested = false;
+        state->quit_snark_idx = PickSnarkyQuitLine();
     }
-    if (ImGui::BeginPopupModal("Quit NAC", nullptr,
-                               ImGuiWindowFlags_AlwaysAutoResize))
+    ImGui::SetNextWindowSize(ImVec2(520, 190), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("Quit NAC (Save first!)", nullptr,
+                               ImGuiWindowFlags_NoResize |
+                               ImGuiWindowFlags_NoSavedSettings))
     {
-        ImGui::TextUnformatted("Are you sure you want to quit?");
-        ImGui::Spacing();
-        ImGui::TextUnformatted("Make sure to save your game first!");
-        ImGui::Spacing();
-        ImGui::Checkbox("Don't show this again",
-                        &state->quit_dont_ask_pending);
-        ImGui::Spacing();
-        if (ImGui::Button("Quit", ImVec2(120, 0)))
+        const int idx = (state->quit_snark_idx >= 0 &&
+                         state->quit_snark_idx < kSnarkyQuitCount)
+                      ? state->quit_snark_idx : 0;
+        const char* snark = kSnarkyQuitLines[idx];
+
+        auto centerCursorFor = [](float w) {
+            const float avail = ImGui::GetContentRegionAvail().x;
+            if (w < avail)
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - w) * 0.5f);
+        };
+
+        ImGui::Dummy(ImVec2(0, 18));
+        centerCursorFor(ImGui::CalcTextSize(snark).x);
+        ImGui::TextUnformatted(snark);
+        ImGui::Dummy(ImVec2(0, 24));
+
+        constexpr float kBtnW = 120.0f;
+        centerCursorFor(kBtnW * 2 + ImGui::GetStyle().ItemSpacing.x);
+        if (ImGui::Button("Quit", ImVec2(kBtnW, 0)))
         {
             state->quit_dont_ask  = state->quit_dont_ask_pending;
             state->quit_confirmed = true;
@@ -1423,8 +1495,12 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+        if (ImGui::Button("Cancel", ImVec2(kBtnW, 0)))
             ImGui::CloseCurrentPopup();
+
+		ImGui::Dummy(ImVec2(0, 12));
+		ImGui::Checkbox("Don't show this again",
+						&state->quit_dont_ask_pending);
         ImGui::EndPopup();
     }
 
@@ -1443,6 +1519,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult /*result*/)
     {
         SaveSettings(*state);
         state->tileMap.Save();
+        state->mapNotes.Save();
         ShutdownEmulator();
         if (state->gamelink_up) GameLink::Term();
         state->background.Shutdown();
