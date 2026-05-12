@@ -838,6 +838,8 @@ namespace
 // typing keeps working regardless of ImGui's text-input toggling.
 BYTE SdlKeyToAscii(SDL_Keycode k, SDL_Keymod mod)
 {
+    const bool shift = (mod & SDL_KMOD_SHIFT) != 0;
+
     switch (k)
     {
     case SDLK_RETURN: case SDLK_KP_ENTER: return 0x0D;
@@ -845,19 +847,43 @@ BYTE SdlKeyToAscii(SDL_Keycode k, SDL_Keymod mod)
     case SDLK_TAB:                        return 0x09;
     case SDLK_ESCAPE:                     return 0x1B;
     case SDLK_SPACE:                      return ' ';
+
+    // Numpad operators ignore Shift — there's no shifted form on the
+    // physical keypad.
+    case SDLK_KP_DIVIDE:                  return '/';
+    case SDLK_KP_MULTIPLY:                return '*';
+    case SDLK_KP_MINUS:                   return '-';
+    case SDLK_KP_PLUS:                    return '+';
+    case SDLK_KP_PERIOD:                  return '.';
+
+    // US-layout punctuation. Without these, keys like '/' produce no
+    // event for the //e because ImGui's backend has stopped TEXT_INPUT
+    // (see the comment above this function).
+    case SDLK_MINUS:                      return shift ? '_'  : '-';
+    case SDLK_EQUALS:                     return shift ? '+'  : '=';
+    case SDLK_LEFTBRACKET:                return shift ? '{'  : '[';
+    case SDLK_RIGHTBRACKET:               return shift ? '}'  : ']';
+    case SDLK_BACKSLASH:                  return shift ? '|'  : '\\';
+    case SDLK_SEMICOLON:                  return shift ? ':'  : ';';
+    case SDLK_APOSTROPHE:                 return shift ? '"'  : '\'';
+    case SDLK_COMMA:                      return shift ? '<'  : ',';
+    case SDLK_PERIOD:                     return shift ? '>'  : '.';
+    case SDLK_SLASH:                      return shift ? '?'  : '/';
+    case SDLK_GRAVE:                      return shift ? '~'  : '`';
+
     default:                              break;
     }
 
     if (k >= 'a' && k <= 'z')
-        return (mod & SDL_KMOD_SHIFT) ? (BYTE)(k - 'a' + 'A') : (BYTE)k;
+        return shift ? (BYTE)(k - 'a' + 'A') : (BYTE)k;
 
-    // Digits and basic ASCII punctuation pass through. Shift-modified
-    // symbols (e.g. ! @ # ...) follow a US-layout convention; for
-    // non-US keyboards the TEXT_INPUT path (when not stomped) catches
-    // the right character.
+    // Digits and their shifted symbols (US layout). Non-US keyboards
+    // would only diverge on the punctuation rows above — for those
+    // the SDL_Keycode is already layout-mapped to the intended glyph,
+    // so the explicit cases catch them too.
     if (k >= '0' && k <= '9')
     {
-        if (mod & SDL_KMOD_SHIFT)
+        if (shift)
         {
             static const char shifted[] = ")!@#$%^&*(";   // 0..9
             return (BYTE)shifted[k - '0'];
