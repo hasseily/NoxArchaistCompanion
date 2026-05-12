@@ -43,6 +43,8 @@ bool LoadNoxConstants(const std::filesystem::path& assetsDir,
     cpuconstants.MEM_GOLD             = u("MEM_GOLD");
     cpuconstants.MEM_TORCHES          = u("MEM_TORCHES");
     cpuconstants.MEM_PICKS            = u("MEM_PICKS");
+    cpuconstants.MEM_XPOS             = u("MEM_XPOS");
+    cpuconstants.MEM_YPOS             = u("MEM_YPOS");
     cpuconstants.PC_PRINTSTR          = u("PC_PRINTSTR");
     cpuconstants.PC_CARRIAGE_RETURN1  = u("PC_CARRIAGE_RETURN1");
     cpuconstants.PC_CARRIAGE_RETURN2  = u("PC_CARRIAGE_RETURN2");

@@ -657,10 +657,12 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
         return;
     }
 
-    // Canonical Nox coordinates: X at $6CEB, Y at $6CEC, both in main.
+    // Avatar tile X/Y live in main RAM at version-specific addresses
+    // (1.3.7 sits one byte lower than 1.1.4 / 1.1.9). Versions.json
+    // → cpuconstants resolves them; we read raw bytes here.
     const uint8_t mapID   = Peek(0x2AF9);
-    const uint8_t xpos    = Peek(0x6CEB);
-    const uint8_t ypos    = Peek(0x6CEC);
+    const uint8_t xpos    = (uint8_t)Peek((uint16_t)cpuconstants.MEM_XPOS);
+    const uint8_t ypos    = (uint8_t)Peek((uint16_t)cpuconstants.MEM_YPOS);
     const uint8_t mapType = Peek(kAddrMapType);
 
     ImGui::Text("mapID $%02X  X=%u  Y=%u  type $%02X (%s)",

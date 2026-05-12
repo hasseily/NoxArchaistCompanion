@@ -12,6 +12,8 @@ struct noxcpuconstants
 	UINT MEM_GOLD;
 	UINT MEM_PICKS;
 	UINT MEM_TORCHES;
+	UINT MEM_XPOS;              // avatar tile X position (main RAM)
+	UINT MEM_YPOS;              // avatar tile Y position (main RAM)
 	UINT PC_PRINTSTR;           // PRINT.STR routine entry (overridden before screen output, especially in combat)
 	UINT PC_CARRIAGE_RETURN1;   // CARRIAGE.RETURN that breaks lines down to 16 chars (battle only)
 	UINT PC_CARRIAGE_RETURN2;   // CARRIAGE.RETURN that finishes a line
