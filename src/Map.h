@@ -204,6 +204,43 @@ private:
     mutable bool              m_dirty = false;
 };
 
+// User-authored note attached to a tile on a specific mapID. text is
+// the body; always_visible flips between hover-only tooltip and a
+// label drawn permanently next to the marker.
+struct MapNote
+{
+    int         x = 0;
+    int         y = 0;
+    std::string text;
+    bool        always_visible = false;
+};
+
+// Per-mapID user notes. Stored at <pref_dir>/annotations.json with
+// the same lifecycle as TileMap (load at startup, save on shutdown).
+// Notes are a separate concern from observed tiles — user input
+// shouldn't share storage / dirty tracking with snapshots of game RAM.
+class MapAnnotations
+{
+public:
+    void Load(const std::filesystem::path& prefDir);
+    void Save() const;
+
+    // Returns the note at (x,y) for mapID, or nullptr if none exists.
+    const MapNote* Find(uint8_t mapID, int x, int y) const;
+    // Insert or replace. Empty text deletes (Erase).
+    void Set(uint8_t mapID, int x, int y,
+             std::string text, bool always_visible);
+    void Erase(uint8_t mapID, int x, int y);
+
+    // All notes for a mapID — empty vector if none.
+    const std::vector<MapNote>& NotesFor(uint8_t mapID) const;
+
+private:
+    std::filesystem::path                   m_path;
+    std::map<uint8_t, std::vector<MapNote>> m_notes;
+    mutable bool                            m_dirty = false;
+};
+
 class MapPanel
 {
 public:
@@ -213,7 +250,8 @@ public:
     bool& OpenRef()     { return m_open; }
     int&  ColorSchemeRef() { return m_colorScheme_int; }
     void  Render(const MapTranslator& tx, MapData& md,
-                 TilesetTexture& tileset, TileMap& tiles);
+                 TilesetTexture& tileset, TileMap& tiles,
+                 MapAnnotations& notes);
 
 private:
     bool m_open = false;
@@ -237,6 +275,16 @@ private:
     float m_panX    = 0.0f;
     float m_panY    = 0.0f;
     bool  m_needFit = false;
+
+    // Note-editor popup state. Set when the user right-clicks a tile
+    // in the canvas; consumed by the modal opened the same frame.
+    // m_noteEditOpen is the trigger to call OpenPopup() once.
+    bool    m_noteEditOpen     = false;
+    uint8_t m_noteEditMapID    = 0;
+    int     m_noteEditX        = 0;
+    int     m_noteEditY        = 0;
+    bool    m_noteEditAlwaysVisible = false;
+    char    m_noteEditBuf[512] = {};
 };
 
 } // namespace nac

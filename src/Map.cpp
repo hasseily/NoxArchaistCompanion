@@ -307,12 +307,35 @@ void TilesetTexture::EnsureTexture()
         GLuint tex = 0;
         glGenTextures(1, &tex);
         glBindTexture(GL_TEXTURE_2D, tex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        // MAG = NEAREST keeps the pixel-art look crisp when zoomed in
+        // or at 1:1. MIN = trilinear over the mip chain so down-scaled
+        // tiles get a pre-filtered sample at the correct LOD instead of
+        // dropping texels — fixes the aliasing/moiré visible at low
+        // zoom on the AutoMap. Mip levels are built CPU-side with
+        // alpha-weighted RGB averaging (see Refresh) rather than via
+        // glGenerateMipmap, because the GPU's box filter averages RGB
+        // and alpha independently — for an atlas of opaque tiles on a
+        // transparent background that double-attenuates intensity at
+        // every mip level, making the map fade out as you zoom out.
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kAtlasW, kAtlasH, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        // Pre-allocate every mip level so Refresh can glTexSubImage2D
+        // into each one without re-allocating storage every frame.
+        int w = kAtlasW, h = kAtlasH;
+        int level = 0;
+        for (;;)
+        {
+            glTexImage2D(GL_TEXTURE_2D, level, GL_RGBA, w, h, 0,
+                         GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+            if (w == 1 && h == 1) break;
+            w = (std::max)(1, w / 2);
+            h = (std::max)(1, h / 2);
+            ++level;
+        }
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL,  level);
         glBindTexture(GL_TEXTURE_2D, 0);
         return tex;
     };
@@ -404,13 +427,68 @@ void TilesetTexture::Refresh()
     for (int id = 0x80; id <= 0xFF; ++id)
         DecodeTile((uint8_t)id, &g_ramSnapshot.aux[0x8000 + (id - 0x80) * 0x80]);
 
-    glBindTexture(GL_TEXTURE_2D, m_tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kAtlasW, kAtlasH,
-                    GL_RGBA, GL_UNSIGNED_BYTE, m_pixels);
-    glBindTexture(GL_TEXTURE_2D, m_texColor);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kAtlasW, kAtlasH,
-                    GL_RGBA, GL_UNSIGNED_BYTE, m_pixelsColor);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    // Build mip chain CPU-side with alpha-weighted RGB averaging. The
+    // box filter weights each source pixel's RGB by its alpha so a
+    // 2×2 region containing 1 lit pixel + 3 transparent ones produces
+    // a fully-bright output texel at quarter alpha — instead of the
+    // quarter-bright + quarter-alpha that the GPU's straight box
+    // filter would yield (which compounds to a darker tile every level
+    // when ImGui composites with standard alpha blend).
+    auto uploadWithMips = [&](GLuint tex, const uint8_t* level0) {
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kAtlasW, kAtlasH,
+                        GL_RGBA, GL_UNSIGNED_BYTE, level0);
+
+        std::vector<uint8_t> src(level0, level0 + kAtlasW * kAtlasH * 4);
+        std::vector<uint8_t> dst;
+        int sw = kAtlasW, sh = kAtlasH;
+        int level = 0;
+        while (sw > 1 || sh > 1)
+        {
+            const int dw = (std::max)(1, sw / 2);
+            const int dh = (std::max)(1, sh / 2);
+            dst.assign((size_t)dw * dh * 4, 0);
+            for (int y = 0; y < dh; ++y)
+            {
+                const int sy0 = (std::min)(y * 2,     sh - 1);
+                const int sy1 = (std::min)(y * 2 + 1, sh - 1);
+                for (int x = 0; x < dw; ++x)
+                {
+                    const int sx0 = (std::min)(x * 2,     sw - 1);
+                    const int sx1 = (std::min)(x * 2 + 1, sw - 1);
+                    const uint8_t* p00 = src.data() + (sy0 * sw + sx0) * 4;
+                    const uint8_t* p01 = src.data() + (sy0 * sw + sx1) * 4;
+                    const uint8_t* p10 = src.data() + (sy1 * sw + sx0) * 4;
+                    const uint8_t* p11 = src.data() + (sy1 * sw + sx1) * 4;
+                    const uint32_t aSum =
+                        (uint32_t)p00[3] + p01[3] + p10[3] + p11[3];
+                    uint8_t* d = dst.data() + (y * dw + x) * 4;
+                    if (aSum == 0)
+                        continue;          // fully transparent, leave zeros
+                    const uint32_t r = p00[0]*p00[3] + p01[0]*p01[3]
+                                     + p10[0]*p10[3] + p11[0]*p11[3];
+                    const uint32_t g = p00[1]*p00[3] + p01[1]*p01[3]
+                                     + p10[1]*p10[3] + p11[1]*p11[3];
+                    const uint32_t b = p00[2]*p00[3] + p01[2]*p01[3]
+                                     + p10[2]*p10[3] + p11[2]*p11[3];
+                    d[0] = (uint8_t)(r / aSum);
+                    d[1] = (uint8_t)(g / aSum);
+                    d[2] = (uint8_t)(b / aSum);
+                    d[3] = (uint8_t)(aSum / 4);
+                }
+            }
+            ++level;
+            glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, dw, dh,
+                            GL_RGBA, GL_UNSIGNED_BYTE, dst.data());
+            src.swap(dst);
+            sw = dw;
+            sh = dh;
+        }
+        glBindTexture(GL_TEXTURE_2D, 0);
+    };
+
+    uploadWithMips(m_tex,      m_pixels);
+    uploadWithMips(m_texColor, m_pixelsColor);
 }
 
 std::vector<MapData::FloorListEntry>
@@ -642,16 +720,129 @@ std::vector<TileMap::Entry> TileMap::ObservedMaps() const
 }
 
 // ---------------------------------------------------------------------------
+// MapAnnotations
+// ---------------------------------------------------------------------------
+
+namespace
+{
+const std::vector<MapNote> kEmptyNotes;
+}
+
+void MapAnnotations::Load(const std::filesystem::path& prefDir)
+{
+    m_path = prefDir / "annotations.json";
+    m_notes.clear();
+    m_dirty = false;
+    if (!std::filesystem::exists(m_path)) return;
+    try
+    {
+        std::ifstream f(m_path);
+        nlohmann::json j; f >> j;
+        if (!j.is_array()) return;
+        for (const auto& nj : j)
+        {
+            const int mapID = nj.value("map_id", -1);
+            if (mapID < 0 || mapID > 255) continue;
+            MapNote n;
+            n.x              = nj.value("x", 0);
+            n.y              = nj.value("y", 0);
+            n.text           = nj.value("text", std::string{});
+            n.always_visible = nj.value("always_visible", false);
+            if (n.text.empty()) continue;
+            m_notes[(uint8_t)mapID].push_back(std::move(n));
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::fprintf(stderr, "MapAnnotations: parse failed: %s\n", e.what());
+    }
+}
+
+void MapAnnotations::Save() const
+{
+    if (!m_dirty || m_path.empty()) return;
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto& [mapID, notes] : m_notes)
+    {
+        for (const auto& n : notes)
+        {
+            arr.push_back({
+                {"map_id",         (int)mapID},
+                {"x",              n.x},
+                {"y",              n.y},
+                {"text",           n.text},
+                {"always_visible", n.always_visible},
+            });
+        }
+    }
+    try
+    {
+        std::ofstream f(m_path);
+        f << arr.dump(2);
+        m_dirty = false;
+    }
+    catch (...) {}
+}
+
+const MapNote* MapAnnotations::Find(uint8_t mapID, int x, int y) const
+{
+    auto it = m_notes.find(mapID);
+    if (it == m_notes.end()) return nullptr;
+    for (const auto& n : it->second)
+        if (n.x == x && n.y == y) return &n;
+    return nullptr;
+}
+
+void MapAnnotations::Set(uint8_t mapID, int x, int y,
+                         std::string text, bool always_visible)
+{
+    if (text.empty()) { Erase(mapID, x, y); return; }
+    auto& v = m_notes[mapID];
+    for (auto& n : v)
+        if (n.x == x && n.y == y)
+        {
+            n.text           = std::move(text);
+            n.always_visible = always_visible;
+            m_dirty = true;
+            return;
+        }
+    v.push_back(MapNote{x, y, std::move(text), always_visible});
+    m_dirty = true;
+}
+
+void MapAnnotations::Erase(uint8_t mapID, int x, int y)
+{
+    auto it = m_notes.find(mapID);
+    if (it == m_notes.end()) return;
+    auto& v = it->second;
+    for (auto i = v.begin(); i != v.end(); ++i)
+        if (i->x == x && i->y == y)
+        {
+            v.erase(i);
+            m_dirty = true;
+            if (v.empty()) m_notes.erase(it);
+            return;
+        }
+}
+
+const std::vector<MapNote>& MapAnnotations::NotesFor(uint8_t mapID) const
+{
+    auto it = m_notes.find(mapID);
+    return (it == m_notes.end()) ? kEmptyNotes : it->second;
+}
+
+// ---------------------------------------------------------------------------
 // MapPanel
 // ---------------------------------------------------------------------------
 
 void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
-                      TilesetTexture& tileset, TileMap& tiles)
+                      TilesetTexture& tileset, TileMap& tiles,
+                      MapAnnotations& notes)
 {
     if (!m_open) return;
 
     ImGui::SetNextWindowSize(ImVec2(720, 540), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Map", &m_open, ImGuiWindowFlags_NoCollapse))
+    if (!ImGui::Begin("AutoMap###Map", &m_open, ImGuiWindowFlags_NoCollapse))
     {
         ImGui::End();
         return;
@@ -849,7 +1040,10 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     // uses absolute screen coords from `origin` so the button advancing
     // the cursor doesn't matter.
     ImGui::InvisibleButton("##map_canvas_hit", view);
-    const bool canvasActive = ImGui::IsItemActive();
+    const bool canvasActive  = ImGui::IsItemActive();
+    const bool canvasHovered = ImGui::IsItemHovered();
+    const bool canvasRClick  = canvasHovered &&
+                               ImGui::IsMouseClicked(ImGuiMouseButton_Right);
 
     // One-shot zoom-to-fit. Auto-fires the first frame after the user
     // picks a stored map (m_needFit was set in the combo handler) and
@@ -939,6 +1133,147 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
         const float r = (std::max)(3.0f, kTileW * s_zoom * 0.45f);
         dl->AddCircleFilled(c, r,        IM_COL32(255, 60, 60, 255));
         dl->AddCircle      (c, r + 1.5f, IM_COL32(0, 0, 0, 255), 0, 1.5f);
+    }
+
+    // ----- annotations: markers, always-visible labels, hover tooltips ---
+
+    auto tileToScreen = [&](int tx_, int ty) {
+        const float px0 = centreX + (tx_ - centreTileX - 0.5f) * kTileW * s_zoom;
+        const float py0 = centreY + (ty  - centreTileY - 0.5f) * kTileH * s_zoom;
+        return ImVec2(px0, py0);
+    };
+
+    const ImU32 markerCol  = IM_COL32(255, 215,  80, 255);
+    const ImU32 markerEdge = IM_COL32( 30,  20,   0, 255);
+    const ImU32 labelBgCol = IM_COL32(  0,   0,   0, 180);
+    const ImU32 labelTxtCol = IM_COL32(255, 235, 180, 255);
+
+    const ImVec2 mouse = ImGui::GetMousePos();
+    const char* hoverNoteText = nullptr;
+
+    for (const auto& n : notes.NotesFor(renderMapID))
+    {
+        if (n.x < 0 || n.x >= renderW || n.y < 0 || n.y >= renderH) continue;
+        const ImVec2 tp0 = tileToScreen(n.x, n.y);
+        const ImVec2 tp1(tp0.x + kTileW * s_zoom, tp0.y + kTileH * s_zoom);
+
+        // Cull clearly-offscreen notes so a large grid of pins doesn't
+        // cost ImDrawList calls per frame for unseen tiles.
+        if (tp1.x < origin.x || tp0.x > origin.x + view.x ||
+            tp1.y < origin.y || tp0.y > origin.y + view.y)
+            continue;
+
+        // Upward-pointing filled triangle, centred on the tile centre.
+        const float cx = (tp0.x + tp1.x) * 0.5f;
+        const float cy = (tp0.y + tp1.y) * 0.5f;
+        const float sz = (std::max)(4.0f, kTileW * s_zoom * 0.45f);
+        const ImVec2 a(cx,             cy - sz * 0.6f);    // top
+        const ImVec2 b(cx - sz * 0.5f, cy + sz * 0.4f);    // bottom-left
+        const ImVec2 c(cx + sz * 0.5f, cy + sz * 0.4f);    // bottom-right
+        dl->AddTriangleFilled(a, b, c, markerCol);
+        dl->AddTriangle      (a, b, c, markerEdge, 1.0f);
+
+        if (n.always_visible && !n.text.empty())
+        {
+            // First line only for the inline label (full text still
+            // shows in the tooltip on hover).
+            const char* p   = n.text.c_str();
+            const char* end = std::strchr(p, '\n');
+            const ImVec2 sz1 = end
+                ? ImGui::CalcTextSize(p, end)
+                : ImGui::CalcTextSize(p);
+
+            const float pad = 4.0f;
+            const ImVec2 lp0(cx + sz * 0.5f + 4.0f,
+                             cy - sz1.y * 0.5f - pad);
+            const ImVec2 lp1(lp0.x + sz1.x + pad * 2,
+                             lp0.y + sz1.y + pad * 2);
+            dl->AddRectFilled(lp0, lp1, labelBgCol, 3.0f);
+            dl->AddRect      (lp0, lp1, markerEdge, 3.0f);
+            dl->AddText(ImVec2(lp0.x + pad, lp0.y + pad), labelTxtCol,
+                        p, end);
+        }
+
+        if (mouse.x >= tp0.x && mouse.x < tp1.x &&
+            mouse.y >= tp0.y && mouse.y < tp1.y &&
+            canvasHovered)
+            hoverNoteText = n.text.c_str();
+    }
+
+    if (hoverNoteText)
+    {
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted(hoverNoteText);
+        ImGui::EndTooltip();
+    }
+
+    // Right-click on the canvas → open the note editor for the clicked
+    // tile. Compute the tile by inverting the on-screen tile transform.
+    if (canvasRClick)
+    {
+        const float fx = (mouse.x - centreX) / (kTileW * s_zoom)
+                       + centreTileX + 0.5f;
+        const float fy = (mouse.y - centreY) / (kTileH * s_zoom)
+                       + centreTileY + 0.5f;
+        const int tx_ = (int)std::floor(fx);
+        const int ty  = (int)std::floor(fy);
+        if (tx_ >= 0 && tx_ < renderW && ty >= 0 && ty < renderH)
+        {
+            m_noteEditMapID = renderMapID;
+            m_noteEditX     = tx_;
+            m_noteEditY     = ty;
+            if (const MapNote* existing = notes.Find(renderMapID, tx_, ty))
+            {
+                std::snprintf(m_noteEditBuf, sizeof(m_noteEditBuf),
+                              "%s", existing->text.c_str());
+                m_noteEditAlwaysVisible = existing->always_visible;
+            }
+            else
+            {
+                m_noteEditBuf[0]        = 0;
+                m_noteEditAlwaysVisible = false;
+            }
+            m_noteEditOpen = true;
+        }
+    }
+
+    if (m_noteEditOpen)
+    {
+        ImGui::OpenPopup("##note_editor");
+        m_noteEditOpen = false;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(420, 220), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("##note_editor", nullptr,
+                               ImGuiWindowFlags_NoResize |
+                               ImGuiWindowFlags_NoSavedSettings))
+    {
+        ImGui::Text("Note at (%d, %d) — map $%02X",
+                    m_noteEditX, m_noteEditY, m_noteEditMapID);
+        ImGui::Separator();
+        ImGui::InputTextMultiline("##note_text", m_noteEditBuf,
+                                  sizeof(m_noteEditBuf),
+                                  ImVec2(-FLT_MIN,
+                                         ImGui::GetTextLineHeight() * 4));
+        ImGui::Checkbox("Always show on map", &m_noteEditAlwaysVisible);
+        ImGui::Spacing();
+
+        if (ImGui::Button("Save", ImVec2(80, 0)))
+        {
+            notes.Set(m_noteEditMapID, m_noteEditX, m_noteEditY,
+                      std::string(m_noteEditBuf), m_noteEditAlwaysVisible);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Delete", ImVec2(80, 0)))
+        {
+            notes.Erase(m_noteEditMapID, m_noteEditX, m_noteEditY);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(80, 0)))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
     }
 
     ImGui::EndChild();
