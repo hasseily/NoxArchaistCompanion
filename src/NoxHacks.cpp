@@ -143,7 +143,7 @@ void ConversationLogPanel::RebuildWrappedBuffer(float wrapWidth)
         m_wrappedBuf = m_buf;
         return;
     }
-    const float scale = ImGui::GetFontSize() / font->FontSize;
+    const float scale = ImGui::GetFontSize() / font->LegacySize;
     m_wrappedBuf.reserve(m_buf.size() + m_buf.size() / 16);
 
     const char* p   = m_buf.data();
