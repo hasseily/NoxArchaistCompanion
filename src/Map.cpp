@@ -1175,23 +1175,46 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
 
         if (n.always_visible && !n.text.empty())
         {
-            // First line only for the inline label (full text still
-            // shows in the tooltip on hover).
+            // Split on '\n' and lay out a multi-line label centred on
+            // the tile centre, with each line centred within the pill.
+            // The pill background is sized to the widest line.
+            std::vector<std::pair<const char*, const char*>> lines;
             const char* p   = n.text.c_str();
-            const char* end = std::strchr(p, '\n');
-            const ImVec2 sz1 = end
-                ? ImGui::CalcTextSize(p, end)
-                : ImGui::CalcTextSize(p);
+            const char* end = p + n.text.size();
+            while (p <= end)
+            {
+                const char* nl = (p < end) ? std::strchr(p, '\n') : nullptr;
+                const char* lineEnd = nl ? nl : end;
+                lines.push_back({p, lineEnd});
+                if (!nl) break;
+                p = nl + 1;
+            }
 
-            const float pad = 4.0f;
-            const ImVec2 lp0(cx + sz * 0.5f + 4.0f,
-                             cy - sz1.y * 0.5f - pad);
-            const ImVec2 lp1(lp0.x + sz1.x + pad * 2,
-                             lp0.y + sz1.y + pad * 2);
+            const float lineH = ImGui::GetTextLineHeight();
+            float maxW = 0.0f;
+            for (const auto& [a, b] : lines)
+            {
+                const float w = ImGui::CalcTextSize(a, b).x;
+                if (w > maxW) maxW = w;
+            }
+
+            const float pad     = 4.0f;
+            const float labelW  = maxW + pad * 2.0f;
+            const float labelH  = lineH * (float)lines.size() + pad * 2.0f;
+            const ImVec2 lp0(cx - labelW * 0.5f, cy - labelH * 0.5f);
+            const ImVec2 lp1(lp0.x + labelW,     lp0.y + labelH);
             dl->AddRectFilled(lp0, lp1, labelBgCol, 3.0f);
             dl->AddRect      (lp0, lp1, markerEdge, 3.0f);
-            dl->AddText(ImVec2(lp0.x + pad, lp0.y + pad), labelTxtCol,
-                        p, end);
+
+            for (size_t i = 0; i < lines.size(); ++i)
+            {
+                const float lw = ImGui::CalcTextSize(lines[i].first,
+                                                     lines[i].second).x;
+                dl->AddText(ImVec2(cx - lw * 0.5f,
+                                   lp0.y + pad + lineH * (float)i),
+                            labelTxtCol,
+                            lines[i].first, lines[i].second);
+            }
         }
 
         if (mouse.x >= tp0.x && mouse.x < tp1.x &&
@@ -1274,6 +1297,18 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
         if (ImGui::Button("Cancel", ImVec2(80, 0)))
             ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
+    }
+
+    // Discoverability hint, anchored to the bottom-left of the canvas.
+    // Half-opaque so it doesn't compete with the map content.
+    {
+        const char* hint = "R-CLK to annotate";
+        const float th = ImGui::GetTextLineHeight();
+        const ImVec2 pos(origin.x + 6.0f,
+                         origin.y + view.y - th - 6.0f);
+        dl->AddText(ImVec2(pos.x + 1.0f, pos.y + 1.0f),
+                    IM_COL32(0, 0, 0, 128), hint);
+        dl->AddText(pos, IM_COL32(255, 255, 255, 128), hint);
     }
 
     ImGui::EndChild();
