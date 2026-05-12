@@ -11,7 +11,6 @@ Minimum tool versions: **CMake 3.20**, **C++17**.
 ```
 git clone https://github.com/hasseily/NoxArchaistCompanion.git
 cd NoxArchaistCompanion
-git checkout sdl3-multiplatform   # until the conversion lands on master
 ```
 
 The first configure pulls SDL3 and ImGui from upstream (a few minutes);
@@ -33,9 +32,9 @@ cmd /c "`"$vsBat`" >nul && cmake --build build-win"
 ```
 
 The exe lands at `build-win\nac.exe`. `SDL3.dll` and the runtime data
-(`assets/`, `presets/`, `shaders/`, `Assets/`, `Profiles/`,
-`Resources/`) are staged next to it by a POST_BUILD step so launches
-from the build tree just work.
+(`assets/`, `presets/`, `shaders/`, `NoxData/`, `Resources/`) are
+staged next to it by a POST_BUILD step so launches from the build
+tree just work.
 
 If you have VS 17 / 2022 instead of VS 18, the standard generator
 works without the vcvars dance:
@@ -129,9 +128,9 @@ stays dormant.
 
 `.github/workflows/cmake.yml` runs the same `cmake -B build && cmake
 --build build` on `ubuntu-latest` (Ninja) and `windows-latest`
-(Visual Studio 17 2022) on every push and PR to `master` and
-`sdl3-multiplatform`. The Linux job apt-installs the dev-header set
-above; the Windows job uses the runner's pre-installed VS 17.
+(Visual Studio 17 2022) on every push and PR to `master`. The Linux
+job apt-installs the dev-header set above; the Windows job uses the
+runner's pre-installed VS 17.
 
 If your local Linux build fails with missing GL / X11 / audio
 symbols, check that workflow file — its apt list is the canonical set
