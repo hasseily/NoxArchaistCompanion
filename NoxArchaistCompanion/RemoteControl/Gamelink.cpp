@@ -262,7 +262,8 @@ void GameLink::Out(uint16_t frame_width,
 		if (frame_width <= sSharedMMapFrame_R1::MAX_WIDTH &&
 		    frame_height <= sSharedMMapFrame_R1::MAX_HEIGHT)
 		{
-			const uint32_t payload = uint32_t(frame_width) * uint32_t(frame_height) * 4u;
+			const uint32_t payload = std::min(uint32_t(frame_width) * uint32_t(frame_height) * 4u,
+				uint32_t(sSharedMMapFrame_R1::MAX_PAYLOAD));
 			std::memcpy(g_p_shared_memory->frame.buffer, p_frame, payload);
 		}
 	}
@@ -316,6 +317,8 @@ void GameLink::ExecTerminal(GameLink::sSharedMMapBuffer_R1* p_inbuf,
 		const uint16_t payload = p_inbuf->payload;
 		p_inbuf->payload = 0;
 
+		if (payload > sSharedMMapBuffer_R1::BUFFER_SIZE)
+			return;
 		std::memcpy(p_procbuf->data, p_inbuf->data, payload);
 		p_procbuf->payload = payload;
 	}
