@@ -213,6 +213,7 @@ struct AppState
     bool                  quit_confirmed   = false;       // modal Quit clicked → SDL_EVENT_QUIT may pass through
     bool                  quit_dont_ask_pending = false;  // checkbox state inside the quit modal
     int                   quit_snark_idx   = -1;          // picked when modal opens, reused while it's up
+    bool                  reboot_requested = false;       // open the reboot-confirm modal next render
     std::string           imgui_ini_path;               // outlives ImGui's IO struct
     std::filesystem::path pref_dir;                     // SDL pref dir
     std::filesystem::path hdv_path;                     // current HDV (argv[1] or last opened)
@@ -992,7 +993,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         }
         if (event->key.key == SDLK_R && (event->key.mod & kRebootMod))
         {
-            EmulatorReboot();
+            state->reboot_requested = true;
             break;
         }
         if (event->key.key == SDLK_Q && (event->key.mod & kPrimaryMod))
@@ -1199,7 +1200,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             std::snprintf(pauseShortcut, sizeof(pauseShortcut), "%s+P", kPrimaryLabel);
             if (ImGui::MenuItem(state->paused ? "Resume" : "Pause", pauseShortcut))
                 EmulatorPause(*state, !state->paused);
-            if (ImGui::MenuItem("Reboot", kRebootLabel)) EmulatorReboot();
+            if (ImGui::MenuItem("Reboot", kRebootLabel)) state->reboot_requested = true;
             ImGui::Separator();
             if (ImGui::BeginMenu("Speed"))
             {
@@ -1426,6 +1427,11 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         ImGui::SetNextWindowPos(applePos,  appleCond);
         if (ImGui::Begin("Apple //e", nullptr, ImGuiWindowFlags_NoCollapse))
         {
+            // Captured here (before SetCursorPos shifts it for letter-
+            // boxing) so the PAUSED overlay below anchors to the window
+            // content area's top-left, not the centred image's.
+            const ImVec2 contentOrigin = ImGui::GetCursorScreenPos();
+
             const ImVec2 avail = ImGui::GetContentRegionAvail();
             if (rfbW > 0 && rfbH > 0 && avail.x > 0 && avail.y > 0)
             {
@@ -1453,6 +1459,19 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                     texId = static_cast<ImTextureID>(state->renderer.FramebufferTexId());
                 }
                 ImGui::Image(texId, ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
+            }
+
+            // PAUSED overlay — half-opaque with a 1-px drop shadow so it
+            // stays legible whatever's behind it.
+            if (state->paused)
+            {
+                const char* label = "PAUSED";
+                const ImVec2 pos(contentOrigin.x + 6.0f,
+                                 contentOrigin.y + 6.0f);
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                dl->AddText(ImVec2(pos.x + 1.0f, pos.y + 1.0f),
+                            IM_COL32(0, 0, 0, 128), label);
+                dl->AddText(pos, IM_COL32(255, 255, 255, 128), label);
             }
         }
         ImGui::End();
@@ -1527,6 +1546,48 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		ImGui::Dummy(ImVec2(0, 12));
 		ImGui::Checkbox("Don't show this again",
 						&state->quit_dont_ask_pending);
+        ImGui::EndPopup();
+    }
+
+    // Reboot confirmation modal. Wired from the Cmd/Alt+R shortcut and
+    // the Emulator → Reboot menu item; LoadHDV's mid-session reboot
+    // bypasses this (the HDV change is already the user's confirmed
+    // intent).
+    if (state->reboot_requested)
+    {
+        ImGui::OpenPopup("Reboot Nox Archaist?");
+        state->reboot_requested = false;
+    }
+    ImGui::SetNextWindowSize(ImVec2(460, 200), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("Reboot Nox Archaist?", nullptr,
+                               ImGuiWindowFlags_NoResize |
+                               ImGuiWindowFlags_NoSavedSettings))
+    {
+        auto centerCursorFor = [](float w) {
+            const float avail = ImGui::GetContentRegionAvail().x;
+            if (w < avail)
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - w) * 0.5f);
+        };
+
+        const char* msg = "This will power-cycle the Apple //e.";
+        ImGui::Dummy(ImVec2(0, 18));
+        centerCursorFor(ImGui::CalcTextSize(msg).x);
+        ImGui::TextUnformatted(msg);
+		msg = "Save your game first!";
+		centerCursorFor(ImGui::CalcTextSize(msg).x);
+		ImGui::TextUnformatted(msg);
+		ImGui::Dummy(ImVec2(0, 24));
+
+        constexpr float kBtnW = 120.0f;
+        centerCursorFor(kBtnW * 2 + ImGui::GetStyle().ItemSpacing.x);
+        if (ImGui::Button("Reboot", ImVec2(kBtnW, 0)))
+        {
+            EmulatorReboot();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(kBtnW, 0)))
+            ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 
