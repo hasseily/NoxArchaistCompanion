@@ -24,31 +24,37 @@ struct MapLocation
     int         height = 0;       // logical region height
 };
 
+// Resolves the avatar's current memory state (mapID byte at $2AF9 +
+// xpos/ypos) to a human-readable MapLocation. Backed by maps_index.json
+// — a flat array of pre-resolved records (one per "area"), each
+// carrying its mapID, the xy slice it owns, the owning region's
+// dimensions, and per-area xoffset/yoffset shifts. Generated from
+// translation.json with the rule's offset-3/offset-4 checks folded
+// into the xmin/xmax/ymin/ymax bounds, so Resolve doesn't need a
+// dynamic check evaluator.
 class MapTranslator
 {
 public:
     void Load(const std::filesystem::path& assetsDir);
-    bool Loaded() const { return !m_data.is_null(); }
 
     std::optional<MapLocation> Resolve(uint8_t mapID,
                                        uint8_t xpos,
                                        uint8_t ypos) const;
 
-    // Look up a region's human-readable name + full grid dims by id.
-    // Returns the name string ("Wynmar", "Bayport", ...) or empty if
-    // the region isn't in translation.json. RegionDims fills width /
-    // height to the GC profile's grid dims.
-    std::string RegionName(int region_id) const;
-    void        RegionDims(int region_id, int& width, int& height) const;
-
-    // For teleport: given a target (region, floor), find the first
-    // mapID byte ($2AF9) that the rule set maps to that floor. Returns
-    // -1 if no rule matches. For floors with multiple sub-region
-    // mapIDs (e.g. Bayport's quadrants) we just return the first.
-    int FindMapID(int region_id, const std::string& floor) const;
-
 private:
-    nlohmann::json m_data;
+    struct Record
+    {
+        int         id      = 0;
+        int         region  = 0;
+        std::string name;
+        std::string floor;
+        int         width   = 0;
+        int         height  = 0;
+        int         xmin    = 0, xmax = 255;
+        int         ymin    = 0, ymax = 255;
+        int         xoffset = 0, yoffset = 0;
+    };
+    std::vector<Record> m_records;
 };
 
 // One floor's geometry + tile bytes, decoded out of maps.bin.
@@ -74,9 +80,6 @@ public:
     bool Loaded() const { return !m_index.empty(); }
 
     const FloorRecord* Find(int region_id, const std::string& floor) const;
-
-    struct FloorListEntry { int region_id; std::string floor; std::string region_name; };
-    std::vector<FloorListEntry> AllFloors(const class MapTranslator& tx) const;
 
 private:
     std::vector<uint8_t>                            m_blob;

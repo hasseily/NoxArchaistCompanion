@@ -53,27 +53,6 @@ bool HasParty()
     return false;
 }
 
-bool CheckOp(int sample, int rhs, const std::string& op)
-{
-    if (op == "EQ"  || op.empty()) return sample == rhs;
-    if (op == "GTE")               return sample >= rhs;
-    if (op == "LTE")               return sample <= rhs;
-    if (op == "GT")                return sample >  rhs;
-    if (op == "LT")                return sample <  rhs;
-    return false;
-}
-
-int SampleAtPeekOffset(int peekOffset, uint8_t mapID, uint8_t xpos, uint8_t ypos)
-{
-    switch (peekOffset)
-    {
-    case 0: return mapID;
-    case 3: return xpos;
-    case 4: return ypos;
-    default: return -1;
-    }
-}
-
 // Vision footprint. Nox draws a 17×11 viewport around the avatar when
 // outdoors; we reveal the same footprint into the fog bitmap each time
 // the safe-sample callback fires.
@@ -113,105 +92,63 @@ const char* MapTypeName(uint8_t t)
 
 void MapTranslator::Load(const std::filesystem::path& assetsDir)
 {
-    m_data = nlohmann::json{};
-    const auto path = assetsDir / "maps" / "translation.json";
+    m_records.clear();
+    const auto path = assetsDir / "maps" / "maps_index.json";
     if (!std::filesystem::exists(path)) return;
     try
     {
         std::ifstream f(path);
-        f >> m_data;
+        nlohmann::json j; f >> j;
+        if (!j.is_array()) return;
+        m_records.reserve(j.size());
+        for (const auto& r : j)
+        {
+            Record rec;
+            rec.id      = r.value("id",      0);
+            rec.region  = r.value("region",  0);
+            rec.name    = r.value("name",    std::string{});
+            rec.floor   = r.value("floor",   std::string{});
+            rec.width   = r.value("width",   0);
+            rec.height  = r.value("height",  0);
+            rec.xmin    = r.value("xmin",    0);
+            rec.xmax    = r.value("xmax",    255);
+            rec.ymin    = r.value("ymin",    0);
+            rec.ymax    = r.value("ymax",    255);
+            rec.xoffset = r.value("xoffset", 0);
+            rec.yoffset = r.value("yoffset", 0);
+            m_records.push_back(std::move(rec));
+        }
     }
     catch (const std::exception& e)
     {
         std::fprintf(stderr, "MapTranslator: parse failed for %s: %s\n",
                      path.string().c_str(), e.what());
-        m_data = nlohmann::json{};
+        m_records.clear();
     }
-}
-
-std::string MapTranslator::RegionName(int region_id) const
-{
-    if (m_data.is_null() || !m_data.contains("regions")) return {};
-    const std::string key = std::to_string(region_id);
-    if (!m_data["regions"].contains(key)) return {};
-    return m_data["regions"][key].value("name", std::string{});
-}
-
-int MapTranslator::FindMapID(int region_id, const std::string& floor) const
-{
-    if (m_data.is_null() || !m_data.contains("rules")) return -1;
-    for (const auto& rule : m_data["rules"])
-    {
-        if (rule.value("region", -1) != region_id) continue;
-        if (rule.value("floor",  std::string{}) != floor) continue;
-        if (!rule.contains("checks")) continue;
-        for (const auto& c : rule["checks"])
-        {
-            if (c.value("offset", -1) == 0)
-                return c.value("value", -1);
-        }
-    }
-    return -1;
-}
-
-void MapTranslator::RegionDims(int region_id, int& width, int& height) const
-{
-    width = height = 0;
-    if (m_data.is_null() || !m_data.contains("regions")) return;
-    const std::string key = std::to_string(region_id);
-    if (!m_data["regions"].contains(key)) return;
-    const auto& r = m_data["regions"][key];
-    width  = r.value("width",  0);
-    height = r.value("height", 0);
 }
 
 std::optional<MapLocation> MapTranslator::Resolve(uint8_t mapID,
                                                   uint8_t xpos,
                                                   uint8_t ypos) const
 {
-    if (m_data.is_null() || !m_data.contains("rules") || !m_data["rules"].is_array())
-        return std::nullopt;
-
-    for (const auto& rule : m_data["rules"])
+    // Linear scan — 89 records, called once per frame at most. Records
+    // are sorted with the more-specific (narrower) xy ranges first
+    // (see the maps_index.json generator), so a catch-all entry for a
+    // mapID only matches when none of its narrower siblings did.
+    for (const auto& r : m_records)
     {
-        const int xmin = rule.value("xmin", 0);
-        const int xmax = rule.value("xmax", 0xFF);
-        const int ymin = rule.value("ymin", 0);
-        const int ymax = rule.value("ymax", 0xFF);
-        if (xpos < xmin || xpos > xmax) continue;
-        if (ypos < ymin || ypos > ymax) continue;
-
-        bool ok = true;
-        if (rule.contains("checks") && rule["checks"].is_array())
-        {
-            for (const auto& c : rule["checks"])
-            {
-                const int sample = SampleAtPeekOffset(
-                    c.value("offset", -1), mapID, xpos, ypos);
-                const int value  = c.value("value", 0);
-                const std::string op = c.value("op", std::string("EQ"));
-                if (!CheckOp(sample, value, op)) { ok = false; break; }
-            }
-        }
-        if (!ok) continue;
+        if (r.id != mapID)                       continue;
+        if (xpos < r.xmin || xpos > r.xmax)      continue;
+        if (ypos < r.ymin || ypos > r.ymax)      continue;
 
         MapLocation loc;
-        loc.region = rule.value("region", 0);
-        loc.floor  = rule.value("floor",  std::string{});
-        loc.x      = xpos + rule.value("dx", 0);
-        loc.y      = ypos + rule.value("dy", 0);
-
-        if (m_data.contains("regions"))
-        {
-            const std::string key = std::to_string(loc.region);
-            if (m_data["regions"].contains(key))
-            {
-                const auto& r = m_data["regions"][key];
-                loc.region_name = r.value("name", std::string{});
-                loc.width  = r.value("width",  0);
-                loc.height = r.value("height", 0);
-            }
-        }
+        loc.region      = r.region;
+        loc.region_name = r.name;
+        loc.floor       = r.floor;
+        loc.x           = (int)xpos + r.xoffset;
+        loc.y           = (int)ypos + r.yoffset;
+        loc.width       = r.width;
+        loc.height      = r.height;
         return loc;
     }
     return std::nullopt;
@@ -489,22 +426,6 @@ void TilesetTexture::Refresh()
 
     uploadWithMips(m_tex,      m_pixels);
     uploadWithMips(m_texColor, m_pixelsColor);
-}
-
-std::vector<MapData::FloorListEntry>
-MapData::AllFloors(const MapTranslator& tx) const
-{
-    std::vector<FloorListEntry> out;
-    out.reserve(m_index.size());
-    for (const auto& [k, fr] : m_index)
-    {
-        FloorListEntry e;
-        e.region_id   = k.first;
-        e.floor       = k.second;
-        e.region_name = tx.RegionName(k.first);
-        out.push_back(std::move(e));
-    }
-    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -866,7 +787,6 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     // the overworld, and skipped before the player has a party so
     // boot / BASIC-prompt junk in $0800 doesn't paint into the map.
     auto liveLoc = tx.Resolve(mapID, xpos, ypos);
-    if (liveLoc) { liveLoc->x = xpos; liveLoc->y = ypos; }
     if (liveLoc && g_ramSnapshot.valid && mapType != kMapTypeCombat && HasParty())
     {
         const int liveW = (std::max)(1, liveLoc->width);
