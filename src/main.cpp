@@ -61,6 +61,7 @@
 #include <fstream>
 #include <algorithm>
 #include <memory>
+#include <mutex>
 #include <random>
 #include <vector>
 #include <string>
@@ -217,6 +218,13 @@ struct AppState
     std::string           imgui_ini_path;               // outlives ImGui's IO struct
     std::filesystem::path pref_dir;                     // SDL pref dir
     std::filesystem::path hdv_path;                     // current HDV (argv[1] or last opened)
+
+    // SDL3's Win32 file-dialog backend invokes our callback on a worker
+    // thread. LoadHDV touches emulator state that SDL_AppIterate also
+    // drives on the main thread, so the callback stashes the picked
+    // path here and SDL_AppIterate consumes it.
+    std::mutex            pending_hdv_mutex;
+    std::filesystem::path pending_hdv_load;
 };
 
 // Persisted NAC-side settings (post-processor state has its own file).
@@ -717,8 +725,9 @@ void LoadHDV(AppState& state, const std::filesystem::path& path)
 void SDLCALL HdvDialogCallback(void* userdata, const char* const* filelist, int /*filter*/)
 {
     auto* state = static_cast<AppState*>(userdata);
-    if (!filelist || !filelist[0]) return;   // user cancelled
-    LoadHDV(*state, std::filesystem::path(filelist[0]));
+    if (!filelist || !filelist[0]) return;   // user cancelled or error
+    std::lock_guard<std::mutex> lock(state->pending_hdv_mutex);
+    state->pending_hdv_load = std::filesystem::path(filelist[0]);
 }
 
 void OpenHdvDialog(AppState& state)
@@ -727,10 +736,29 @@ void OpenHdvDialog(AppState& state)
         { "Hard disk image (*.hdv)", "hdv" },
         { "All files",                "*"   },
     };
+
+    // SDL3's Win32 backend feeds default_location to GetOpenFileNameW's
+    // lpstrFile unless it ends with a separator, in which case it goes
+    // to lpstrInitialDir. lpstrFile rejects relative paths like ".."
+    // with FNERR_INVALIDFILENAME (12290) and the dialog silently fails.
+    // So normalize to an absolute path and append a trailing separator.
+    std::string parentStr;
+    if (!state.hdv_path.empty())
+    {
+        std::error_code ec;
+        auto parent = std::filesystem::weakly_canonical(state.hdv_path.parent_path(), ec);
+        if (ec) parent = std::filesystem::absolute(state.hdv_path.parent_path(), ec);
+        if (!ec && !parent.empty())
+        {
+            parentStr = parent.string();
+            if (parentStr.back() != '\\' && parentStr.back() != '/')
+                parentStr.push_back(static_cast<char>(std::filesystem::path::preferred_separator));
+        }
+    }
+
     SDL_ShowOpenFileDialog(&HdvDialogCallback, &state, state.renderer.Window(),
                            kFilters, (int)(sizeof(kFilters)/sizeof(kFilters[0])),
-                           state.hdv_path.empty() ? nullptr
-                                                  : state.hdv_path.parent_path().string().c_str(),
+                           parentStr.empty() ? nullptr : parentStr.c_str(),
                            /*allow_many*/ false);
 }
 
@@ -1090,6 +1118,18 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
     auto* state = static_cast<AppState*>(appstate);
+
+    // Drain any HDV pick stashed by the file-dialog callback (which may
+    // have run on a worker thread on Windows). Doing the swap-then-load
+    // here keeps every emulator-state mutation on the main thread.
+    {
+        std::filesystem::path pending;
+        {
+            std::lock_guard<std::mutex> lock(state->pending_hdv_mutex);
+            std::swap(pending, state->pending_hdv_load);
+        }
+        if (!pending.empty()) LoadHDV(*state, pending);
+    }
 
     // Pace the CPU by real elapsed time so the emulator runs at //e speed
     // (~1.02 MHz) regardless of the host's vsync rate. Cap per-tick cycles
