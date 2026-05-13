@@ -572,21 +572,13 @@ void TileMap::Observe(uint8_t mapID,
     Floor& fl = EnsureFloor(mapID, region_id, floor, region_name,
                             floorWidth, floorHeight);
 
-    // Nox's visible window stops scrolling when the avatar approaches
-    // a map edge — the camera clamps to (0..floor_w-kVisW), and the
-    // avatar shifts within the otherwise-stationary viewport. Use the
-    // same clamp so $0800 cells map to the right floor tiles. Without
-    // it, walking near the west edge plots the new content kVisW/2 = 8
-    // tiles further west than where it actually belongs (the symptom
-    // you saw on Vacous re-entry).
-    int x0 = playerX - kVisW / 2;
-    int y0 = playerY - kVisH / 2;
-    if (x0 < 0) x0 = 0;
-    if (y0 < 0) y0 = 0;
-    if (x0 + kVisW > floorWidth)  x0 = floorWidth  - kVisW;
-    if (y0 + kVisH > floorHeight) y0 = floorHeight - kVisH;
-    if (x0 < 0) x0 = 0;     // floors smaller than the viewport
-    if (y0 < 0) y0 = 0;
+    // Nox's $0800 window is always centred on the avatar: vis[8][5] is
+    // the tile under the player's feet even when the player stands one
+    // tile from a map edge. Cells past the edge in the buffer fall
+    // outside the floor bounds and the per-cell check below skips
+    // them. No clamp here.
+    const int x0 = playerX - kVisW / 2;
+    const int y0 = playerY - kVisH / 2;
 
     for (int row = 0; row < kVisH; ++row)
     {
