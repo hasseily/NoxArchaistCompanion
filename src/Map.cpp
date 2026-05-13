@@ -124,17 +124,30 @@ void MapTranslator::Load(const std::filesystem::path& assetsDir)
         std::fprintf(stderr, "MapTranslator: parse failed for %s: %s\n",
                      path.string().c_str(), e.what());
         m_records.clear();
+        return;
     }
+
+    // Resolve is first-match-wins, so narrower xy ranges must come
+    // before catch-alls that share the same mapID — otherwise a
+    // 0..255 / 0..255 sibling shadows the specific records. The
+    // generator's emission order isn't reliable; sort here by xy
+    // area ascending so the runtime behaviour holds regardless.
+    std::stable_sort(m_records.begin(), m_records.end(),
+        [](const Record& a, const Record& b) {
+            const int aa = (a.xmax - a.xmin + 1) * (a.ymax - a.ymin + 1);
+            const int ba = (b.xmax - b.xmin + 1) * (b.ymax - b.ymin + 1);
+            return aa < ba;
+        });
 }
 
 std::optional<MapLocation> MapTranslator::Resolve(uint8_t mapID,
                                                   uint8_t xpos,
                                                   uint8_t ypos) const
 {
-    // Linear scan — 89 records, called once per frame at most. Records
-    // are sorted with the more-specific (narrower) xy ranges first
-    // (see the maps_index.json generator), so a catch-all entry for a
-    // mapID only matches when none of its narrower siblings did.
+    // Linear scan — 89 records, called once per frame at most. Load()
+    // sorts the records by xy-range area ascending, so a catch-all
+    // entry for a mapID only matches when none of its narrower
+    // siblings did.
     for (const auto& r : m_records)
     {
         if (r.id != mapID)                       continue;
