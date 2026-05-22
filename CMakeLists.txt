@@ -203,7 +203,11 @@ else()
     set(NAC_RESOURCE_DIR $<TARGET_FILE_DIR:nac>)
 endif()
 
-add_custom_command(TARGET nac POST_BUILD
+# Run on every build, not just nac re-links — a POST_BUILD on the
+# nac target wouldn't fire when only a NoxData/* or shader file
+# changes, so edits to e.g. maps_index.json would silently fail to
+# reach the staged copy. An always-stale custom target avoids that.
+add_custom_target(nac_stage_data ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets/pp/assets   ${NAC_RESOURCE_DIR}/assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -214,4 +218,9 @@ add_custom_command(TARGET nac POST_BUILD
         ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/NoxData    ${NAC_RESOURCE_DIR}/NoxData
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/NoxArchaistCompanion/Emulator/Resources  ${NAC_RESOURCE_DIR}/Resources
+    COMMENT "Staging runtime data into ${NAC_RESOURCE_DIR}"
+    VERBATIM
 )
+# Must run after nac is built — on macOS the bundle's Contents/
+# Resources/ doesn't exist until then.
+add_dependencies(nac_stage_data nac)
