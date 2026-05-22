@@ -1244,5 +1244,61 @@
     "ymax": 255,
     "xoffset": 0,
     "yoffset": 0
+  },
+    {
+    "id": 79,
+    "region": 31,
+    "name": "Ruins of Thunderbolt Keep",
+    "floor": "B1",
+    "width": 48,
+    "height": 48,
+    "xmin": 0,
+    "xmax": 48,
+    "ymin": 0,
+    "ymax": 48,
+    "xoffset": 0,
+    "yoffset": 0
+  },
+      {
+    "id": 80,
+    "region": 31,
+    "name": "Ruins of Thunderbolt Keep",
+    "floor": "G",
+    "width": 48,
+    "height": 48,
+    "xmin": 0,
+    "xmax": 48,
+    "ymin": 0,
+    "ymax": 48,
+    "xoffset": 0,
+    "yoffset": 0
+  },
+      {
+    "id": 81,
+    "region": 31,
+    "name": "Ruins of Thunderbolt Keep",
+    "floor": "F1",
+    "width": 48,
+    "height": 48,
+    "xmin": 0,
+    "xmax": 48,
+    "ymin": 0,
+    "ymax": 48,
+    "xoffset": 0,
+    "yoffset": 0
+  },
+      {
+    "id": 82,
+    "region": 31,
+    "name": "Ruins of Thunderbolt Keep",
+    "floor": "F2",
+    "width": 48,
+    "height": 48,
+    "xmin": 0,
+    "xmax": 48,
+    "ymin": 0,
+    "ymax": 48,
+    "xoffset": 0,
+    "yoffset": 0
   }
 ]
