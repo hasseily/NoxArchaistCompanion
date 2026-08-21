@@ -331,7 +331,16 @@ void TemplateInstance::Render()
         if (type == "Header")
         {
             ImGui::PushStyleColor(ImGuiCol_Text, color);
-            ImGui::SeparatorText(text.c_str());
+            if (ImGui::CalcTextSize(text.c_str()).x <=
+                ImGui::GetContentRegionAvail().x)
+            {
+                ImGui::SeparatorText(text.c_str());
+            }
+            else
+            {
+                ImGui::TextWrapped("%s", text.c_str());
+                ImGui::Separator();
+            }
             ImGui::PopStyleColor();
         }
         else

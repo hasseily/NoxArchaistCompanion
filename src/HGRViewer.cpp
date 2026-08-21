@@ -3,6 +3,7 @@
 #include "HGRViewer.h"
 
 #include "Emulator/Memory.h"
+#include "ImGuiHelpers.h"
 
 #include <imgui.h>
 #include <glad/glad.h>
@@ -79,13 +80,14 @@ void HGRViewerPanel::Render()
         return;
     }
 
-    ImGui::RadioButton("Main", &m_bank, 0); ImGui::SameLine();
-    ImGui::RadioButton("Aux",  &m_bank, 1); ImGui::SameLine();
+    ImGui::RadioButton("Main", &m_bank, 0);
+    nac::ui::SameLineIfFits(nac::ui::CheckableWidth("Aux"));
+    ImGui::RadioButton("Aux",  &m_bank, 1);
 
+    nac::ui::SameLineIfFits(nac::ui::LabeledItemWidth(80.0f, "Base $"));
     ImGui::SetNextItemWidth(80.0f);
     ImGui::InputInt("Base $", &m_baseAddr, 0, 0,
                     ImGuiInputTextFlags_CharsHexadecimal);
-    ImGui::SameLine();
 
     // Quick jump buttons for the standard pages and adjacent 8 KiB
     // chunks — saves typing while scanning.
@@ -99,19 +101,18 @@ void HGRViewerPanel::Render()
     };
     for (const auto& q : kQuickJumps)
     {
+        nac::ui::SameLineIfFits(nac::ui::ButtonWidth(q.label));
         if (ImGui::SmallButton(q.label)) m_baseAddr = q.addr;
-        ImGui::SameLine();
     }
-    ImGui::NewLine();
 
     if (ImGui::SmallButton("- $400")) m_baseAddr -= 0x400;
-    ImGui::SameLine();
+    nac::ui::SameLineIfFits(nac::ui::ButtonWidth("+ $400"));
     if (ImGui::SmallButton("+ $400")) m_baseAddr += 0x400;
-    ImGui::SameLine();
+    nac::ui::SameLineIfFits(nac::ui::ButtonWidth("- $100"));
     if (ImGui::SmallButton("- $100")) m_baseAddr -= 0x100;
-    ImGui::SameLine();
+    nac::ui::SameLineIfFits(nac::ui::ButtonWidth("+ $100"));
     if (ImGui::SmallButton("+ $100")) m_baseAddr += 0x100;
-    ImGui::SameLine();
+    nac::ui::SameLineIfFits(nac::ui::CheckableWidth("Invert"));
     ImGui::Checkbox("Invert", &m_invert);
 
     m_baseAddr &= 0xFFFF;
@@ -119,10 +120,10 @@ void HGRViewerPanel::Render()
     ImGui::SetNextItemWidth(80.0f);
     ImGui::SliderInt("Zoom", &m_zoom, 1, 6);
 
-    ImGui::Text("Showing $%04X..$%04X (%s, %s)",
-                m_baseAddr, (m_baseAddr + 0x1FFF) & 0xFFFF,
-                m_bank == 0 ? "main" : "aux",
-                m_invert ? "inverted" : "normal");
+    ImGui::TextWrapped("Showing $%04X..$%04X (%s, %s)",
+                       m_baseAddr, (m_baseAddr + 0x1FFF) & 0xFFFF,
+                       m_bank == 0 ? "main" : "aux",
+                       m_invert ? "inverted" : "normal");
 
     ImGui::Separator();
 

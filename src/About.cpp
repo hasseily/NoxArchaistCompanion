@@ -1,5 +1,6 @@
 #include "About.h"
 
+#include "ImGuiHelpers.h"
 #include "Version.h"
 
 #include <imgui.h>
@@ -16,11 +17,19 @@ void AboutPanel::Render()
     }
 
     // Centre the popup the first time it's shown.
-    const ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
-    ImGui::SetNextWindowPos(centre, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ui::CenterNextWindowOnMainViewport();
+    const float popupWidth = ui::PopupWidthForText(
+        { "A desktop companion for the Apple //e game Nox Archaist.",
+          "Nox Archaist FONT1 and a2sharp bitmap fonts",
+          "https://github.com/hasseily/NoxArchaistCompanion",
+          "Visit the Nox Archaist Discord for support" },
+        420.0f);
+    ImGui::SetNextWindowSize(ImVec2(popupWidth, 0.0f),
+                             ImGuiCond_Appearing);
 
     if (ImGui::BeginPopupModal("About NAC", nullptr,
-                               ImGuiWindowFlags_AlwaysAutoResize))
+                               ImGuiWindowFlags_NoResize |
+                               ImGuiWindowFlags_NoSavedSettings))
     {
         ImGui::TextUnformatted("Nox Archaist Companion");
         ImGui::Text("Version %s", NAC_VERSION_STRING);
@@ -31,17 +40,18 @@ void AboutPanel::Render()
         ImGui::TextUnformatted("(c) Rikkles - MIT License");
         ImGui::Spacing();
         ImGui::TextUnformatted("Built with:");
-        ImGui::BulletText("AppleWin emulator (GPL2)");
-        ImGui::BulletText("SDL3");
-        ImGui::BulletText("Dear ImGui (docking)");
-        ImGui::BulletText("Nox Archaist FONT1 and a2sharp bitmap fonts");
-        ImGui::BulletText("stb_image, nlohmann/json");
+        ui::BulletTextWrapped("AppleWin emulator (GPL2)");
+        ui::BulletTextWrapped("SDL3");
+        ui::BulletTextWrapped("Dear ImGui (docking)");
+        ui::BulletTextWrapped(
+            "Nox Archaist FONT1 and a2sharp bitmap fonts");
+        ui::BulletTextWrapped("stb_image, nlohmann/json");
         ImGui::Spacing();
         ImGui::Separator();
-        ImGui::TextUnformatted(
+        ImGui::TextWrapped(
             "https://github.com/hasseily/NoxArchaistCompanion");
         ImGui::Separator();
-        ImGui::TextUnformatted(
+        ImGui::TextWrapped(
             "Visit the Nox Archaist Discord for support");
         ImGui::Spacing();
         if (ImGui::Button("Close", ImVec2(120, 0)))

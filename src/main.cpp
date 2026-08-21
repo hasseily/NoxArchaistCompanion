@@ -25,6 +25,7 @@
 #include "Map.h"
 #include "MemoryViewer.h"
 #include "HGRViewer.h"
+#include "ImGuiHelpers.h"
 #include "RamSnapshot.h"
 #include "RemoteInput.h"
 #include "NoxHacks.h"
@@ -669,6 +670,13 @@ void InitEmulator(const std::filesystem::path& hdvPath)
 
 void ShutdownEmulator()
 {
+    // Audio streams are owned by the speaker, Mockingboard manager, and
+    // individual Mockingboard cards. Release all of them while SDL's audio
+    // subsystem is still alive. If they survive until static destruction,
+    // their AudioOutput destructors run after SDL_Quit() and SDL3 crashes
+    // trying to unbind an audio stream from an already-destroyed device.
+    SpkrDestroy();
+    GetCardMgr().Destroy();
     MemDestroy();
     GetFrame().Destroy();
 }
@@ -1582,16 +1590,21 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         state->quit_requested = false;
         state->quit_snark_idx = PickSnarkyQuitLine();
     }
-    ImGui::SetNextWindowSize(ImVec2(520, 190), ImGuiCond_Appearing);
+    const int quitIdx = (state->quit_snark_idx >= 0 &&
+                         state->quit_snark_idx < kSnarkyQuitCount)
+                      ? state->quit_snark_idx : 0;
+    const char* quitSnark = kSnarkyQuitLines[quitIdx];
+    const float quitWidth = nac::ui::PopupWidthForText(
+        { quitSnark, "Don't show this again" }, 360.0f);
+    const float quitHeight = 190.0f +
+        nac::ui::WrappedTextExtraHeight(quitSnark, quitWidth);
+    ImGui::SetNextWindowSize(ImVec2(quitWidth, quitHeight),
+                             ImGuiCond_Appearing);
+    nac::ui::CenterNextWindowOnMainViewport();
     if (ImGui::BeginPopupModal("Quit NAC (Save first!)", nullptr,
                                ImGuiWindowFlags_NoResize |
                                ImGuiWindowFlags_NoSavedSettings))
     {
-        const int idx = (state->quit_snark_idx >= 0 &&
-                         state->quit_snark_idx < kSnarkyQuitCount)
-                      ? state->quit_snark_idx : 0;
-        const char* snark = kSnarkyQuitLines[idx];
-
         auto centerCursorFor = [](float w) {
             const float avail = ImGui::GetContentRegionAvail().x;
             if (w < avail)
@@ -1599,8 +1612,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         };
 
         ImGui::Dummy(ImVec2(0, 18));
-        centerCursorFor(ImGui::CalcTextSize(snark).x);
-        ImGui::TextUnformatted(snark);
+        nac::ui::CenteredTextWrapped(quitSnark);
         ImGui::Dummy(ImVec2(0, 24));
 
         constexpr float kBtnW = 120.0f;
@@ -1632,7 +1644,16 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         ImGui::OpenPopup("Reboot Nox Archaist?");
         state->reboot_requested = false;
     }
-    ImGui::SetNextWindowSize(ImVec2(460, 200), ImGuiCond_Appearing);
+    const char* rebootMessage = "This will power-cycle the Apple //e.";
+    const char* rebootWarning = "Save your game first!";
+    const float rebootWidth = nac::ui::PopupWidthForText(
+        { rebootMessage, rebootWarning }, 360.0f);
+    const float rebootHeight = 200.0f +
+        nac::ui::WrappedTextExtraHeight(rebootMessage, rebootWidth) +
+        nac::ui::WrappedTextExtraHeight(rebootWarning, rebootWidth);
+    ImGui::SetNextWindowSize(ImVec2(rebootWidth, rebootHeight),
+                             ImGuiCond_Appearing);
+    nac::ui::CenterNextWindowOnMainViewport();
     if (ImGui::BeginPopupModal("Reboot Nox Archaist?", nullptr,
                                ImGuiWindowFlags_NoResize |
                                ImGuiWindowFlags_NoSavedSettings))
@@ -1643,14 +1664,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                 ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - w) * 0.5f);
         };
 
-        const char* msg = "This will power-cycle the Apple //e.";
         ImGui::Dummy(ImVec2(0, 18));
-        centerCursorFor(ImGui::CalcTextSize(msg).x);
-        ImGui::TextUnformatted(msg);
-		msg = "Save your game first!";
-		centerCursorFor(ImGui::CalcTextSize(msg).x);
-		ImGui::TextUnformatted(msg);
-		ImGui::Dummy(ImVec2(0, 24));
+        nac::ui::CenteredTextWrapped(rebootMessage);
+        nac::ui::CenteredTextWrapped(rebootWarning);
+        ImGui::Dummy(ImVec2(0, 24));
 
         constexpr float kBtnW = 120.0f;
         centerCursorFor(kBtnW * 2 + ImGui::GetStyle().ItemSpacing.x);

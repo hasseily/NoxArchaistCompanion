@@ -4,6 +4,7 @@
 
 #include "Emulator/CPU.h"     // cpuconstants
 #include "Emulator/Memory.h"
+#include "ImGuiHelpers.h"
 #include "RamSnapshot.h"
 
 #include <imgui.h>
@@ -874,7 +875,8 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     {
         if (!liveLoc)
         {
-            ImGui::TextDisabled("(no rule matched - likely on the BASIC prompt)");
+            nac::ui::TextDisabledWrapped(
+                "(no rule matched - likely on the BASIC prompt)");
             ImGui::End();
             return;
         }
@@ -885,9 +887,9 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
         centreTileY  = (float)liveLoc->y;
         showAvatar   = true;
 
-        ImGui::Text("Region %d (%s) - Floor %s - Tile %d, %d",
-                    liveLoc->region, liveLoc->region_name.c_str(),
-                    liveLoc->floor.c_str(), liveLoc->x, liveLoc->y);
+        ImGui::TextWrapped("Region %d (%s) - Floor %s - Tile %d, %d",
+                           liveLoc->region, liveLoc->region_name.c_str(),
+                           liveLoc->floor.c_str(), liveLoc->x, liveLoc->y);
     }
     else
     {
@@ -919,9 +921,9 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
                 break;
             }
         }
-        ImGui::Text("Region %d (%s) - Floor %s - mapID $%02X - stored",
-                    regionId, regionName.c_str(),
-                    floorLabel.c_str(), renderMapID);
+        ImGui::TextWrapped(
+            "Region %d (%s) - Floor %s - mapID $%02X - stored",
+            regionId, regionName.c_str(), floorLabel.c_str(), renderMapID);
     }
 
     ImGui::Separator();
@@ -1151,7 +1153,13 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     if (hoverNoteText)
     {
         ImGui::BeginTooltip();
+        const float wrapWidth = (ImGui::GetMainViewport()->WorkSize.x < 452.0f)
+            ? ImGui::GetMainViewport()->WorkSize.x - 32.0f
+            : 420.0f;
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() +
+                               (wrapWidth > 1.0f ? wrapWidth : 1.0f));
         ImGui::TextUnformatted(hoverNoteText);
+        ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
     }
 
@@ -1191,13 +1199,22 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
         m_noteEditOpen = false;
     }
 
-    ImGui::SetNextWindowSize(ImVec2(420, 220), ImGuiCond_Appearing);
+    char noteHeading[64];
+    std::snprintf(noteHeading, sizeof(noteHeading),
+                  "Note at (%d, %d) — map $%02X",
+                  m_noteEditX, m_noteEditY, m_noteEditMapID);
+    const float noteWidth = nac::ui::PopupWidthForText(
+        { noteHeading, "Always show on map" }, 420.0f);
+    const float noteHeight = 220.0f +
+        nac::ui::WrappedTextExtraHeight(noteHeading, noteWidth);
+    ImGui::SetNextWindowSize(ImVec2(noteWidth, noteHeight),
+                             ImGuiCond_Appearing);
+    nac::ui::CenterNextWindowOnMainViewport();
     if (ImGui::BeginPopupModal("##note_editor", nullptr,
                                ImGuiWindowFlags_NoResize |
                                ImGuiWindowFlags_NoSavedSettings))
     {
-        ImGui::Text("Note at (%d, %d) — map $%02X",
-                    m_noteEditX, m_noteEditY, m_noteEditMapID);
+        ImGui::TextWrapped("%s", noteHeading);
         ImGui::Separator();
         ImGui::InputTextMultiline("##note_text", m_noteEditBuf,
                                   sizeof(m_noteEditBuf),

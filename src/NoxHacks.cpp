@@ -2,6 +2,8 @@
 
 #include "NoxHacks.h"
 
+#include "ImGuiHelpers.h"
+
 #include "Emulator/CardManager.h"
 #include "Emulator/CPU.h"
 #include "Emulator/Harddisk.h"
@@ -229,7 +231,7 @@ void ConversationLogPanel::Render()
     }
 
     if (ImGui::Button("Clear")) m_buf.clear();
-    ImGui::SameLine();
+    nac::ui::SameLineIfFits(nac::ui::ButtonWidth("New Paragraph"));
     if (ImGui::Button("New Paragraph"))
     {
         // One blank line between blocks. No-op on empty buffer; collapses
@@ -240,9 +242,9 @@ void ConversationLogPanel::Render()
             m_buf.push_back('\n');
         }
     }
-    ImGui::SameLine();
+    nac::ui::SameLineIfFits(nac::ui::CheckableWidth("Auto-scroll"));
     ImGui::Checkbox("Auto-scroll", &m_autoScroll);
-    ImGui::SameLine();
+    nac::ui::SameLineIfFits(nac::ui::CheckableWidth("Include combat"));
     if (ImGui::Checkbox("Include combat", &m_includeCombat))
         g_noxLogIncludeCombat = m_includeCombat;
 
@@ -1224,8 +1226,9 @@ void HackPanel::Render()
 
     if (cpuconstants.PC_PRINTSTR == 0)
     {
-        ImGui::TextDisabled("Insert a Nox Archaist HDV first — these "
-                            "fields read from version-specific addresses.");
+        nac::ui::TextDisabledWrapped(
+            "Insert a Nox Archaist HDV first — these fields read from "
+            "version-specific addresses.");
         ImGui::End();
         return;
     }
