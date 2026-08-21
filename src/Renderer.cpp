@@ -83,7 +83,8 @@ bool Renderer::Init(const char* title, int width, int height)
     // LoadSettings reads the persisted choice, but doing it here too
     // means we get the font + sharp borders for the very first frame
     // (and for any code path that renders before LoadSettings runs).
-    nac::ApplyAppleStyle(nac::InterfaceColor_Green);
+    nac::ApplyAppleStyle(nac::InterfaceColor_Green,
+                         nac::InterfaceFont_NoxFont1);
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glctx);
     ImGui_ImplOpenGL3_Init("#version 410");
 

@@ -20,3 +20,9 @@ Debug
 # packed maps.bin is checked in.
 /tools/maps.txt
 /src/.vs
+
+# Local packages, runtime state, and review screenshots
+/NAC-*-windows-x64.zip
+/runtime-nac.json
+/nac-*-screenshot.*
+/nac-*-game.*

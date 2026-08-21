@@ -34,7 +34,7 @@ void AboutPanel::Render()
         ImGui::BulletText("AppleWin emulator (GPL2)");
         ImGui::BulletText("SDL3");
         ImGui::BulletText("Dear ImGui (docking)");
-        ImGui::BulletText("Berkelium II HGR font");
+        ImGui::BulletText("Nox Archaist FONT1 and a2sharp bitmap fonts");
         ImGui::BulletText("stb_image, nlohmann/json");
         ImGui::Spacing();
         ImGui::Separator();

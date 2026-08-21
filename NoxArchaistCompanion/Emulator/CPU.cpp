@@ -116,6 +116,7 @@ NoxLogCallbackFn    g_noxLogCallback    = nullptr;
 NoxSampleCallbackFn g_noxSampleCallback = nullptr;
 NoxKbdReadCallbackFn g_noxKbdReadCallback = nullptr;
 bool                g_noxLogIncludeCombat = false;
+bool                g_noxPreloadMenu = false;
 static bool         g_noxInPrintRight = false;
 
 regsrec regs;
@@ -314,6 +315,27 @@ static __forceinline void NoxFetchTrap(USHORT PC)
 {
 	if (cpuconstants.PC_PRINTSTR == 0)
 		return;
+
+	// Track the pre-load menu from executed control flow. Static loader
+	// strings can remain in RAM after a save starts, so they are not a safe
+	// editing gate. The opcode checks prevent a later overlay at the same
+	// address from re-enabling save editing during gameplay.
+	static constexpr BYTE kIdleSignature[] = {
+		0xA2, 0x00, 0xA0, 0x40, 0xAD, 0x00, 0xC0,
+		0x30, 0x10, 0xE6, 0x4E, 0xE8, 0xD0, 0xF6,
+		0xE6, 0x4F, 0x88, 0xD0, 0xF1
+	};
+	if (PC == cpuconstants.PC_MAIN_MENU_IDLE && mem &&
+		std::memcmp(mem + PC, kIdleSignature, sizeof(kIdleSignature)) == 0)
+	{
+		g_noxPreloadMenu = true;
+	}
+	else if (PC == cpuconstants.PC_MAIN_MENU_ACTIVATE && mem &&
+		mem[PC] == 0xAD && mem[PC + 2] == 0x9E &&
+		mem[PC + 3] == 0xD0 && mem[PC + 4] == 0x03)
+	{
+		g_noxPreloadMenu = false;
+	}
 
 	// Frontend RAM-snapshot trigger fires at every PRINTSTR — Nox has
 	// finished any multi-byte game-state writes by the time control
@@ -783,6 +805,7 @@ void CpuDestroy()
 void CpuReset()
 {
 	_ASSERT(mem != NULL);
+	g_noxPreloadMenu = false;
 
 	// 7 cycles
 	regs.ps |= AF_INTERRUPT;

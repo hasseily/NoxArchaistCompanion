@@ -118,6 +118,8 @@ public:
 
 	void GetLightStatus(Disk_Status_e* pDisk1Status);
 	bool ImageSwap(void);
+	bool ReadImageBlock(const int drive, UINT block, BYTE* buffer);
+	bool WriteImageBlock(const int drive, UINT block, BYTE* buffer);
 
 	void ForbidSaveDiskImageToRegistry() { m_saveDiskImageToRegistry = false; }
 

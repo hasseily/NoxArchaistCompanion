@@ -1,8 +1,10 @@
 #include "AppleStyle.h"
+#include "NoxFont.h"
 
 #include <SDL3/SDL_filesystem.h>
 #include <imgui.h>
 
+#include <array>
 #include <filesystem>
 
 namespace nac
@@ -11,30 +13,27 @@ namespace nac
 namespace
 {
 
-// Walk up from the executable looking for assets/<name> (CMake
-// stages the assets next to the binary; macOS has them in the
-// bundle's Resources). Same pattern as FindResourcesDir /
-// FindAssetsDir in main.cpp — kept local here because AppleStyle
-// runs at Renderer init time, before main has resolved its own
-// paths.
-std::filesystem::path FindAssetPath(const char* name)
+ImFont* g_monoFont = nullptr;
+std::array<ImFont*, 2> g_interfaceFonts{};
+
+std::filesystem::path FindNoxData(const char* name)
 {
     const char* base = SDL_GetBasePath();
     std::filesystem::path dir = base ? base : ".";
     for (int i = 0; i < 5; ++i)
     {
-        const auto candidate = dir / "assets" / name;
-        if (std::filesystem::exists(candidate)) return candidate;
-        // Fall-through to the source-tree layout (running from build-win/).
-        const auto srcCandidate = dir / "assets" / "pp" / "assets" / name;
-        if (std::filesystem::exists(srcCandidate)) return srcCandidate;
+        const auto staged = dir / "NoxData" / name;
+        if (std::filesystem::exists(staged)) return staged;
+
+        const auto source = dir / "NoxArchaistCompanion" / "NoxData" /
+                            name;
+        if (std::filesystem::exists(source)) return source;
+
         dir = dir.parent_path();
         if (dir.empty()) break;
     }
     return {};
 }
-
-ImFont* g_monoFont = nullptr;
 
 struct Palette
 {
@@ -70,33 +69,50 @@ const Palette& PaletteFor(InterfaceColor c)
 
 }
 
-void ApplyAppleStyle(InterfaceColor color)
+void ApplyAppleStyle(InterfaceColor color, InterfaceFont font)
 {
     static bool s_fontLoaded = false;
     if (!s_fontLoaded)
     {
         ImGuiIO& io = ImGui::GetIO();
-        const auto berkelium  = FindAssetPath("BerkeliumIIHGR.ttf");
-        const auto proggyTiny = FindAssetPath("ProggyTiny.ttf");
-        if (!berkelium.empty())
+
+        io.Fonts->Clear();
+
+        ImFontConfig denseConfig;
+        denseConfig.SizePixels = 10.0f;
+        g_monoFont = io.Fonts->AddFontDefaultVector(&denseConfig);
+
+        const auto font1Path = FindNoxData("NoxFont1.bin");
+        if (!font1Path.empty())
+            g_interfaceFonts[InterfaceFont_NoxFont1] =
+                LoadNoxFont1(*io.Fonts, font1Path);
+
+        const auto a2SharpPath = FindNoxData("a2sharp.spritefont");
+        if (!a2SharpPath.empty())
+            g_interfaceFonts[InterfaceFont_A2Sharp] =
+                LoadNoxSpriteFont(*io.Fonts, a2SharpPath,
+                                  "Nox Archaist a2sharp");
+
+        ImFont* fallback = g_interfaceFonts[InterfaceFont_NoxFont1];
+        if (!fallback) fallback = g_interfaceFonts[InterfaceFont_A2Sharp];
+        if (!fallback)
         {
-            // 16px is a good readable size for Berkelium II HGR — the
-            // glyphs are inherently 7×8 so anything smaller blurs even
-            // with NEAREST sampling. First-loaded font is the default.
-            io.Fonts->Clear();
-            io.Fonts->AddFontFromFileTTF(berkelium.string().c_str(), 16.0f);
+            ImFontConfig fallbackConfig;
+            fallbackConfig.SizePixels = 16.0f;
+            fallback = io.Fonts->AddFontDefaultVector(&fallbackConfig);
         }
-        if (!proggyTiny.empty())
-        {
-            // ProggyTiny is a 10px monospace bitmap font — much denser
-            // than Berkelium and rasterises crisply at its native size.
-            // Used by panels (memory hex viewer) that need columnar
-            // alignment + lots of rows on screen.
-            g_monoFont = io.Fonts->AddFontFromFileTTF(
-                proggyTiny.string().c_str(), 10.0f);
-        }
+        for (ImFont*& candidate : g_interfaceFonts)
+            if (!candidate) candidate = fallback;
+        if (!g_monoFont) g_monoFont = fallback;
         s_fontLoaded = true;
     }
+
+    ImGuiIO& io = ImGui::GetIO();
+    const int fontIndex =
+        (font >= InterfaceFont_NoxFont1 && font <= InterfaceFont_A2Sharp)
+            ? static_cast<int>(font)
+            : static_cast<int>(InterfaceFont_NoxFont1);
+    io.FontDefault = g_interfaceFonts[fontIndex];
 
     const Palette& p = PaletteFor(color);
     constexpr ImVec4 kBlack       = ImVec4(0.00f, 0.00f, 0.00f, 0.94f);

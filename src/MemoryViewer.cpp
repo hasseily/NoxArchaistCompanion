@@ -26,9 +26,8 @@ void MemoryViewerPanel::Render()
     }
 
     // Hex grids need a non-proportional font so the columns line up.
-    // Berkelium II HGR (the default) is monospace too but at 16px
-    // each row is fat — ProggyTiny at 10px gives about 3× the rows
-    // on screen and is plenty legible for hex / ASCII columns.
+    // The interface uses the proportional Nox font; a 10px ProggyForever
+    // instance shows more rows while keeping the hex / ASCII columns aligned.
     ImFont* mono = MonoFont();
     if (mono) ImGui::PushFont(mono);
 

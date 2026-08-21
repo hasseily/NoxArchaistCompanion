@@ -1,7 +1,11 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace nac
 {
@@ -13,6 +17,11 @@ namespace nac
 // hack panel can't address the right party-data offsets.
 bool LoadNoxConstants(const std::filesystem::path& assetsDir,
                       const std::string&           version);
+
+// True only while the supported Nox loader is executing its verified
+// pre-save main-menu loop.  The respec window and its Apply action both use
+// this gate; a static string in loader memory is deliberately not enough.
+bool IsNoxRespecAvailable();
 
 // ImGui panels — one window each, toggled from the main menu bar.
 
@@ -79,6 +88,36 @@ private:
     int  m_pokeAddr  = 0x6CEC;
     int  m_pokeValue = 0;
     int  m_member    = 0;     // 0..5, current party member in the per-character editor
+};
+
+// "Respec (main menu only)": edits one of the two save files directly while
+// no save is loaded. Applying a respec also removes all equipment from the
+// selected character in every save representation used by the game.
+class RespecPanel
+{
+public:
+    bool* OpenFlag() { return &m_open; }
+    void  Render();
+
+private:
+    bool LoadSaveData();
+    void StageSelectedCharacter();
+    bool ApplyRespec();
+    void RenderContents();
+    void Invalidate();
+
+    static constexpr size_t kInventoryDefinitionBytes = 256 * 0x20;
+    std::array<std::vector<uint8_t>, 2> m_saveData{};
+    std::array<std::array<std::string, 6>, 2> m_saveNames{};
+    std::array<uint8_t, kInventoryDefinitionBytes> m_itemDefinitions{};
+    std::array<int, 3> m_respecValues{};
+    bool        m_open = false;
+    int         m_saveSlot = 0;
+    int         m_saveMember = 0;
+    bool        m_saveDataLoaded = false;
+    bool        m_saveLoadAttempted = false;
+    bool        m_wasOpen = false;
+    std::string m_respecStatus;
 };
 
 } // namespace nac

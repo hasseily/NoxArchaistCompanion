@@ -357,6 +357,31 @@ const std::string& HarddiskInterfaceCard::HarddiskGetFullPathName(const int iDri
 	return ImageGetPathname(m_hardDiskDrive[iDrive].m_imagehandle);
 }
 
+bool HarddiskInterfaceCard::ReadImageBlock(const int drive, UINT block, BYTE* buffer)
+{
+	if (drive < 0 || drive >= NUM_HARDDISKS ||
+		!m_hardDiskDrive[drive].m_imagehandle || !buffer)
+		return false;
+	const UINT imageBlocks =
+		m_hardDiskDrive[drive].m_imagehandle->uImageSize / HD_BLOCK_SIZE;
+	if (block >= imageBlocks)
+		return false;
+	return ImageReadBlock(m_hardDiskDrive[drive].m_imagehandle, block, buffer);
+}
+
+bool HarddiskInterfaceCard::WriteImageBlock(const int drive, UINT block, BYTE* buffer)
+{
+	if (drive < 0 || drive >= NUM_HARDDISKS ||
+		!m_hardDiskDrive[drive].m_imagehandle ||
+		m_hardDiskDrive[drive].m_bWriteProtected || !buffer)
+		return false;
+	const UINT imageBlocks =
+		m_hardDiskDrive[drive].m_imagehandle->uImageSize / HD_BLOCK_SIZE;
+	if (block >= imageBlocks)
+		return false;
+	return ImageWriteBlock(m_hardDiskDrive[drive].m_imagehandle, block, buffer);
+}
+
 const std::string& HarddiskInterfaceCard::DiskGetBaseName(const int iDrive)
 {
 	return m_hardDiskDrive[iDrive].m_imagename;

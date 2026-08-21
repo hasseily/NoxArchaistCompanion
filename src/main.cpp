@@ -40,6 +40,7 @@
 #include "Emulator/CPU.h"
 #include "Emulator/Harddisk.h"
 #include "Emulator/Interface.h"
+#include "Emulator/Joystick.h"
 #include "Emulator/Keyboard.h"
 #include "Emulator/Memory.h"
 #include "Emulator/Mockingboard.h"
@@ -182,6 +183,7 @@ struct AppState
     int                   nextInstanceId = 1;
     nac::ConversationLogPanel conversationLog; // installs the Fetch-trap callback
     nac::HackPanel        hackPanel;
+    nac::RespecPanel      respecPanel;
     nac::MapTranslator    mapTranslator;
     nac::MapData          mapData;
     nac::TilesetTexture   tileset;
@@ -209,6 +211,7 @@ struct AppState
     int                   window_w         = 0;          // 0 = use default
     int                   window_h         = 0;
     int                   interface_color  = (int)nac::InterfaceColor_Green;
+    int                   interface_font   = (int)nac::InterfaceFont_NoxFont1;
     bool                  quit_dont_ask    = false;       // persisted: skip the quit-confirm modal
     bool                  quit_requested   = false;       // open the quit-confirm modal next render
     bool                  quit_confirmed   = false;       // modal Quit clicked → SDL_EVENT_QUIT may pass through
@@ -279,6 +282,7 @@ void SaveSettings(const AppState& s)
     j["map_open"]        = const_cast<nac::MapPanel&>(s.mapPanel).OpenRef();
     j["map_color_scheme"] = const_cast<nac::MapPanel&>(s.mapPanel).ColorSchemeRef();
     j["interface_color"] = s.interface_color;
+    j["interface_font"]  = s.interface_font;
     j["quit_dont_ask"]   = s.quit_dont_ask;
     j["bg_enabled"]      = const_cast<nac::Background&>(s.background).EnabledRef();
     j["bg_dim"]          = const_cast<nac::Background&>(s.background).DimRef();
@@ -355,10 +359,12 @@ void LoadSettings(AppState& s)
         s.mapPanel.ColorSchemeRef() = j.value("map_color_scheme",
                                               s.mapPanel.ColorSchemeRef());
         s.interface_color = j.value("interface_color", s.interface_color);
+        s.interface_font  = j.value("interface_font",  s.interface_font);
         s.quit_dont_ask   = j.value("quit_dont_ask",   s.quit_dont_ask);
         s.background.EnabledRef() = j.value("bg_enabled", s.background.EnabledRef());
         s.background.DimRef()     = j.value("bg_dim",     s.background.DimRef());
-        nac::ApplyAppleStyle((nac::InterfaceColor)s.interface_color);
+        nac::ApplyAppleStyle((nac::InterfaceColor)s.interface_color,
+                             (nac::InterfaceFont)s.interface_font);
         sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen =
             j.value("pp_settings_open", false);
         sa2::PostProcessor::GetInstance()->SetActive(s.pp_enabled);
@@ -508,17 +514,18 @@ void EmulatorPause(AppState& s, bool paused)
 
 void EmulatorReboot()
 {
-    // Mirrors the old NAC EmulatorReboot. Power-cycle reset of the //e:
-    // memory + CPU + video state + cards + sound. Order matters — Mem
-    // before Card so MemReset re-initialises CpuInitialize first.
+    // Mirror AppleWin's ResetMachineState power-cycle ordering.
     g_nAppMode = MODE_RUNNING;
+    GetCardMgr().Reset(/*powerCycle*/ true);
     g_bFullSpeed = false;
     MemReset();
     GetVideo().VideoResetState();
     KeybReset();
-    GetCardMgr().Reset(/*powerCycle*/ true);
+    JoyReset();
     SpkrReset();
     SetActiveCpu(GetMainCpu());
+    SoundCore_SetFade(FADE_NONE);
+    LogFileTimeUntilFirstKeyReadReset();
     GetFrame().VideoRedrawScreen();
 }
 
@@ -552,6 +559,7 @@ void ResetLayout(AppState& s)
     s.apple_open = true;
     s.conversationLog.OpenRef() = false;
     s.hackPanel.OpenRef()  = false;
+    *s.respecPanel.OpenFlag() = false;
     s.mapPanel.OpenRef()   = false;
     sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen = false;
     ImGui::LoadIniSettingsFromMemory("", 0);   // clears window settings table
@@ -648,7 +656,10 @@ void InitEmulator(const std::filesystem::path& hdvPath)
         }
     }
 
-    GetFrame().VideoRedrawScreen();
+    // Complete the initial power-on sequence after the boot disk is mounted.
+    // Mid-session HDV loads already call EmulatorReboot(); without the same
+    // reset here the CPU never leaves its uninitialised character-ROM screen.
+    EmulatorReboot();
 
     // //e Enhanced ships with Caps Lock UP — lowercase letters pass
     // through, Shift produces uppercase. The emulator default of true
@@ -1351,7 +1362,26 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                     if (ImGui::MenuItem(e.label, nullptr, state->interface_color == (int)e.v))
                     {
                         state->interface_color = (int)e.v;
-                        nac::ApplyAppleStyle(e.v);
+                        nac::ApplyAppleStyle(
+                            e.v, (nac::InterfaceFont)state->interface_font);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Interface Font"))
+            {
+                struct { const char* label; nac::InterfaceFont v; } kEntries[] = {
+                    { "Nox Archaist FONT1", nac::InterfaceFont_NoxFont1 },
+                    { "a2sharp", nac::InterfaceFont_A2Sharp },
+                };
+                for (const auto& e : kEntries)
+                {
+                    if (ImGui::MenuItem(e.label, nullptr,
+                                        state->interface_font == (int)e.v))
+                    {
+                        state->interface_font = (int)e.v;
+                        nac::ApplyAppleStyle(
+                            (nac::InterfaceColor)state->interface_color, e.v);
                     }
                 }
                 ImGui::EndMenu();
@@ -1367,6 +1397,9 @@ SDL_AppResult SDL_AppIterate(void* appstate)
             ImGui::MenuItem("Apple //e", nullptr, &state->apple_open);
             ImGui::MenuItem("Conversation log", nullptr, state->conversationLog.OpenFlag());
             ImGui::MenuItem("Hack",       nullptr, state->hackPanel.OpenFlag());
+            ImGui::MenuItem("Respec (main menu only)", nullptr,
+                            state->respecPanel.OpenFlag(),
+                            nac::IsNoxRespecAvailable());
             ImGui::MenuItem("AutoMap", nullptr, state->mapPanel.OpenFlag());
             ImGui::MenuItem("Memory", nullptr, state->memoryViewer.OpenFlag());
             ImGui::MenuItem("HGR viewer", nullptr, state->hgrViewer.OpenFlag());
@@ -1531,6 +1564,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     state->conversationLog.Render();
     state->hackPanel.Render();
+    state->respecPanel.Render();
     state->mapPanel.Render(state->mapTranslator, state->mapData,
                            state->tileset, state->tileMap,
                            state->mapNotes);

@@ -141,6 +141,7 @@ add_executable(nac WIN32 MACOSX_BUNDLE
     src/HGRViewer.cpp
     src/RamSnapshot.cpp
     src/AppleStyle.cpp
+    src/NoxFont.cpp
     src/Background.cpp
     src/About.cpp
     ${GAMELINK_SOURCES}

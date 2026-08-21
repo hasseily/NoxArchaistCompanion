@@ -21,8 +21,11 @@ struct noxcpuconstants
 	UINT A_PRINT_RIGHT;         // A-register value indicating output to right scroll area (conversations)
 	UINT PC_INITIATE_COMBAT;    // combat routine start
 	UINT PC_END_COMBAT;         // combat routine end (don't log during combat)
+	UINT PC_MAIN_MENU_IDLE;     // pre-load main-menu keyboard polling loop
+	UINT PC_MAIN_MENU_ACTIVATE; // menu selection dispatch (leaves main menu)
 };
 extern noxcpuconstants cpuconstants;
+extern bool g_noxPreloadMenu;
 
 // Optional frontend callback for the Nox Archaist combat-log trap. The
 // emulator calls this from CPU::Fetch() with each character the game's
