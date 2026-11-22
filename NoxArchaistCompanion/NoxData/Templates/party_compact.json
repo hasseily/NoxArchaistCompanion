@@ -7,22 +7,22 @@
         {
             "type": "Content",
             "template": "Gold:      {}",
-            "vars": [{ "memstart": "0x7051", "length": 2, "type": "int_bigendian" }]
+            "vars": [{ "memstart": "MEM_GOLD", "length": 2, "type": "int_bigendian" }]
         },
         {
             "type": "Content",
             "template": "Food:      {}",
-            "vars": [{ "memstart": "0x704F", "length": 2, "type": "int_bigendian" }]
+            "vars": [{ "memstart": "MEM_FOOD", "length": 2, "type": "int_bigendian" }]
         },
         {
             "type": "Content",
             "template": "Torches:   {}",
-            "vars": [{ "memstart": "0x420", "length": 1, "type": "int_bigendian" }]
+            "vars": [{ "memstart": "MEM_TORCHES", "length": 1, "type": "int_bigendian" }]
         },
         {
             "type": "Content",
             "template": "Lockpicks: {}",
-            "vars": [{ "memstart": "0x421", "length": 1, "type": "int_bigendian" }]
+            "vars": [{ "memstart": "MEM_PICKS", "length": 1, "type": "int_bigendian" }]
         },
         { "type": "Empty" },
         {

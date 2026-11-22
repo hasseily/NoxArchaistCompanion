@@ -7,22 +7,22 @@
         {
             "type": "Content",
             "template": "Gold:      {}",
-            "vars": [{ "memstart": "0x7051", "length": 2, "type": "int_bigendian" }]
+            "vars": [{ "memstart": "MEM_GOLD", "length": 2, "type": "int_bigendian" }]
         },
         {
             "type": "Content",
             "template": "Food:      {}",
-            "vars": [{ "memstart": "0x704F", "length": 2, "type": "int_bigendian" }]
+            "vars": [{ "memstart": "MEM_FOOD", "length": 2, "type": "int_bigendian" }]
         },
         {
             "type": "Content",
             "template": "Torches:   {}",
-            "vars": [{ "memstart": "0x420", "length": 1, "type": "int_bigendian" }]
+            "vars": [{ "memstart": "MEM_TORCHES", "length": 1, "type": "int_bigendian" }]
         },
         {
             "type": "Content",
             "template": "Lockpicks: {}",
-            "vars": [{ "memstart": "0x421", "length": 1, "type": "int_bigendian" }]
+            "vars": [{ "memstart": "MEM_PICKS", "length": 1, "type": "int_bigendian" }]
         },
         { "type": "Empty" },
         {
@@ -33,52 +33,52 @@
         {
             "type": "Content",
             "template": "1: {}",
-            "vars": [{ "memstart": "0x703C", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 1, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         {
             "type": "Content",
             "template": "2: {}",
-            "vars": [{ "memstart": "0x703D", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 2, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         {
             "type": "Content",
             "template": "3: {}",
-            "vars": [{ "memstart": "0x703E", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 3, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         {
             "type": "Content",
             "template": "4: {}",
-            "vars": [{ "memstart": "0x703F", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 4, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         {
             "type": "Content",
             "template": "5: {}",
-            "vars": [{ "memstart": "0x7040", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 5, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         {
             "type": "Content",
             "template": "6: {}",
-            "vars": [{ "memstart": "0x7041", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 6, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         {
             "type": "Content",
             "template": "7: {}",
-            "vars": [{ "memstart": "0x7042", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 7, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         {
             "type": "Content",
             "template": "8: {}",
-            "vars": [{ "memstart": "0x7043", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 8, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         {
             "type": "Content",
             "template": "9: {}",
-            "vars": [{ "memstart": "0x7044", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 9, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         {
             "type": "Content",
             "template": "0: {}",
-            "vars": [{ "memstart": "0x703B", "length": 1, "type": "lookup", "lookup": "spells" }]
+            "vars": [{ "memstart": "MEM_READIED_SPELLS", "offset": 0, "length": 1, "type": "lookup", "lookup": "spells" }]
         },
         { "type": "Empty" },
         { "type": "Header", "template": "Location", "color": [0.9, 0.2, 0.9, 1.0] },
@@ -91,8 +91,8 @@
             "type": "Content",
             "template": "Sextant:   {}, {}",
             "vars": [
-                { "memstart": "0x6CEB", "length": 1, "type": "int_bigendian" },
-                { "memstart": "0x6CEC", "length": 1, "type": "int_bigendian" }
+                { "memstart": "MEM_XPOS", "length": 1, "type": "int_bigendian" },
+                { "memstart": "MEM_YPOS", "length": 1, "type": "int_bigendian" }
             ]
         }
     ]

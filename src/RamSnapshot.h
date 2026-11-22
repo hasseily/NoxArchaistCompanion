@@ -32,4 +32,6 @@ void TakeRamSnapshot();
 // 0x1FFFF hits aux. Returns 0 if the snapshot isn't valid yet.
 uint8_t SnapshotPeek(uint32_t addr);
 
+bool HasParty();
+
 } // namespace nac

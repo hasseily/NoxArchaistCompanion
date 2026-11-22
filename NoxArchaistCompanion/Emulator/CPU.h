@@ -12,6 +12,7 @@ struct noxcpuconstants
 	UINT MEM_GOLD;
 	UINT MEM_PICKS;
 	UINT MEM_TORCHES;
+	UINT MEM_READIED_SPELLS;     // spell hotkeys 0 through 9
 	UINT MEM_XPOS;              // avatar tile X position (main RAM)
 	UINT MEM_YPOS;              // avatar tile Y position (main RAM)
 	UINT PC_PRINTSTR;           // PRINT.STR routine entry (overridden before screen output, especially in combat)

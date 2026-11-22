@@ -3,14 +3,14 @@
 #include "Templates.h"
 
 #include "Emulator/CPU.h"
-#include "Emulator/Memory.h"
 #include "RamSnapshot.h"
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <cstdio>
-#include <cstring>
 #include <fstream>
+#include <iterator>
 
 namespace nac
 {
@@ -28,10 +28,22 @@ ImVec4 ParseColor(const nlohmann::json& block,
                   c.size() >= 4 ? c[3].get<float>() : 1.0f);
 }
 
-// All Nox-state reads come from the PC_PRINTSTR-latched RAM snapshot
-// (see RamSnapshot.h). The snapshot is captured at a known-stable
-// CPU phase, so multi-byte fields (xpos/ypos pairs, party stats, name
-// strings) never appear half-written.
+struct TemplateAddress
+{
+    const char* name;
+    UINT noxcpuconstants::*member;
+};
+
+constexpr TemplateAddress kTemplateAddresses[] = {
+    { "MEM_FOOD", &noxcpuconstants::MEM_FOOD },
+    { "MEM_GOLD", &noxcpuconstants::MEM_GOLD },
+    { "MEM_TORCHES", &noxcpuconstants::MEM_TORCHES },
+    { "MEM_PICKS", &noxcpuconstants::MEM_PICKS },
+    { "MEM_READIED_SPELLS", &noxcpuconstants::MEM_READIED_SPELLS },
+    { "MEM_XPOS", &noxcpuconstants::MEM_XPOS },
+    { "MEM_YPOS", &noxcpuconstants::MEM_YPOS },
+};
+
 bool ReadByte(uint32_t off, uint8_t& out)
 {
     if (!g_ramSnapshot.valid)  return false;
@@ -143,18 +155,27 @@ std::string TemplateInstance::SerializeVar(const nlohmann::json& var) const
     const int length = var["length"].get<int>();
     if (length <= 0 || length > 256) return {};
 
-    uint32_t memoffset = 0;
-    try { memoffset = std::stoul(var["memstart"].get<std::string>(), nullptr, 0); }
-    catch (...) { return {}; }
+    const auto& address = var["memstart"].get_ref<const std::string&>();
+    const auto field = std::find_if(std::begin(kTemplateAddresses), std::end(kTemplateAddresses),
+                                   [&](const TemplateAddress& entry) { return address == entry.name; });
+    uint32_t memoffset;
+    if (field == std::end(kTemplateAddresses))
+    {
+        try { memoffset = std::stoul(address, nullptr, 0); }
+        catch (...) { return {}; }
+    }
+    else
+    {
+        memoffset = cpuconstants.*(field->member);
+        if (memoffset == 0) return {};
+    }
+    memoffset += var.value("offset", 0u);
 
     // Character-scope vars: memstart is an offset into the selected
     // member's 0x80-byte party slot.
     const std::string scope = var.value("scope", std::string());
     if (scope == "character")
-    {
-        if (cpuconstants.MEM_PARTY == 0) return "?";
         memoffset += cpuconstants.MEM_PARTY + (uint32_t)m_memberIndex * 0x80u;
-    }
 
     std::vector<uint8_t> buf(length);
     for (int i = 0; i < length; ++i)
@@ -290,9 +311,17 @@ void TemplateInstance::Render()
         return;
     }
 
+    if (!HasParty())
+    {
+        m_blockCache.clear();
+        ImGui::TextUnformatted("No party loaded.");
+        ImGui::End();
+        return;
+    }
+
     // Character windows get a member-picker combo at the top. Names come
     // from RAM, so an empty slot shows "(empty)" instead of nothing.
-    if (m_template->kind == "character" && cpuconstants.MEM_PARTY != 0)
+    if (m_template->kind == "character")
     {
         char  names[6][17] = {};
         const char* items[6] = {};

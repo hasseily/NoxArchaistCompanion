@@ -2,6 +2,7 @@
 
 #include "RamSnapshot.h"
 
+#include "Emulator/CPU.h"
 #include "Emulator/Memory.h"
 
 #include <cstring>
@@ -43,6 +44,17 @@ uint8_t SnapshotPeek(uint32_t addr)
     if (addr < 0x10000u)  return g_ramSnapshot.main[addr];
     if (addr < 0x20000u)  return g_ramSnapshot.aux [addr - 0x10000u];
     return 0;
+}
+
+bool HasParty()
+{
+    if (!g_ramSnapshot.valid || cpuconstants.MEM_PARTY == 0) return false;
+    for (uint32_t member = 0; member < 6; ++member)
+    {
+        if (SnapshotPeek(cpuconstants.MEM_PARTY + member * 0x80u + 0x4Bu) != 0)
+            return true;
+    }
+    return false;
 }
 
 } // namespace nac

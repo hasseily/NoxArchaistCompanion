@@ -636,6 +636,7 @@ void EmulatorPause(AppState& s, bool paused)
 
 void EmulatorReboot()
 {
+    nac::g_ramSnapshot.valid = false;
     // Mirror AppleWin's ResetMachineState power-cycle ordering.
     g_nAppMode = MODE_RUNNING;
     GetCardMgr().Reset(/*powerCycle*/ true);
@@ -840,13 +841,6 @@ void LoadHDV(AppState& state, const std::filesystem::path& path)
     }
 
     state.hdv_path = path;
-
-    // Invalidate the cached RAM snapshot. Consumers (TakeRamSnapshot
-    // gate, HasParty, MapPanel observation) all check
-    // g_ramSnapshot.valid first, so this stops the panels rendering
-    // the previous game's $0800 buffer / party data until the new
-    // game's first $C000 keyboard read repopulates it.
-    nac::g_ramSnapshot.valid = false;
 
     const auto        assetsDir = FindAssetsDir();
     const std::string version   = DetectNoxVersion(path, assetsDir);

@@ -33,27 +33,6 @@ uint8_t Peek(uint16_t addr)
     return SnapshotPeek(addr);
 }
 
-// Returns true once Nox has a real party loaded (i.e. the user has
-// actually started or restored a game). Each of the six party slots
-// is 0x80 bytes starting at MEM_PARTY, with the member's name as a
-// high-ASCII NUL-terminated string at offset 0x4B; an empty slot has
-// 0x00 there. We gate live automap observation on this so the BASIC
-// prompt / boot-screen garbage doesn't paint into the discovered map.
-bool HasParty()
-{
-    if (!g_ramSnapshot.valid || cpuconstants.MEM_PARTY == 0) return false;
-    for (uint32_t k = 0; k < 6; ++k)
-    {
-        const uint32_t addr = cpuconstants.MEM_PARTY + k * 0x80u + 0x4Bu;
-        if (addr >= 0x20000u) continue;
-        const uint8_t b = (addr < 0x10000u)
-            ? g_ramSnapshot.main[addr]
-            : g_ramSnapshot.aux[addr - 0x10000u];
-        if (b != 0) return true;
-    }
-    return false;
-}
-
 // Vision footprint. Nox draws a 17×11 viewport around the avatar when
 // outdoors; we reveal the same footprint into the fog bitmap each time
 // the safe-sample callback fires.
@@ -775,9 +754,6 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
         return;
     }
 
-    // Avatar tile X/Y live in main RAM at version-specific addresses
-    // (1.3.7 sits one byte lower than 1.1.4 / 1.1.9). Versions.json
-    // → cpuconstants resolves them; we read raw bytes here.
     const uint8_t mapID   = Peek(0x2AF9);
     const uint8_t xpos    = (uint8_t)Peek((uint16_t)cpuconstants.MEM_XPOS);
     const uint8_t ypos    = (uint8_t)Peek((uint16_t)cpuconstants.MEM_YPOS);
@@ -793,7 +769,7 @@ void MapPanel::Render(const MapTranslator& tx, MapData& /*md*/,
     // the overworld, and skipped before the player has a party so
     // boot / BASIC-prompt junk in $0800 doesn't paint into the map.
     auto liveLoc = tx.Resolve(mapID, xpos, ypos);
-    if (liveLoc && g_ramSnapshot.valid && mapType != kMapTypeCombat && HasParty())
+    if (liveLoc && mapType != kMapTypeCombat && HasParty())
     {
         const int liveW = (std::max)(1, liveLoc->width);
         const int liveH = (std::max)(1, liveLoc->height);

@@ -19,7 +19,8 @@ namespace nac
 //   * "character" — vars carry `scope: "character"` and their `memstart`
 //     is interpreted as an offset into the selected party member's
 //     0x80-byte slot (base = cpuconstants.MEM_PARTY + member * 0x80).
-//   * "party" — vars use absolute addresses; no member selection.
+//   * "party" — vars use absolute addresses or named RAM addresses from
+//     Versions.json, with an optional byte offset; no member selection.
 //
 // A TemplateRegistry loads templates and the shared lookup-table file
 // once at boot. TemplateInstance is the runtime object per open window;
