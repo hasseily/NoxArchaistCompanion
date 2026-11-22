@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -10,6 +11,16 @@
 
 namespace nac
 {
+
+namespace
+{
+std::atomic<bool> g_muted{false};
+}
+
+void AudioOutput::SetMuted(bool muted)
+{
+    g_muted.store(muted, std::memory_order_relaxed);
+}
 
 AudioOutput::AudioOutput(uint32_t bufferBytes, uint32_t sampleRate, int channels, const char* voiceName)
     : LinuxSoundBuffer(bufferBytes, sampleRate, channels, voiceName)
@@ -61,23 +72,19 @@ void AudioOutput::Pull(uint8_t* dst, int len)
     DWORD  n1 = 0,        n2 = 0;
     const size_t got = Read(len, &p1, &n1, &p2, &n2);
 
-    // Apply the buffer's logarithmic volume by mixing into a zeroed dst.
+    // Keep consuming the ring while muted so playback resumes with current audio.
+    std::memset(dst, m_silence, len);
+    if (!got || g_muted.load(std::memory_order_relaxed)) return;
+
     std::vector<uint8_t> staged(got);
     uint8_t* w = staged.data();
     if (p1 && n1) { std::memcpy(w, p1, n1); w += n1; }
     if (p2 && n2) { std::memcpy(w, p2, n2); w += n2; }
 
-    std::memset(dst, 0, len);
-    if (got)
-    {
-        const double logVol = GetLogarithmicVolume();
-        const double linVol = (logVol > 0.99) ? 1.0 : -std::log(1.0 - logVol) / std::log(100.0);
-        const float  vol    = std::clamp((float)linVol, 0.0f, 1.0f);
-        SDL_MixAudio(dst, staged.data(), m_spec.format, (Uint32)got, vol);
-    }
-
-    if ((int)got < len)
-        std::memset(dst + got, m_silence, (size_t)len - got);
+    const double logVol = GetLogarithmicVolume();
+    const double linVol = (logVol > 0.99) ? 1.0 : -std::log(1.0 - logVol) / std::log(100.0);
+    const float  vol    = std::clamp((float)linVol, 0.0f, 1.0f);
+    SDL_MixAudio(dst, staged.data(), m_spec.format, (Uint32)got, vol);
 }
 
 void SDLCALL AudioOutput::StreamCallback(void* userdata,

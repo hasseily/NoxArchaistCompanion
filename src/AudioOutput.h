@@ -28,6 +28,7 @@ public:
                                                uint32_t sampleRate,
                                                int channels,
                                                const char* voiceName);
+    static void SetMuted(bool muted);
 
 private:
     static void SDLCALL StreamCallback(void* userdata,

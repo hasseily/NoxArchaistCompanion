@@ -12,7 +12,9 @@ The //e runs at a speed multiplier of the base 1.0205 MHz clock, from 0x
 - The window also shows the **actual** speed, measured every half second, and
   marks it as this computer's maximum when the host can't keep up.
 - Holding **Scroll Lock** warps to the maximum and restores the previous speed
-  on release.
+  on release or when the window loses focus.
+- At 1000x, including Scroll Lock warp, the Companion mutes emulator audio.
+  Slowing down restores the configured speaker and music volumes.
 
 Entry points in `src/main.cpp`: `SetSpeed` (clamps and applies),
 `RenderSpeedWindow`, and the pacing block at the top of `SDL_AppIterate`.

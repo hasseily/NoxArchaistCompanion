@@ -18,6 +18,7 @@
 #include "Renderer.h"
 #include "About.h"
 #include "AppleStyle.h"
+#include "AudioOutput.h"
 #include "Background.h"
 #include "Frame.h"
 #include "Templates.h"
@@ -356,7 +357,7 @@ void SaveSettings(const AppState& s)
     j["paused"]              = s.paused;
     j["fullscreen"]          = s.fullscreen;
     j["gamelink_enabled"]    = s.gamelink_enabled;
-    j["speed"]               = s.speed;
+    j["speed"]               = s.speed_before_warp >= 0.0 ? s.speed_before_warp : s.speed;
     j["video_idx"]           = s.video_idx;
     j["mono_idx"]            = s.mono_idx;
     j["vol_speaker"]         = s.vol_speaker;
@@ -583,6 +584,7 @@ void ApplyVideoSettings(int videoIdx, int monoIdx)
 void SetSpeed(AppState& s, double speed)
 {
     s.speed = std::clamp(speed, kSpeedMin, kSpeedMax);
+    nac::AudioOutput::SetMuted(s.speed == kSpeedMax);
     // The speaker works in whole CPU cycles per audio sample, so its clock
     // can't drop below the sample rate even when the CPU runs slower.
     g_fCurrentCLK6502 = std::max(s.speed * kBaseClockHz,
@@ -1224,10 +1226,10 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
     }
 
     case SDL_EVENT_KEY_UP:
-        // Scroll Lock release ends the momentary warp started in
-        // KEY_DOWN, restoring whatever speed was active before.
-        if (event->key.key == SDLK_SCROLLLOCK &&
-            state->speed_before_warp >= 0.0)
+        if (event->key.key != SDLK_SCROLLLOCK) break;
+        [[fallthrough]];
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+        if (state->speed_before_warp >= 0.0)
         {
             SetSpeed(*state, state->speed_before_warp);
             state->speed_before_warp = -1.0;
