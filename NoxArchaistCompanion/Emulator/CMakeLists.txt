@@ -107,11 +107,9 @@ target_include_directories(nac_zlib PUBLIC zlib)
 if(MSVC)
     target_compile_definitions(nac_zlib PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
-if(APPLE)
-    # gzguts.h sets _POSIX_C_SOURCE before including <fcntl.h>, which on
-    # macOS hides the read()/close() prototypes that gz{read,write}.c
-    # call. Apple Clang now errors on implicit declarations. Force
-    # <unistd.h> in for the zlib TUs so the prototypes are visible.
+if(UNIX)
+    # This target bypasses zlib's header detection. Include the POSIX file
+    # declarations before gzguts.h sets feature macros.
     target_compile_options(nac_zlib PRIVATE -include unistd.h)
 endif()
 
