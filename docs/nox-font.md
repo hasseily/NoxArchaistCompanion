@@ -15,6 +15,10 @@ Both fonts use Dear ImGui's embedded vector font only for characters outside
 their printable-ASCII ranges. The selected face is persisted as
 `interface_font` in `nac.json`.
 
+**View → Interface Font Size** applies to both fonts and takes effect
+immediately. Choose 10, 12, 14, 16, 18, 20, 22, or 24 pixels. The default is 16,
+and the selection is saved as `interface_font_size` in `nac.json`.
+
 The memory viewer keeps a small ProggyForever instance because its hex and
 ASCII tables require dense fixed-width columns.
 

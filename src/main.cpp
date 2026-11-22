@@ -79,6 +79,9 @@ constexpr int kWindowWidth  = 1024;
 constexpr int kWindowHeight = 768;
 constexpr int kAppleWindowWidth  = 640;
 constexpr int kAppleWindowHeight = 480;
+constexpr int kInterfaceFontSizeMin = 10;
+constexpr int kInterfaceFontSizeDefault = 16;
+constexpr int kInterfaceFontSizeMax = 24;
 
 // Base //e clock; the speed multiplier scales this. Wall-clock pacing
 // in SDL_AppIterate converts elapsed time into cycles at the active
@@ -302,6 +305,7 @@ struct AppState
     int                   window_h         = 0;
     int                   interface_color  = (int)nac::InterfaceColor_Green;
     int                   interface_font   = (int)nac::InterfaceFont_NoxFont1;
+    int                   interface_font_size = kInterfaceFontSizeDefault;
     bool                  quit_dont_ask    = false;       // persisted: skip the quit-confirm modal
     bool                  quit_requested   = false;       // open the quit-confirm modal next render
     bool                  quit_confirmed   = false;       // modal Quit clicked → SDL_EVENT_QUIT may pass through
@@ -373,6 +377,7 @@ void SaveSettings(const AppState& s)
     j["map_color_scheme"] = const_cast<nac::MapPanel&>(s.mapPanel).ColorSchemeRef();
     j["interface_color"] = s.interface_color;
     j["interface_font"]  = s.interface_font;
+    j["interface_font_size"] = s.interface_font_size;
     j["quit_dont_ask"]   = s.quit_dont_ask;
     j["bg_enabled"]      = const_cast<nac::Background&>(s.background).EnabledRef();
     j["bg_dim"]          = const_cast<nac::Background&>(s.background).DimRef();
@@ -450,6 +455,9 @@ void LoadSettings(AppState& s)
                                               s.mapPanel.ColorSchemeRef());
         s.interface_color = j.value("interface_color", s.interface_color);
         s.interface_font  = j.value("interface_font",  s.interface_font);
+        s.interface_font_size = std::clamp(j.value("interface_font_size", s.interface_font_size),
+                                           kInterfaceFontSizeMin, kInterfaceFontSizeMax);
+        s.interface_font_size -= s.interface_font_size % 2;
         s.quit_dont_ask   = j.value("quit_dont_ask",   s.quit_dont_ask);
         s.background.EnabledRef() = j.value("bg_enabled", s.background.EnabledRef());
         s.background.DimRef()     = j.value("bg_dim",     s.background.DimRef());
@@ -1380,6 +1388,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     state->renderer.BeginFrame();
     state->renderer.UploadFramebuffer(video.GetFrameBuffer(), fbW, fbH);
 
+    ImGui::GetStyle().FontSizeBase = static_cast<float>(state->interface_font_size);
     state->renderer.BeginImGui();
 
     // Cover-art background goes on the viewport's background draw
@@ -1538,6 +1547,17 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                         nac::ApplyAppleStyle(
                             (nac::InterfaceColor)state->interface_color, e.v);
                     }
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Interface Font Size"))
+            {
+                for (int size = kInterfaceFontSizeMin; size <= kInterfaceFontSizeMax; size += 2)
+                {
+                    char label[8];
+                    std::snprintf(label, sizeof(label), "%d px", size);
+                    if (ImGui::MenuItem(label, nullptr, state->interface_font_size == size))
+                        state->interface_font_size = size;
                 }
                 ImGui::EndMenu();
             }
