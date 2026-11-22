@@ -23,8 +23,8 @@ jobs:
           - os: ubuntu-latest
             generator: Ninja
             artifact: nac-linux-x64
-          - os: windows-latest
-            generator: "Visual Studio 17 2022"
+          - os: windows-2025-vs2026
+            generator: "Visual Studio 18 2026"
             artifact: nac-windows-x64
           - os: macos-latest
             generator: Ninja
