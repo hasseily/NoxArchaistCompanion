@@ -79,24 +79,27 @@ constexpr int kWindowHeight = 768;
 constexpr int kAppleWindowWidth  = 640;
 constexpr int kAppleWindowHeight = 480;
 
-// Base //e clock; the speed preset multiplies this. Wall-clock pacing
+// Base //e clock; the speed multiplier scales this. Wall-clock pacing
 // in SDL_AppIterate converts elapsed time into cycles at the active
 // rate so display + game logic stay in sync regardless of host vsync.
 constexpr double kBaseClockHz = 1020484.45;
 
-// Speed presets, in CPU cycles/second multiples of the base 1.02 MHz.
-// Indices match the "Speed" submenu order.
-struct SpeedPreset { const char* label; double cyclesPerSecond; };
+constexpr double kSpeedMin     = 0.0;
+constexpr double kSpeedMax     = 1000.0;
+constexpr double kSpeedDefault = 1.0;
+
+// Speed presets, as multiples of the base clock. Order matches the
+// "Speed" submenu and the Cmd/Ctrl+1..7 shortcuts.
+struct SpeedPreset { const char* label; double speed; };
 constexpr SpeedPreset kSpeedPresets[] = {
-    { "Sloth (0.5x)",     510242.225 },
-    { "Retro (1x)",      1020484.45  },
-    { "Turbo (2x)",      2040968.9   },
-    { "Ford GT (4x)",    4081937.8   },
-    { "MiG-31 (6x)",     6122906.7   },
-    { "Pro (8x)",        8163875.6   },
-    { "Demigod (max)",   2.0e8       },
+    { "Sloth (0.5x)",  0.5 },
+    { "Retro (1x)",    1.0 },
+    { "Turbo (2x)",    2.0 },
+    { "Ford GT (4x)",  4.0 },
+    { "MiG-31 (6x)",   6.0 },
+    { "Pro (8x)",      8.0 },
+    { "Demigod (max)", kSpeedMax },
 };
-constexpr int kSpeedDefault = 1;   // Retro 1x
 
 // Color video preset → VideoType. Picked from the Color submenu.
 struct VideoPreset { const char* label; VideoType_e type; };
@@ -137,12 +140,93 @@ constexpr const char* kPrimaryLabel = "Cmd";
 // user reflexively expects browser-style reload.
 constexpr SDL_Keymod kRebootMod = SDL_KMOD_GUI;
 constexpr const char* kRebootLabel = "Cmd+R";
+constexpr const char* kFullscreenLabel = "Option+Enter";
+constexpr const char* kAlternateQuitLabel = "Option+F4";
 #else
 constexpr SDL_Keymod kPrimaryMod = SDL_KMOD_CTRL;
 constexpr const char* kPrimaryLabel = "Ctrl";
 constexpr SDL_Keymod kRebootMod = SDL_KMOD_ALT;
 constexpr const char* kRebootLabel = "Alt+R";
+constexpr const char* kFullscreenLabel = "Alt+Enter";
+constexpr const char* kAlternateQuitLabel = "Alt+F4";
 #endif
+
+void RenderKeyboardShortcuts(bool& pendingOpen)
+{
+    if (pendingOpen)
+    {
+        ImGui::OpenPopup("Keyboard Shortcuts");
+        pendingOpen = false;
+    }
+
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(
+        ImVec2((std::min)(640.0f, vp->WorkSize.x - 32.0f),
+               (std::min)(640.0f, vp->WorkSize.y - 32.0f)), ImGuiCond_Appearing);
+
+    bool open = true;
+    if (ImGui::BeginPopupModal("Keyboard Shortcuts", &open,
+                               ImGuiWindowFlags_NoSavedSettings))
+    {
+        if (ImGui::BeginChild("Shortcut list",
+                              ImVec2(0, -ImGui::GetFrameHeightWithSpacing())))
+        {
+            ImGui::TextWrapped(
+                "Companion shortcuts. Finish editing any active text field "
+                "before using them.");
+            ImGui::Spacing();
+
+            if (ImGui::BeginTable("Shortcuts", 2,
+                                  ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH))
+            {
+                ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthFixed, 160.0f);
+                ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableHeadersRow();
+
+                auto row = [](const char* key, const char* action) {
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::TextWrapped("%s", key);
+                    ImGui::TableNextColumn();
+                    ImGui::TextWrapped("%s", action);
+                };
+                char shortcut[16];
+                std::snprintf(shortcut, sizeof(shortcut), "%s+P", kPrimaryLabel);
+                row(shortcut, "Pause or resume emulation");
+                row(kRebootLabel, "Reboot the Apple //e (save first)");
+                std::snprintf(shortcut, sizeof(shortcut), "%s+Q", kPrimaryLabel);
+                row(shortcut, "Quit the Companion");
+                row(kAlternateQuitLabel, "Quit (when received by the app)");
+                row(kFullscreenLabel, "Toggle fullscreen");
+                row("Hold Scroll Lock", "Warp to maximum speed; release to restore the previous speed");
+                row("Caps Lock", "Toggle the Apple //e Caps Lock");
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted("Speed presets");
+                for (int i = 0; i < (int)(sizeof(kSpeedPresets) / sizeof(kSpeedPresets[0])); ++i)
+                {
+                    std::snprintf(shortcut, sizeof(shortcut), "%s+%d", kPrimaryLabel, i + 1);
+                    row(shortcut, kSpeedPresets[i].label);
+                }
+                ImGui::EndTable();
+            }
+
+            ImGui::Spacing();
+            ImGui::TextWrapped(
+                "Scroll Lock requires a keyboard with that key. For a different "
+                "speed, use Emulator > Speed > Custom Speed.");
+            ImGui::TextWrapped(
+                "Right-click the background to hide or show the menu bar. "
+                "Other windows may use right-click for their own actions.");
+        }
+        ImGui::EndChild();
+        if (ImGui::Button("Close", ImVec2(120, 0)))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+}
 
 // Rotates through the quit modal. Picked once when the dialog opens
 // (not per frame) so the line stays put while the user reads it.
@@ -179,6 +263,7 @@ struct AppState
     nac::Renderer         renderer;
     nac::Background       background;
     nac::AboutPanel       aboutPanel;
+    bool                  keyboard_shortcuts_requested = false;
     nac::TemplateRegistry templates;
     std::vector<std::unique_ptr<nac::TemplateInstance>> instances;
     int                   nextInstanceId = 1;
@@ -202,8 +287,11 @@ struct AppState
     uint64_t              menubar_hidden_ms = 0;         // wall time we last hid the menu (for the hint overlay)
     bool                  reset_layout_pending = false;  // one-frame flag set by Reset Layout
     bool                  gamelink_enabled = true;       // user-facing toggle (vs gamelink_up which means GameLink::Init succeeded)
-    int                   speed_idx        = kSpeedDefault;
-    int                   speed_idx_before_warp = -1;     // -1 = not warping; else saved speed_idx
+    double                speed            = kSpeedDefault;
+    double                speed_before_warp = -1.0;       // < 0 = not warping; else saved speed
+    bool                  speed_window_open = false;
+    double                actual_speed     = 0.0;        // measured, refreshed twice a second
+    bool                  speed_host_limited = false;    // host can't keep up with the chosen speed
 
     int                   video_idx        = 0;          // 0..3 color preset
     int                   mono_idx         = 0;          // 0=off, 1=white, 2=amber, 3=green
@@ -268,7 +356,7 @@ void SaveSettings(const AppState& s)
     j["paused"]              = s.paused;
     j["fullscreen"]          = s.fullscreen;
     j["gamelink_enabled"]    = s.gamelink_enabled;
-    j["speed_idx"]           = s.speed_idx;
+    j["speed"]               = s.speed;
     j["video_idx"]           = s.video_idx;
     j["mono_idx"]            = s.mono_idx;
     j["vol_speaker"]         = s.vol_speaker;
@@ -340,7 +428,7 @@ void LoadSettings(AppState& s)
         s.pp_enabled       = j.value("pp_enabled",       s.pp_enabled);
         s.fullscreen       = j.value("fullscreen",       s.fullscreen);
         s.gamelink_enabled = j.value("gamelink_enabled", s.gamelink_enabled);
-        s.speed_idx   = j.value("speed_idx",   s.speed_idx);
+        s.speed       = j.value("speed",       s.speed);
         s.video_idx   = j.value("video_idx",   s.video_idx);
         s.mono_idx    = j.value("mono_idx",    s.mono_idx);
         s.vol_speaker = j.value("vol_speaker", s.vol_speaker);
@@ -492,10 +580,43 @@ void ApplyVideoSettings(int videoIdx, int monoIdx)
     GetFrame().VideoRedrawScreen();
 }
 
-void ApplySpeedSetting(int speedIdx)
+void SetSpeed(AppState& s, double speed)
 {
-    g_fCurrentCLK6502 = kSpeedPresets[speedIdx].cyclesPerSecond;
+    s.speed = std::clamp(speed, kSpeedMin, kSpeedMax);
+    // The speaker works in whole CPU cycles per audio sample, so its clock
+    // can't drop below the sample rate even when the CPU runs slower.
+    g_fCurrentCLK6502 = std::max(s.speed * kBaseClockHz,
+                                 (double)SPKR_SAMPLE_RATE);
     SpkrReinitialize();
+}
+
+void RenderSpeedWindow(AppState& s)
+{
+    if (!s.speed_window_open) return;
+    ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("Custom Speed", &s.speed_window_open))
+    {
+        double speed = s.speed;
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        bool changed = ImGui::SliderScalar(
+            "##speed", ImGuiDataType_Double, &speed, &kSpeedMin, &kSpeedMax,
+            "%.3fx",
+            ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+        // Ctrl+click the +/- buttons for the coarse step.
+        constexpr double kStep = 0.01, kStepFast = 1.0;
+        changed |= ImGui::InputScalar("Exact speed", ImGuiDataType_Double,
+                                      &speed, &kStep, &kStepFast, "%.3f");
+        if (changed) SetSpeed(s, speed);
+
+        ImGui::Text("Actual: %.2fx", s.actual_speed);
+        if (s.speed_host_limited)
+        {
+            const char* kMaxNote = "(this computer's maximum)";
+            nac::ui::SameLineIfFits(ImGui::CalcTextSize(kMaxNote).x);
+            ImGui::TextUnformatted(kMaxNote);
+        }
+    }
+    ImGui::End();
 }
 
 void ApplyVolumeSettings(int volSpeaker, int volMb)
@@ -561,6 +682,7 @@ void ResetLayout(AppState& s)
     s.conversationLog.OpenRef() = false;
     s.hackPanel.OpenRef()  = false;
     *s.respecPanel.OpenFlag() = false;
+    s.speed_window_open    = false;
     s.mapPanel.OpenRef()   = false;
     sa2::PostProcessor::GetInstance()->bImguiWindowIsOpen = false;
     ImGui::LoadIniSettingsFromMemory("", 0);   // clears window settings table
@@ -864,6 +986,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     // hdv_path and audio volumes into the first init.
     LoadSettings(*state);
     InitEmulator(state->hdv_path);
+    // After InitEmulator: the Mockingboard ctor casts the CPU clock to int,
+    // which overflows at the highest speeds.
+    SetSpeed(*state, state->speed);
     ApplyVideoSettings(state->video_idx, state->mono_idx);
     ApplyVolumeSettings(state->vol_speaker, state->vol_mb);
     if (state->fullscreen) SetFullscreen(*state, true);
@@ -1061,25 +1186,19 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
             constexpr int kSpeedCount =
                 (int)(sizeof(kSpeedPresets) / sizeof(kSpeedPresets[0]));
             if (idx < kSpeedCount)
-            {
-                state->speed_idx = idx;
-                ApplySpeedSetting(idx);
-            }
+                SetSpeed(*state, kSpeedPresets[idx].speed);
             break;
         }
 
         // Scroll Lock held → momentary warp to max speed. KEY_UP
-        // restores the previously-active preset. Skip auto-repeats so
+        // restores the previously-active speed. Skip auto-repeats so
         // the saved speed only latches on the first KEY_DOWN.
         if (event->key.key == SDLK_SCROLLLOCK)
         {
-            if (!event->key.repeat && state->speed_idx_before_warp < 0)
+            if (!event->key.repeat && state->speed_before_warp < 0.0)
             {
-                constexpr int kMaxSpeed =
-                    (int)(sizeof(kSpeedPresets) / sizeof(kSpeedPresets[0])) - 1;
-                state->speed_idx_before_warp = state->speed_idx;
-                state->speed_idx = kMaxSpeed;
-                ApplySpeedSetting(kMaxSpeed);
+                state->speed_before_warp = state->speed;
+                SetSpeed(*state, kSpeedMax);
             }
             break;
         }
@@ -1112,13 +1231,12 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
     case SDL_EVENT_KEY_UP:
         // Scroll Lock release ends the momentary warp started in
-        // KEY_DOWN, restoring whatever preset was active before.
+        // KEY_DOWN, restoring whatever speed was active before.
         if (event->key.key == SDLK_SCROLLLOCK &&
-            state->speed_idx_before_warp >= 0)
+            state->speed_before_warp >= 0.0)
         {
-            state->speed_idx = state->speed_idx_before_warp;
-            ApplySpeedSetting(state->speed_idx);
-            state->speed_idx_before_warp = -1;
+            SetSpeed(*state, state->speed_before_warp);
+            state->speed_before_warp = -1.0;
         }
         break;
 
@@ -1150,10 +1268,13 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         if (!pending.empty()) LoadHDV(*state, pending);
     }
 
-    // Pace the CPU by real elapsed time so the emulator runs at //e speed
-    // (~1.02 MHz) regardless of the host's vsync rate. Cap per-tick cycles
-    // to ~4 frames worth so a paused / debugger-broken host doesn't trigger
-    // a long catch-up sprint.
+    // Pace the CPU by real elapsed time so the emulator runs at the chosen
+    // speed regardless of the host's vsync rate. Elapsed time is capped so
+    // a paused / debugger-broken host doesn't trigger a long catch-up
+    // sprint, and execution stops once the frame's wall-clock budget is
+    // spent, so speeds beyond what the host can emulate stay responsive.
+    constexpr uint64_t kMaxElapsedNs  = 100'000'000;
+    constexpr uint64_t kExecBudgetNs  =  10'000'000;
     static uint64_t lastNs = SDL_GetTicksNS();
     const uint64_t  nowNs  = SDL_GetTicksNS();
     const uint64_t  deltaNs = nowNs - lastNs;
@@ -1163,10 +1284,17 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     // the user can interact with menus / panels and see the last frame.
     if (!state->paused)
     {
-        const double rateHz = kSpeedPresets[state->speed_idx].cyclesPerSecond;
-        uint32_t cycles = (uint32_t)(deltaNs * rateHz * 1e-9);
-        if (cycles == 0)             cycles = 1;
-        if (cycles > 17030u * 16)    cycles = 17030u * 16;   // cap catch-up
+        // Cycles owed to the CPU. The fraction, and any overshoot from the
+        // last opcode of a batch, carry into the next frame so slow speeds
+        // keep their exact rate.
+        static double pendingCycles = 0.0;
+        const double   rateHz    = state->speed * kBaseClockHz;
+        const uint64_t elapsedNs = std::min(deltaNs, kMaxElapsedNs);
+        pendingCycles += (double)elapsedNs * rateHz * 1e-9;
+
+        // Measured-speed accumulators for the Custom Speed window.
+        static uint64_t statNs = 0, statCycles = 0;
+        static int      statFrames = 0, statLimitedFrames = 0;
 
         // Pull any Grid Cartographer keypresses (DIK scancodes over Gamelink
         // shared memory) into the //e keyboard latch before we run cycles,
@@ -1176,21 +1304,42 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         // Mirror upstream's CommonFrame::ExecuteOneFrame: split the run into
         // ~1 ms batches and tick the cards + speaker after each batch, so
         // SpkrUpdate / Mockingboard / SSI263 land samples in their ring
-        // buffers at the right rate.
-        const uint32_t cyclesPerMs = (uint32_t)(g_fCurrentCLK6502 * 1e-3);
+        // buffers at the right rate. Batches are capped at one video frame
+        // so the budget check stays fine-grained at high speeds.
         const UINT     cyclesPerFrame = NTSC_GetCyclesPerFrame();
-        uint32_t totalExecuted = 0;
-        do
+        const uint32_t batchCycles = std::clamp(
+            (uint32_t)(rateHz * 1e-3), 1u, (uint32_t)cyclesPerFrame);
+        while (pendingCycles >= 1.0 &&
+               SDL_GetTicksNS() - nowNs < kExecBudgetNs)
         {
-            const uint32_t batch = (cyclesPerMs < cycles - totalExecuted) ? cyclesPerMs : cycles - totalExecuted;
+            const uint32_t batch = (uint32_t)std::min(pendingCycles, (double)batchCycles);
             const uint32_t executed = CpuExecute(batch, /*bVideoUpdate*/ true);
-            totalExecuted += executed;
+            pendingCycles -= executed;
+            statCycles    += executed;
 
             GetCardMgr().Update(executed);
             SpkrUpdate(executed);
 
             g_dwCyclesThisFrame = (g_dwCyclesThisFrame + executed) % cyclesPerFrame;
-        } while (totalExecuted < cycles);
+        }
+        // Cycles still owed mean the budget ran out first: the host, not the
+        // chosen speed, is the limit. Whatever it cut off is dropped rather
+        // than caught up.
+        const bool hostLimited = pendingCycles >= 1.0;
+        pendingCycles = std::min(pendingCycles, 1.0);
+
+        // Report host-limited only when most frames were, so one slow frame
+        // (disk access, window drag) doesn't flag it.
+        statNs += elapsedNs;
+        ++statFrames;
+        statLimitedFrames += hostLimited;
+        if (statNs >= 500'000'000)
+        {
+            state->actual_speed = statCycles / (statNs * 1e-9) / kBaseClockHz;
+            state->speed_host_limited = statLimitedFrames * 2 > statFrames;
+            statNs = statCycles = 0;
+            statFrames = statLimitedFrames = 0;
+        }
 
         GetFrame().VideoRedrawScreen();
     }
@@ -1266,6 +1415,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                 constexpr int kSpeedCount =
                     (int)(sizeof(kSpeedPresets) / sizeof(kSpeedPresets[0]));
                 char shortcut[8];
+                bool onPreset = false;
                 for (int i = 0; i < kSpeedCount; ++i)
                 {
                     const char* sc = nullptr;
@@ -1274,12 +1424,13 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                         std::snprintf(shortcut, sizeof(shortcut), "%s+%d", kPrimaryLabel, i + 1);
                         sc = shortcut;
                     }
-                    if (ImGui::MenuItem(kSpeedPresets[i].label, sc, state->speed_idx == i))
-                    {
-                        state->speed_idx = i;
-                        ApplySpeedSetting(i);
-                    }
+                    const bool selected = state->speed == kSpeedPresets[i].speed;
+                    onPreset |= selected;
+                    if (ImGui::MenuItem(kSpeedPresets[i].label, sc, selected))
+                        SetSpeed(*state, kSpeedPresets[i].speed);
                 }
+                if (ImGui::MenuItem("Custom Speed...", nullptr, !onPreset))
+                    state->speed_window_open = true;
                 ImGui::Separator();
                 ImGui::MenuItem("Hold Scroll Lock to warp", nullptr, false, false);
                 ImGui::EndMenu();
@@ -1354,7 +1505,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         }
         if (ImGui::BeginMenu("View"))
         {
-            if (ImGui::MenuItem("Fullscreen", "Alt+Enter", state->fullscreen))
+            if (ImGui::MenuItem("Fullscreen", kFullscreenLabel, state->fullscreen))
                 SetFullscreen(*state, !state->fullscreen);
             if (ImGui::MenuItem("Reset Layout"))
                 ResetLayout(*state);
@@ -1435,6 +1586,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         }
         if (ImGui::BeginMenu("Help"))
         {
+            if (ImGui::MenuItem("Keyboard Shortcuts..."))
+                state->keyboard_shortcuts_requested = true;
             if (ImGui::MenuItem("About NAC..."))
                 state->aboutPanel.Open();
             ImGui::EndMenu();
@@ -1578,7 +1731,9 @@ SDL_AppResult SDL_AppIterate(void* appstate)
                            state->mapNotes);
     state->memoryViewer.Render();
     state->hgrViewer.Render();
+    RenderSpeedWindow(*state);
     state->aboutPanel.Render();
+    RenderKeyboardShortcuts(state->keyboard_shortcuts_requested);
 
     // Quit confirmation modal. Opened from the SDL_EVENT_QUIT path
     // (window close, Ctrl+Q, Alt+F4, Emulator → Quit). Confirming

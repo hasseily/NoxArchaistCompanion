@@ -117,8 +117,8 @@ per-user config dir on each platform. Three files live there:
 
 * `imgui.ini` — ImGui's own window layout / dock state (written by ImGui).
 * `pp_state.json` — post-processor state (written by `PostProcessor::SaveState`).
-* `nac.json` — everything else: window size, last HDV path, speed/colour/
-  mono/volume preset indices, panel open flags, sidebar profile choice,
+* `nac.json` — everything else: window size, last HDV path, speed
+  multiplier, colour/mono/volume preset indices, panel open flags, sidebar profile choice,
   hack-panel hex/poke-address, combat-log auto-scroll/include-combat.
 
 `LoadSettings` runs before `InitEmulator` so the saved volumes and HDV
