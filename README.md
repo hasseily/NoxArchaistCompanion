@@ -16,6 +16,7 @@ Nox Archaist Companion's emulation layer is based on AppleWin, the canonical App
 ## Running the program
 
 The Companion embeds a heavily modified version of AppleWin, and will automatically load Nox Archaist after you select the Nox .HDV file.
+It reads the game version from the image and selects the matching profile for Nox 1.1.4, 1.1.9, or 1.3.7 (Lord of Storms). You can name the image freely.
 
 There are a number of emulation options, all directly accessible from the main menu bar. Playing at max speed automatically disables sound, and it will generally play so fast that you won't see battle animations. This is highly discouraged unless you've become very adept at the game.
 

@@ -534,39 +534,19 @@ std::filesystem::path FindAssetsDir()
     return "NoxData";
 }
 
-// Probe an .hdv file for the Nox Archaist version string by reading the
-// Pick the Nox version from the HDV filename. Substring-scan for the
-// known release tags ("137" / "119" / "114") and map to the matching
-// Versions.json key. Anything else falls back to 1.1.4 — old / mislabelled
-// images get reasonable defaults instead of an empty cpuconstants.
-std::string DetectNoxVersion(const std::filesystem::path& hdvPath,
-                             const std::filesystem::path& /*assetsDir*/)
-{
-    const std::string name = hdvPath.filename().string();
-    if (name.find("137") != std::string::npos) return "1.3.7";
-    if (name.find("119") != std::string::npos) return "1.1.9";
-    return "1.1.4";   // includes the explicit "114" case
-}
-
-// Pack the digits of a version string into a uint32. Matches the old NAC
-// scheme: "1.1.9" -> 0x00010109, "1004" -> 0x01000004 (right-to-left,
-// one digit per byte, non-digits skipped).
-uint32_t PackVersionDigits(const std::string& s)
-{
-    uint32_t hash = 0;
-    int      ix   = 0;
-    for (auto it = s.rbegin(); it != s.rend() && ix < 4; ++it)
-    {
-        if (*it >= '0' && *it <= '9')
-        {
-            hash |= ((uint32_t)(*it - '0')) << (8 * ix);
-            ++ix;
-        }
-    }
-    return hash;
-}
-
 constexpr uint32_t kNoxArchaistSig = 0x58C37F8C;
+
+void ConfigureMountedGame(const std::filesystem::path& path)
+{
+    const std::string version = nac::DetectMountedNoxVersion();
+    const bool profileLoaded = nac::LoadNoxConstants(FindAssetsDir(), version);
+    const std::string name = profileLoaded ? "NOXARCHAIST" : path.stem().string();
+    const uint32_t sig = profileLoaded ? kNoxArchaistSig : 0u;
+    // Grid Cartographer matches the game signature in the fourth hash slot.
+    GameLink::SetProgramInfo(name, 0, 0, 0, sig);
+    std::fprintf(stderr, "Gamelink: program=\"%s\" version=\"%s\" sig=0x%08x\n",
+                 name.c_str(), version.c_str(), sig);
+}
 
 void ApplyVideoSettings(int videoIdx, int monoIdx)
 {
@@ -755,39 +735,10 @@ void InitEmulator(const std::filesystem::path& hdvPath)
     if (!hdvPath.empty())
     {
         auto* hdc = static_cast<HarddiskInterfaceCard*>(GetCardMgr().GetObj(SLOT7));
-        if (hdc && !hdc->Insert(HARDDISK_1, hdvPath.string()))
-        {
+        if (hdc && hdc->Insert(HARDDISK_1, hdvPath.string()))
+            ConfigureMountedGame(hdvPath);
+        else
             std::fprintf(stderr, "HD_Insert failed for %s\n", hdvPath.string().c_str());
-        }
-        else if (hdc)
-        {
-            // Detect the Nox Archaist version from the HDV bytes so the
-            // SetProgramInfo handshake with Grid Cartographer carries
-            // the right game sig. GC displays the four hash slots in
-            // reverse, so sig goes in program_hash[3] (i4) to render as
-            // "58C37F8C:0:0:0". The version string isn't published right
-            // now — DetectNoxVersion() returns it for any future consumer
-            // (window title, sidebar header) that wants it.
-            // The Gamelink program name is the canonical id GC matches
-            // against in its profile picker. For Nox Archaist that's
-            // "NOXARCHAIST" (the same string the sidebar profiles use in
-            // meta.name); fall back to the HDV stem for unknown games.
-            const auto        assetsDir = FindAssetsDir();
-            const std::string version   = DetectNoxVersion(hdvPath, assetsDir);
-            const uint32_t    sig       = version.empty() ? 0u : kNoxArchaistSig;
-            const std::string name      = version.empty()
-                                             ? hdvPath.stem().string()
-                                             : std::string("NOXARCHAIST");
-            GameLink::SetProgramInfo(name, 0, 0, 0, sig);
-            std::fprintf(stderr, "Gamelink: program=\"%s\" version=\"%s\" sig=0x%08x\n",
-                         name.c_str(), version.c_str(), sig);
-
-            // Populate noxcpuconstants for the combat-log Fetch trap and
-            // the hack panel's party-stats peek/poke. Quietly no-ops for
-            // non-Nox HDVs (version is empty, callback gated off).
-            if (nac::LoadNoxConstants(assetsDir, version))
-                std::fprintf(stderr, "Nox v%s: cpuconstants loaded\n", version.c_str());
-        }
     }
 
     // Complete the initial power-on sequence after the boot disk is mounted.
@@ -851,17 +802,7 @@ void LoadHDV(AppState& state, const std::filesystem::path& path)
     }
 
     state.hdv_path = path;
-
-    const auto        assetsDir = FindAssetsDir();
-    const std::string version   = DetectNoxVersion(path, assetsDir);
-    const uint32_t    sig       = version.empty() ? 0u : kNoxArchaistSig;
-    const std::string name      = version.empty() ? path.stem().string()
-                                                  : std::string("NOXARCHAIST");
-    GameLink::SetProgramInfo(name, 0, 0, 0, sig);
-    // LoadNoxConstants memsets cpuconstants first, so a non-Nox HDV
-    // leaves all fields zero and the conversation-log / snapshot
-    // traps stay quietly off.
-    nac::LoadNoxConstants(assetsDir, version);
+    ConfigureMountedGame(path);
 
     EmulatorReboot();           // sets g_nAppMode = MODE_RUNNING
     state.paused = false;       // sync AppState's view of MODE

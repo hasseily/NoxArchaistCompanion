@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <string_view>
 
 namespace nac
 {
@@ -414,6 +415,7 @@ void DragU8(const char* label, uint32_t addr)
 }
 
 constexpr size_t kProdosBlockBytes = 512;
+constexpr size_t kProdosIndexEntries = kProdosBlockBytes / 2;
 constexpr size_t kPartyRecordBytes = 0x80;
 constexpr size_t kPartyMembers = 6;
 constexpr size_t kInventoryRecordBytes = 6;
@@ -463,8 +465,9 @@ public:
             for (int slot = 0; slot < 13; ++slot)
             {
                 const BYTE* entry = block.data() + 4 + slot * 39;
+                const BYTE storage = entry[0] >> 4;
                 const int nameLength = entry[0] & 0x0F;
-                if (!nameLength || nameLength > 15) continue;
+                if (!nameLength || storage == 0 || storage >= 0x0E) continue;
 
                 std::string name;
                 name.reserve((size_t)nameLength);
@@ -472,7 +475,7 @@ public:
                     name.push_back((char)(entry[1 + i] & 0x7F));
                 if (name != wanted) continue;
 
-                file.storage = entry[0] >> 4;
+                file.storage = storage;
                 file.keyBlock = ReadLe16(entry + 0x11);
                 file.eof = entry[0x15] | (entry[0x16] << 8) |
                            (entry[0x17] << 16);
@@ -484,7 +487,7 @@ public:
     }
 
     bool ReadRange(const ProdosFile& file, uint32_t offset,
-                   BYTE* destination, size_t length)
+                   BYTE* destination, size_t length, bool allowSparse = false)
     {
         if (!m_disk || !destination || offset > file.eof ||
             length > file.eof - offset)
@@ -498,8 +501,11 @@ public:
             UINT imageBlock = 0;
             if (!ResolveImageBlock(file,
                                    fileOffset / kProdosBlockBytes,
-                                   imageBlock) ||
-                !ReadBlock(imageBlock, block.data()))
+                                   imageBlock))
+                return false;
+            if (!imageBlock && allowSparse)
+                block.fill(0);
+            else if (!imageBlock || !ReadBlock(imageBlock, block.data()))
                 return false;
 
             const size_t within = fileOffset % kProdosBlockBytes;
@@ -545,7 +551,7 @@ public:
 
             BlockChange change;
             if (!ResolveImageBlock(file, (uint32_t)logicalBlock,
-                                   change.imageBlock) ||
+                                   change.imageBlock) || !change.imageBlock ||
                 !ReadBlock(change.imageBlock, change.original.data()))
                 return VerifiedWriteResult::NotWritten;
 
@@ -632,7 +638,7 @@ private:
     bool ResolveImageBlock(const ProdosFile& file, uint32_t logicalBlock,
                            UINT& imageBlock)
     {
-        if (logicalBlock >= 256 ||
+        if (logicalBlock >= kProdosIndexEntries ||
             (file.storage != 1 && file.storage != 2))
             return false;
 
@@ -646,8 +652,8 @@ private:
         std::array<BYTE, kProdosBlockBytes> index{};
         if (!ReadBlock(file.keyBlock, index.data())) return false;
         imageBlock = index[logicalBlock] |
-                     (index[256 + logicalBlock] << 8);
-        return imageBlock != 0;
+                     (index[kProdosIndexEntries + logicalBlock] << 8);
+        return true;
     }
 
     HarddiskInterfaceCard* m_disk = nullptr;
@@ -893,6 +899,39 @@ void ApplyUnequippedState(std::vector<BYTE>& save, int member,
 }
 
 } // namespace
+
+std::string DetectMountedNoxVersion()
+{
+    MountedProdos disk;
+    ProdosFile directory, loader;
+    if (!disk.FindFile(2, "NA", directory) || directory.storage != 0x0D ||
+        !disk.FindFile(directory.keyBlock, "LOADER.P", loader) ||
+        loader.eof > kProdosIndexEntries * kProdosBlockBytes)
+        return {};
+
+    std::string text(loader.eof, '\0');
+    if (!disk.ReadRange(loader, 0, reinterpret_cast<BYTE*>(text.data()),
+                        text.size(), /*allowSparse=*/true))
+        return {};
+
+    // The game's version banner uses Apple II high-bit ASCII.
+    for (char& ch : text)
+        ch &= 0x7F;
+
+    constexpr std::string_view banner = "You're playing v";
+    const size_t match = text.find(banner);
+    if (match == std::string::npos) return {};
+
+    const size_t start = match + banner.size();
+    const size_t end = text.find('\r', start);
+    if (end == std::string::npos || end == start) return {};
+
+    const std::string version = text.substr(start, end - start);
+    if (version.find_first_not_of("0123456789.-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        != std::string::npos)
+        return {};
+    return version;
+}
 
 bool RespecPanel::LoadSaveData()
 {

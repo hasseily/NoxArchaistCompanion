@@ -10,6 +10,8 @@
 namespace nac
 {
 
+std::string DetectMountedNoxVersion();
+
 // Populate the emulator-side noxcpuconstants struct from the matching
 // version entry in NoxData/Versions.json. Returns true if a matching
 // version was found and the constants were applied. Without this, the
